@@ -1,0 +1,24 @@
+[Unit]
+Description=YouTrack @Valeria mention watcher
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/youtrack-valeria-watcher
+EnvironmentFile=/etc/youtrack-valeria-watcher.env
+ExecStartPre=/opt/youtrack-valeria-watcher/.venv/bin/youtrack-valeria-watcher-baseline
+ExecStart=/opt/youtrack-valeria-watcher/.venv/bin/youtrack-valeria-watcher
+StateDirectory=youtrack-valeria-watcher
+RuntimeDirectory=youtrack-valeria-watcher
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/youtrack-valeria-watcher /run/youtrack-valeria-watcher
+
+[Install]
+WantedBy=multi-user.target

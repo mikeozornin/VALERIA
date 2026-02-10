@@ -1,0 +1,22 @@
+.env
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+*.db
+*.db-shm
+*.db-wal
+.secrets/
+data/
+dist/
+build/
+mcp/**/__pycache__/
+mcp/**/.pytest_cache/
+mcp/**/venv/
+mcp/**/config.env
+
+# Local server snapshots, downloaded tools/packages, and separate checkouts.
+/.config/
+/artifacts/
+/opencode/config/*.bak

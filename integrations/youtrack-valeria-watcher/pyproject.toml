@@ -1,0 +1,40 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "youtrack-valeria-watcher"
+version = "0.1.0"
+description = "Poll YouTrack through MCP and enqueue a dedicated Valeria task for @Valeria mentions"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "httpx>=0.28,<1",
+  "json5>=0.10,<1",
+  "mcp>=1.27,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.24,<1",
+  "ruff>=0.8,<1",
+]
+
+[project.scripts]
+youtrack-valeria-watcher = "youtrack_valeria_watcher.cli:main"
+youtrack-valeria-watcher-baseline = "youtrack_valeria_watcher.baseline:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/youtrack_valeria_watcher"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

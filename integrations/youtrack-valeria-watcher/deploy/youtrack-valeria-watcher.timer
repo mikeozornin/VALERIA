@@ -1,0 +1,12 @@
+[Unit]
+Description=Run YouTrack @Valeria mention watcher every 10 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+RandomizedDelaySec=30s
+Persistent=true
+Unit=youtrack-valeria-watcher.service
+
+[Install]
+WantedBy=timers.target

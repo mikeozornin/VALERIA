@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+
+passphrase_file="${GIT_GPG_PASSPHRASE_FILE:-}"
+if [ -z "$passphrase_file" ] || [ ! -r "$passphrase_file" ]; then
+    echo "GIT_GPG_PASSPHRASE_FILE must point to a readable secret file" >&2
+    exit 1
+fi
+
+exec /usr/bin/gpg \
+    --batch \
+    --no-tty \
+    --pinentry-mode loopback \
+    --passphrase-file "$passphrase_file" \
+    "$@"

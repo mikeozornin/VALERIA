@@ -1,0 +1,55 @@
+name: opencode-web
+
+services:
+  web:
+    build:
+      context: .
+      args:
+        APP_UID: ${DOCKER_UID:-1000}
+        APP_GID: ${DOCKER_GID:-1000}
+        OPENCODE_VERSION: ${OPENCODE_VERSION:-1.18.25}
+        CONAN_VERSION: ${CONAN_VERSION:-2.27.0}
+        GIT_USER_NAME: ${GIT_USER_NAME:-OpenCode Web}
+        GIT_USER_EMAIL: ${GIT_USER_EMAIL:-opencode-web@localhost}
+    image: opencode-web:${OPENCODE_VERSION:-1.18.25}
+    init: true
+    restart: unless-stopped
+    networks:
+      - opencode
+    env_file:
+      - .env
+    environment:
+      APP_HOST: 0.0.0.0
+      APP_DATABASE_PATH: /app/data/opencode-web.db
+      ALLOWED_WORKSPACE_ROOTS: /home/appuser/workspaces
+      OPENCODE_BIN: /usr/bin/opencode
+      HOME: /home/appuser
+      GNUPGHOME: /app/data/gnupg
+      SSL_CERT_FILE: ${TLS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}
+      REQUESTS_CA_BUNDLE: ${TLS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}
+      NODE_EXTRA_CA_CERTS: ${TLS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}
+      GIT_SSL_CAINFO: ${TLS_CA_BUNDLE:-/etc/ssl/certs/ca-certificates.crt}
+    ports:
+      - "${APP_HOST:-127.0.0.1}:${APP_PORT:-8081}:${APP_PORT:-8081}"
+    volumes:
+      - ./data:/app/data
+      - ./.secrets:/app/.secrets:ro
+      - ./.secrets/ssh:/home/appuser/.ssh:ro
+      - ./data/workspaces:/home/appuser/workspaces
+      - ./data/opencode/share:/home/appuser/.local/share/opencode
+      - ./data/opencode/state:/home/appuser/.local/state/opencode
+      - ./data/opencode/cache:/home/appuser/.cache/opencode
+      - ./data/mcp/memory:/home/appuser/.mcp-memory
+      - ./data/conan:/home/appuser/.conan2
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:$${APP_PORT}/api/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    stop_grace_period: 30s
+
+networks:
+  opencode:
+    driver: bridge
+    internal: false

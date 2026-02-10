@@ -1,0 +1,8 @@
+node_modules/
+smoke.log
+dist/.nudge-test-*.mjs
+
+# Keep the shipped bundle: the published upstream package lacks its full build setup.
+!dist/
+!dist/**
+dist/.nudge-test-*.mjs

@@ -1,0 +1,69 @@
+# Notices
+
+## V.A.L.E.R.I.A.
+
+V.A.L.E.R.I.A. — Virtual Agentic Language-model Execution, Routing & Interface
+Administrator.
+
+Copyright (c) 2026 Alexey Khamitsevich. All rights reserved.
+
+The original V.A.L.E.R.I.A. materials are licensed under the
+`V.A.L.E.R.I.A. Community License 1.0` in `LICENSE.md`, except where a file or
+directory expressly states different terms. Commercial and Enterprise rights
+are available only under the applicable written agreement.
+
+The foregoing notice applies only to original V.A.L.E.R.I.A. materials. It does
+not claim ownership of third-party dependencies, independent contributions, or
+external software.
+
+## Included third-party materials
+
+The following third-party material is currently included in the source tree:
+
+### OpenCode Dynamic Context Pruning
+
+- Location: `mcp/opencode-dcp-local/`
+- Package: `@tarquinen/opencode-dcp`, version `3.2.0-local.1`
+- Upstream project: OpenCode Dynamic Context Pruning
+- License declared by its package metadata: GNU Affero General Public License,
+  version 3 or later (`AGPL-3.0-or-later`)
+- Complete license text: `mcp/opencode-dcp-local/LICENSE`
+
+This directory is Third-Party Material and is not relicensed under the
+V.A.L.E.R.I.A. Community License. Any local modifications to it must be handled
+consistently with the AGPL and applicable contributor rights. In particular,
+network deployment and distribution can trigger obligations that differ from
+the V.A.L.E.R.I.A. Community License.
+
+### markdown-it
+
+- Location of bundled license notice:
+  `src/opencode_web/static/vendor/markdown-it.LICENSE.txt`
+- Copyright (c) 2014 Vitaly Puzrin, Alex Kocharin
+- License: MIT License
+
+The full copyright and permission notice must remain with copies or substantial
+portions of that software.
+
+## Package-managed dependencies and external services
+
+V.A.L.E.R.I.A. uses package-managed dependencies identified in files such as
+`pyproject.toml`, `requirements.txt`, lock files, and `package.json`. Those
+packages are not owned by the V.A.L.E.R.I.A. copyright holder and remain subject
+to their respective upstream licenses. Before distributing a binary, container,
+appliance, or bundled dependency set, the distributor must generate and verify
+a complete dependency inventory and satisfy all applicable attribution,
+source-offer, license-text, and other obligations.
+
+Names such as OpenCode, GitLab, GitHub, YouTrack, and the names of model,
+hosting, container, database, or API providers identify third-party products or
+services. Their use does not imply ownership, sponsorship, endorsement, or a
+license to their marks.
+
+## Contributions
+
+Contributors retain copyright in their contributions unless they separately
+transfer it. Accepted contributions are subject to the contributor terms in
+`legal/CLA.md` and the project licensing described in `CONTRIBUTING.md`. The
+Licensor's copyright notice must not be read as claiming sole authorship of
+independent third-party contributions.

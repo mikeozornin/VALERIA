@@ -1,0 +1,99 @@
+--- a/lib/messages/inject/inject.ts
++++ b/lib/messages/inject/inject.ts
+@@ -47,24 +47,40 @@
+         return
+     }
+ 
+-    if (!createAnchors) {
+-        applyAnchoredNudges(state, config, messages, prompts, compressionPriorities)
+-        return
+-    }
+-
+     const lastMessage = findLastNonIgnoredMessage(messages)
+-    const lastAssistantMessage = messages.findLast((message) => message.info.role === "assistant")
+-
+-    if (lastAssistantMessage && messageHasCompress(lastAssistantMessage)) {
+-        state.nudges.contextLimitAnchors.clear()
+-        state.nudges.turnNudgeAnchors.clear()
+-        state.nudges.iterationNudgeAnchors.clear()
+-        void saveSessionState(state, logger)
++    const lastCompressionIndex = messages.findLastIndex(messageHasCompress)
++    let anchorsChanged = false
++
++    // Derive the reset point from completed tool calls so it survives restart.
++    // Old persisted anchors must not replay instructions already satisfied.
++    if (lastCompressionIndex >= 0) {
++        const satisfiedIds = new Set(
++            messages.slice(0, lastCompressionIndex + 1).map((message) => message.info.id),
++        )
++        for (const anchors of Object.values(state.nudges)) {
++            for (const id of anchors) {
++                if (satisfiedIds.has(id)) {
++                    anchors.delete(id)
++                    anchorsChanged = true
++                }
++            }
++        }
++    }
++
++    const messagesSinceCompression = lastCompressionIndex < 0
++        ? Infinity
++        : countMessagesAfterIndex(messages, lastCompressionIndex)
++    if (messagesSinceCompression < getNudgeFrequency(config)) {
++        // Include the replay-only transform in the cooldown, not just creation.
++        for (const anchors of Object.values(state.nudges)) {
++            anchorsChanged = anchors.size > 0 || anchorsChanged
++            anchors.clear()
++        }
++        if (anchorsChanged) void saveSessionState(state, logger)
+         return
+     }
+ 
+     const { providerId, modelId } = getModelInfo(messages)
+-    let anchorsChanged = false
+ 
+     const { overMaxLimit, overMinLimit } = isContextOverLimits(
+         config,
+@@ -74,6 +90,11 @@
+         messages,
+     )
+ 
++    if (!overMaxLimit && state.nudges.contextLimitAnchors.size > 0) {
++        state.nudges.contextLimitAnchors.clear()
++        anchorsChanged = true
++    }
++
+     if (!overMinLimit) {
+         const hadTurnAnchors = state.nudges.turnNudgeAnchors.size > 0
+         const hadIterationAnchors = state.nudges.iterationNudgeAnchors.size > 0
+@@ -85,6 +106,13 @@
+         }
+     }
+ 
++    if (!createAnchors) {
++        applyAnchoredNudges(state, config, messages, prompts, compressionPriorities)
++        if (anchorsChanged) void saveSessionState(state, logger)
++        return
++    }
++
++    const lastAssistantMessage = messages.findLast((message) => message.info.role === "assistant")
+     if (overMaxLimit) {
+         if (lastMessage) {
+             const interval = getNudgeFrequency(config)
+@@ -117,12 +145,13 @@
+                 (message) => message.info.id === lastUserMessage.info.id,
+             )
+             if (lastUserMessageIndex >= 0) {
+-                const messagesSinceUser = countMessagesAfterIndex(messages, lastUserMessageIndex)
++                const iterationStartIndex = Math.max(lastUserMessageIndex, lastCompressionIndex)
++                const messagesSinceReset = countMessagesAfterIndex(messages, iterationStartIndex)
+                 const iterationThreshold = getIterationNudgeThreshold(config)
+ 
+                 if (
+-                    lastMessage.index > lastUserMessageIndex &&
+-                    messagesSinceUser >= iterationThreshold
++                    lastMessage.index > iterationStartIndex &&
++                    messagesSinceReset >= iterationThreshold
+                 ) {
+                     const interval = getNudgeFrequency(config)
+                     const added = addAnchor(
