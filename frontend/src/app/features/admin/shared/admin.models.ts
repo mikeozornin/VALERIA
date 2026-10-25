@@ -136,3 +136,11 @@ export function conflictText(info: ConflictInfo): string {
     if (info.kind === 'deleted') return info.by ? `Объект удалён пользователем ${info.by}` : 'Объект удалён';
     return info.by ? `Объект изменён пользователем ${info.by}` : 'Объект изменён другим пользователем';
 }
+
+/** Newest «Последний вход» first; users who never logged in («—») last, then by login. */
+export function byLastLogin(a: AdminUser, b: AdminUser): number {
+    const ta = a.last_login_at ? Date.parse(a.last_login_at) : -Infinity;
+    const tb = b.last_login_at ? Date.parse(b.last_login_at) : -Infinity;
+    if (ta !== tb) return tb > ta ? 1 : -1;
+    return a.login.localeCompare(b.login);
+}

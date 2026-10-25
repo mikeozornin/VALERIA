@@ -14,7 +14,6 @@ export const ADMIN_LIST_STYLES = `
     .v-table tbody tr { cursor: pointer; }
     .v-table tbody tr:focus-visible { outline: 2px solid var(--kbq-states-line-focus-theme); outline-offset: -2px; }
     .v-table tbody tr.v-selected td { background: var(--kbq-background-theme-less); }
-    .v-table tbody tr.v-checked:not(.v-selected) td { background: var(--kbq-background-contrast-less); }
     .v-table .v-sub { display: block; font-size: 12px; line-height: 16px; color: var(--kbq-foreground-contrast-secondary); }
     .v-table .v-nowrap { white-space: nowrap; }
     .v-table .v-check { width: 32px; padding-right: 0; }

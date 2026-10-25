@@ -46,6 +46,7 @@ import {
     AdminRequest,
     AdminTask,
     AdminUser,
+    byLastLogin,
     hasTaskAccess,
     isBlocked,
 } from '../shared/admin.models';
@@ -141,7 +142,6 @@ const RECENT_LIMIT = 20;
                                     <tr
                                         tabindex="0"
                                         [class.v-selected]="u.login === focus()"
-                                        [class.v-checked]="checked().has(u.login)"
                                         [attr.aria-selected]="u.login === focus()"
                                         (click)="openCard(u.login)"
                                         (keydown.enter)="openCard(u.login)"
@@ -498,9 +498,11 @@ export class UsersComponent {
     protected readonly me = computed(() => this.auth.user()?.login ?? '');
     protected readonly rows = computed(() => {
         const tokens = tokenize(this.q() ?? '');
-        return this.users().filter((u) =>
-            matches([u.login, accountTypeLabel(accountType(u)), u.workspace_path, u.mattermost_username], tokens),
-        );
+        return this.users()
+            .filter((u) =>
+                matches([u.login, accountTypeLabel(accountType(u)), u.workspace_path, u.mattermost_username], tokens),
+            )
+            .sort(byLastLogin);
     });
     protected readonly focused = computed(() => this.users().find((u) => u.login === this.focus()) ?? null);
     protected readonly checkedRows = computed(() => this.rows().filter((u) => this.checked().has(u.login)));

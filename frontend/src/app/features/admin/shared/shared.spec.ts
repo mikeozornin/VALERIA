@@ -1,5 +1,13 @@
 import { ApiError } from '../../../core/api/api-error';
-import { readConflict, conflictText, accountType, accountTypeToApi, hasTaskAccess } from './admin.models';
+import {
+    readConflict,
+    conflictText,
+    accountType,
+    accountTypeToApi,
+    hasTaskAccess,
+    byLastLogin,
+    AdminUser,
+} from './admin.models';
 import { auditCategoryCodes, auditLabel, AUDIT_ACTIONS } from './audit-labels';
 import { batchToast, BatchResult } from './batch';
 import { formatWhen, plural, formatDay } from './format';
@@ -197,5 +205,18 @@ describe('admin models', () => {
         const gone = readConflict(new ApiError(404, 'deleted', null, { code: 'deleted', deleted_by: 'd.orlov' }));
         expect(conflictText(gone!)).toBe('Объект удалён пользователем d.orlov');
         expect(readConflict(new ApiError(409, null, 'Workspace cannot change', 'Workspace cannot change'))).toBeNull();
+    });
+});
+
+describe('byLastLogin', () => {
+    const u = (login: string, last_login_at: string | null) => ({ login, last_login_at }) as AdminUser;
+    it('puts the newest login first and never-logged-in users last', () => {
+        const sorted = [
+            u('youtrack-bot', null),
+            u('a.nikitina', '2026-10-23T10:00:00Z'),
+            u('d.orlov', '2026-10-24T09:12:00Z'),
+            u('i.sokolova', '2026-10-24T13:50:00Z'),
+        ].sort(byLastLogin);
+        expect(sorted.map((x) => x.login)).toEqual(['i.sokolova', 'd.orlov', 'a.nikitina', 'youtrack-bot']);
     });
 });
