@@ -453,7 +453,7 @@ export class QueueEditComponent implements DirtyAware {
         }
         const res = await this.submit.run(() => this.apply());
         if (!res.ok) return;
-        this.notify.success('Настройки очередей сохранены', '');
+        this.notify.success('Настройки очередей сохранены');
         void this.router.navigateByUrl('/admin/queue/settings');
     }
 
@@ -519,7 +519,7 @@ export class QueueEditComponent implements DirtyAware {
             await this.apply();
         });
         if (!res.ok) return;
-        this.notify.success('Настройки очередей сохранены', '');
+        this.notify.success('Настройки очередей сохранены');
         void this.router.navigateByUrl('/admin/queue/settings');
     }
 }

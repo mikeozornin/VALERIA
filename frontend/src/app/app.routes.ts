@@ -50,9 +50,15 @@ const shellRoutes: Route[] = withDirtyGuard([
     ...admin('admin/users', 'Пользователи'),
     ...admin('admin/users/new', 'Пользователи', 'Новый пользователь'),
     ...admin('admin/users/:login/edit', 'Пользователи', 'Изменение пользователя'),
-    ...admin('admin/tasks', 'Настройка задач'),
-    ...admin('admin/tasks/new', 'Настройка задач', 'Новая задача'),
-    ...admin('admin/tasks/:id', 'Настройка задач', 'Задача'),
+    ...admin('admin/tasks', 'Настройка задач', 'Настройка задач', () =>
+        import('./features/admin/tasks/task-list.component').then((m) => m.TaskListComponent),
+    ),
+    ...admin('admin/tasks/new', 'Настройка задач', 'Новая задача', () =>
+        import('./features/admin/tasks/task-form.component').then((m) => m.TaskFormComponent),
+    ),
+    ...admin('admin/tasks/:id', 'Настройка задач', 'Задача', () =>
+        import('./features/admin/tasks/task-form.component').then((m) => m.TaskFormComponent),
+    ),
     ...admin('admin/queue', 'Очередь', 'Очередь', () =>
         import('./features/admin/queue/queue-live.component').then((m) => m.QueueLiveComponent),
     ),
