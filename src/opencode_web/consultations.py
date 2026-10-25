@@ -140,6 +140,7 @@ def register_consultations(
         if not admin and (
             chat["owner_user_id"] != principal["user"]["id"]
             or chat["workspace_snapshot"] != principal["user"]["workspace_path"]
+            or chat.get("deleted_at")
         ):
             raise HTTPException(404, "Диалог не найден")
         return chat
@@ -415,7 +416,7 @@ def register_consultations(
     ):
         return [
             summary(db, c, admin=True)
-            for c in db.list_chats(owner_id, consultation=True)
+            for c in db.list_chats(owner_id, consultation=True, include_deleted=True)
             if q.casefold() in f"{c['title']} {c['owner_login']}".casefold()
         ]
 

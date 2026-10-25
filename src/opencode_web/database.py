@@ -20,6 +20,33 @@ def utcnow() -> str:
 
 UNSET = object()
 DEFAULT_QUEUE_ID = "default"
+ACTIVE_JOB_STATUSES = (
+    "dispatching", "running", "waiting_permission", "waiting_question", "cancelling",
+)
+UNFINISHED_JOB_STATUSES = ("queued", *ACTIVE_JOB_STATUSES)
+# One row per chat for every sidebar kind. The representative job is the active one,
+# then the next queued one, then the latest; a task chat has exactly one job.
+ITEM_QUERY = """SELECT c.id AS chat_id, c.kind AS chat_kind, c.consultation,
+       c.title AS chat_title, c.workspace_snapshot, c.owner_user_id,
+       u.login AS owner_login, c.created_at, c.updated_at, c.archived_at,
+       c.snoozed_until, c.deleted_at, j.id AS job_id, j.status AS job_status,
+       j.task_id, j.task_title, j.plan_first, j.phase2_message_id
+FROM chats c
+JOIN users u ON u.id = c.owner_user_id
+LEFT JOIN queue_jobs j ON j.id = (
+    SELECT q.id FROM queue_jobs q WHERE q.chat_id = c.id
+    ORDER BY CASE
+        WHEN q.status IN ('dispatching', 'running', 'waiting_permission',
+                          'waiting_question', 'cancelling') THEN 0
+        WHEN q.status = 'queued' THEN 1 ELSE 2 END,
+        q.sequence DESC
+    LIMIT 1
+)"""
+ITEM_KIND_CONDITIONS = {
+    "question": "(c.kind = 'chat' AND c.consultation = 1)",
+    "folder": "(c.kind = 'chat' AND c.consultation = 0)",
+    "task": "c.kind = 'task'",
+}
 MATTERMOST_USER_ID_RE = re.compile(r"^[a-z0-9]{26}$")
 MATTERMOST_USERNAME_RE = re.compile(r"^[a-z][a-z0-9._-]{2,21}$")
 
@@ -326,6 +353,14 @@ class Database:
             ):
                 if column not in chat_columns:
                     self._connection.execute(f"ALTER TABLE chats ADD COLUMN {column} TEXT")
+            for column in ("archived_at", "snoozed_until", "deleted_at"):
+                if column not in chat_columns:
+                    self._connection.execute(f"ALTER TABLE chats ADD COLUMN {column} TEXT")
+            # Chats archived automatically before archived_at existed stay archived.
+            self._connection.execute(
+                """UPDATE chats SET archived_at = updated_at
+                   WHERE archived_reason IS NOT NULL AND archived_at IS NULL"""
+            )
             job_columns = {
                 row[1]
                 for row in self._connection.execute("PRAGMA table_info(queue_jobs)").fetchall()
@@ -374,6 +409,9 @@ class Database:
             )
             self._connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_queue_task ON queue_jobs(task_id, sequence)"
+            )
+            self._connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_queue_chat ON queue_jobs(chat_id, sequence)"
             )
             self._connection.execute(
                 "CREATE UNIQUE INDEX IF NOT EXISTS idx_pipeline_child "
@@ -1197,7 +1235,7 @@ class Database:
             self._one(
                 """SELECT 1 FROM chats WHERE owner_user_id = ? AND workspace_snapshot = ?
                    AND opencode_session_id = ? AND kind = 'chat'
-                   AND consultation = 0 LIMIT 1""",
+                   AND consultation = 0 AND deleted_at IS NULL LIMIT 1""",
                 (user_id, workspace, session_id),
             )
             is not None
@@ -1205,12 +1243,14 @@ class Database:
 
     def list_chats(
         self, owner_id: str | None = None, *, workspace: str | None = None,
-        consultation: bool = False,
+        consultation: bool = False, include_deleted: bool = False,
     ) -> list[dict[str, Any]]:
         query = """SELECT c.*, u.login AS owner_login FROM chats c
                    JOIN users u ON u.id = c.owner_user_id"""
         conditions: list[str] = ["c.kind = 'chat'", "c.consultation = ?"]
         params: list[Any] = [int(consultation)]
+        if not include_deleted:
+            conditions.append("c.deleted_at IS NULL")
         if owner_id:
             conditions.append("c.owner_user_id = ?")
             params.append(owner_id)
@@ -1223,13 +1263,117 @@ class Database:
         return self._all(query, tuple(params))
 
     def archive_chats_outside_workspace(self, owner_id: str, workspace: str) -> None:
+        now = utcnow()
         with self.transaction() as connection:
             connection.execute(
-                """UPDATE chats SET archived_reason = 'workspace_changed', updated_at = ?
+                """UPDATE chats SET archived_reason = 'workspace_changed', updated_at = ?,
+                          archived_at = COALESCE(archived_at, ?), snoozed_until = NULL
                    WHERE owner_user_id = ? AND workspace_snapshot != ?
                      AND archived_reason IS NULL""",
-                (utcnow(), owner_id, workspace),
+                (now, now, owner_id, workspace),
             )
+
+    def list_items(
+        self,
+        *,
+        owner_id: str | None = None,
+        owner_logins: list[str] | None = None,
+        workspace: str | None = None,
+        kinds: tuple[str, ...] | list[str] | None = None,
+        task_id: str | None = None,
+        chat_id: str | None = None,
+        created_from: str | None = None,
+        created_to: str | None = None,
+        include_deleted: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Sidebar rows for every chat kind; `workspace` scopes non-task chats."""
+        conditions: list[str] = []
+        params: list[Any] = []
+        if not include_deleted:
+            conditions.append("c.deleted_at IS NULL")
+        if owner_id:
+            conditions.append("c.owner_user_id = ?")
+            params.append(owner_id)
+        if owner_logins:
+            conditions.append(f"u.login IN ({', '.join('?' for _ in owner_logins)})")
+            params.extend(owner_logins)
+        if workspace:
+            conditions.append("(c.kind = 'task' OR c.workspace_snapshot = ?)")
+            params.append(workspace)
+        if kinds is not None:
+            selected = [ITEM_KIND_CONDITIONS[kind] for kind in kinds]
+            conditions.append(f"({' OR '.join(selected)})" if selected else "0")
+        if task_id:
+            conditions.append("j.task_id = ?")
+            params.append(task_id)
+        if chat_id:
+            conditions.append("c.id = ?")
+            params.append(chat_id)
+        if created_from:
+            conditions.append("julianday(c.created_at) >= julianday(?)")
+            params.append(created_from)
+        if created_to:
+            conditions.append("julianday(c.created_at) < julianday(?)")
+            params.append(created_to)
+        query = ITEM_QUERY
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
+        return self._all(query + " ORDER BY c.updated_at DESC, c.id", tuple(params))
+
+    def archive_chat(self, chat_id: str) -> bool:
+        with self.transaction() as connection:
+            cursor = connection.execute(
+                """UPDATE chats SET archived_at = ?, snoozed_until = NULL
+                   WHERE id = ? AND archived_at IS NULL AND deleted_at IS NULL""",
+                (utcnow(), chat_id),
+            )
+        return cursor.rowcount > 0
+
+    def unarchive_chat(self, chat_id: str) -> bool:
+        with self.transaction() as connection:
+            cursor = connection.execute(
+                """UPDATE chats SET archived_at = NULL
+                   WHERE id = ? AND archived_at IS NOT NULL AND archived_reason IS NULL
+                     AND deleted_at IS NULL""",
+                (chat_id,),
+            )
+        return cursor.rowcount > 0
+
+    def snooze_chat(self, chat_id: str, until: str) -> bool:
+        with self.transaction() as connection:
+            cursor = connection.execute(
+                """UPDATE chats SET snoozed_until = ?
+                   WHERE id = ? AND archived_at IS NULL AND deleted_at IS NULL""",
+                (until, chat_id),
+            )
+        return cursor.rowcount > 0
+
+    def unsnooze_chat(self, chat_id: str) -> bool:
+        with self.transaction() as connection:
+            cursor = connection.execute(
+                """UPDATE chats SET snoozed_until = NULL
+                   WHERE id = ? AND snoozed_until IS NOT NULL AND deleted_at IS NULL""",
+                (chat_id,),
+            )
+        return cursor.rowcount > 0
+
+    def delete_chat(self, chat_id: str) -> bool:
+        """Soft delete: user lists hide the chat, admin views and job history keep it."""
+        with self.transaction() as connection:
+            cursor = connection.execute(
+                """UPDATE chats SET deleted_at = ?, snoozed_until = NULL
+                   WHERE id = ? AND deleted_at IS NULL""",
+                (utcnow(), chat_id),
+            )
+        return cursor.rowcount > 0
+
+    def unfinished_chat_jobs(self, chat_id: str) -> list[dict[str, Any]]:
+        placeholders = ", ".join("?" for _ in UNFINISHED_JOB_STATUSES)
+        return self._all(
+            f"""SELECT * FROM queue_jobs WHERE chat_id = ? AND status IN ({placeholders})
+                ORDER BY sequence""",
+            (chat_id, *UNFINISHED_JOB_STATUSES),
+        )
 
     def has_pending_jobs(self, effective_user_id: str) -> bool:
         return (
@@ -1458,6 +1602,7 @@ class Database:
         return self._one(
             """SELECT q.*, owner.login AS effective_login, actor.login AS actor_login,
                       c.title AS chat_title, c.consultation AS consultation,
+                      c.deleted_at AS chat_deleted_at,
                       w.name AS queue_name, w.priority AS queue_priority
                FROM queue_jobs q
                JOIN users owner ON owner.id = q.effective_user_id
@@ -1470,6 +1615,7 @@ class Database:
     def list_jobs(self, effective_user_id: str | None = None) -> list[dict[str, Any]]:
         query = """SELECT q.*, owner.login AS effective_login, actor.login AS actor_login,
                           c.title AS chat_title, c.consultation AS consultation,
+                          c.deleted_at AS chat_deleted_at,
                           w.name AS queue_name, w.priority AS queue_priority
                    FROM queue_jobs q
                    JOIN users owner ON owner.id = q.effective_user_id
@@ -1506,9 +1652,12 @@ class Database:
                ORDER BY q.sequence DESC LIMIT 500"""
         )
 
-    def list_task_runs(self, owner_id: str | None = None) -> list[dict[str, Any]]:
+    def list_task_runs(
+        self, owner_id: str | None = None, *, include_deleted: bool = False
+    ) -> list[dict[str, Any]]:
         query = """SELECT q.*, owner.login AS effective_login, actor.login AS actor_login,
                           c.title AS chat_title, c.consultation AS consultation,
+                          c.deleted_at AS chat_deleted_at,
                           w.name AS queue_name, w.priority AS queue_priority
                    FROM queue_jobs q
                    JOIN users owner ON owner.id = q.effective_user_id
@@ -1517,6 +1666,8 @@ class Database:
                    JOIN work_queues w ON w.id = q.queue_id
                    WHERE q.task_id IS NOT NULL"""
         params: tuple[Any, ...] = ()
+        if not include_deleted:
+            query += " AND c.deleted_at IS NULL"
         if owner_id:
             query += " AND q.effective_user_id = ?"
             params = (owner_id,)
@@ -1880,20 +2031,22 @@ class Database:
     def list_notifications(self) -> list[dict[str, Any]]:
         return self._all("SELECT * FROM notification_outbox ORDER BY created_at")
 
-    def set_job_status(self, job_id: str, status: str, error_code: str | None = None) -> None:
+    def set_job_status(self, job_id: str, status: str, error_code: str | None = None) -> bool:
+        """Persist a job status; True when it also cleared the chat's snooze."""
         terminal = status in {"completed", "failed", "cancelled"}
+        snooze_cleared = False
         with self.transaction() as connection:
             row = connection.execute(
                 "SELECT * FROM queue_jobs WHERE id = ?", (job_id,)
             ).fetchone()
             if not row:
-                return
+                return False
             # Completion and fan-out are one durable operation. A repeated terminal
             # event must neither restart a branch nor turn a cancellation into success.
             if row["status"] in {"completed", "failed", "cancelled"}:
-                return
+                return False
             if row["status"] == "cancelling" and status not in {"cancelling", "cancelled"}:
-                return
+                return False
             connection.execute(
                 """UPDATE queue_jobs SET status = ?, error_code = ?,
                    finished_at = CASE WHEN ? THEN ? ELSE finished_at END WHERE id = ?""",
@@ -1915,8 +2068,16 @@ class Database:
                 "UPDATE chats SET status = ?, updated_at = ? WHERE id = ?",
                 (next_status, utcnow(), row["chat_id"]),
             )
+            if status in {"waiting_question", "waiting_permission"}:
+                # A snoozed chat that needs the user comes back immediately.
+                snooze_cleared = connection.execute(
+                    """UPDATE chats SET snoozed_until = NULL
+                       WHERE id = ? AND snoozed_until IS NOT NULL""",
+                    (row["chat_id"],),
+                ).rowcount > 0
             if status == "completed" and row["pipeline_json"]:
                 self._enqueue_pipeline_children(connection, dict(row))
+        return snooze_cleared
 
     def _enqueue_pipeline_children(
         self, connection: sqlite3.Connection, parent: dict[str, Any]

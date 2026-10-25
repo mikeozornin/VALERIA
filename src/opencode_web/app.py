@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import AwareDatetime, BaseModel, Field
 
 from .config import ConfigError, Settings
 from .consultations import public_job as public_consultation_job
@@ -24,6 +24,7 @@ from .database import (
 )
 from .dispatcher import QueueDispatcher
 from .events import EventBroker
+from .items import allowed_item_kinds, public_item, task_phase, task_run_display_title
 from .notifications import (
     MattermostNotificationError,
     NotificationDispatcher,
@@ -159,6 +160,11 @@ class QueueRoutingBody(BaseModel):
     queue_id: str = Field(min_length=1, max_length=100)
 
 
+class SnoozeBody(BaseModel):
+    model_config = {"extra": "forbid"}
+    until: AwareDatetime
+
+
 class PermissionBody(BaseModel):
     response: str
     remember: bool = False
@@ -216,22 +222,13 @@ async def mattermost_identity(
     return canonical_username, user_id
 
 
-def task_run_display_title(job: dict[str, Any]) -> str:
-    template_title = job["task_title"]
-    title = job.get("chat_title") or template_title
-    if title == template_title or title.startswith(f"{template_title}: "):
-        return title
-    return f"{template_title}: {title}"
-
-
 def public_task_run(job: dict[str, Any]) -> dict[str, Any]:
     state = job["status"]
     return {
         "id": job["id"],
         "task_id": job["task_id"],
         "plan_first": bool(job.get("plan_first")),
-        "phase": ("build" if job.get("phase2_message_id") else "plan")
-        if job.get("plan_first") else "build",
+        "phase": task_phase(job),
         "title": task_run_display_title(job),
         "status": (
             state if state in {
@@ -369,6 +366,19 @@ def safe_mcp_statuses(payload: dict[str, Any]) -> list[dict[str, str]]:
     return sorted(result, key=lambda item: item["name"].lower())
 
 
+CHAT_ACTIONS = frozenset({"archive", "unarchive", "snooze", "unsnooze"})
+
+
+def is_chat_action(method: str, path: str) -> bool:
+    """Chat menu routes that every role may call, including tasks_only accounts."""
+    parts = path.split("/")
+    if len(parts) < 4 or parts[:3] != ["", "api", "chats"] or not parts[3]:
+        return False
+    if len(parts) == 4:
+        return method == "DELETE"
+    return len(parts) == 5 and method == "POST" and parts[4] in CHAT_ACTIONS
+
+
 def can_receive_event(database: Database, user: dict[str, Any], event: dict[str, Any]) -> bool:
     if user["role"] == "admin":
         return True
@@ -399,6 +409,8 @@ def event_for_user(
     job = event.get("job") or {}
     if event.get("type") == "job.updated" and job.get("chat_id"):
         chat = database.get_chat(job["chat_id"])
+        if chat and chat.get("deleted_at") and user["role"] != "admin":
+            return None
         if chat and chat.get("consultation"):
             if user["role"] != "admin" and (
                 chat["owner_user_id"] != user["id"]
@@ -506,11 +518,12 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             request.url.path.startswith("/api/auth/")
             or request.url.path in {
                 "/api/config/public", "/api/events", "/api/profile", "/api/tasks",
-                "/api/consultations",
+                "/api/consultations", "/api/me/items",
             }
             or request.url.path.startswith((
                 "/api/tasks/", "/api/task-runs", "/api/consultations/",
             ))
+            or is_chat_action(request.method, request.url.path)
         ):
             raise HTTPException(403, "This account can only use tasks and consultations")
         return {"user": user, "csrf": csrf, "token": token}
@@ -544,9 +557,42 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         if principal["user"]["role"] != "admin" and (
             chat["owner_user_id"] != principal["user"]["id"]
             or chat["workspace_snapshot"] != principal["user"]["workspace_path"]
+            or chat.get("deleted_at")
         ):
             raise HTTPException(404, "Chat not found")
         return chat
+
+    def visible_item(db: Database, user: dict[str, Any], chat_id: str) -> dict[str, Any]:
+        """The caller's own chat of any kind, exactly as /api/me/items lists it."""
+        rows = db.list_items(
+            owner_id=user["id"],
+            workspace=user.get("workspace_path"),
+            kinds=allowed_item_kinds(user),
+            chat_id=chat_id,
+        )
+        if not rows:
+            raise HTTPException(404, "Chat not found")
+        return rows[0]
+
+    async def stop_job_audited(
+        request: Request, db: Database, actor_id: str, job: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        db.audit(
+            actor_id, "job.stop.request", effective_user_id=job["effective_user_id"],
+            object_type="job", object_id=job["id"],
+            metadata={
+                "previous_status": job["status"], "task_id": job.get("task_id"),
+                **(metadata or {}),
+            },
+        )
+        result = await request.app.state.dispatcher.stop_job(job["id"])
+        if result and result["status"] == "cancelled" and job["status"] == "queued":
+            db.audit(
+                actor_id, "job.stop.completed", effective_user_id=job["effective_user_id"],
+                object_type="job", object_id=job["id"],
+            )
+        return result
 
     def apply_opencode_title(
         db: Database, chat: dict[str, Any], session: dict[str, Any] | None
@@ -679,6 +725,8 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         content = body.message.strip() if body.message else ""
         if not content:
             return None
+        if chat.get("deleted_at"):
+            raise HTTPException(404, "Chat not found")
         if db.queued_count() >= config.max_queued_messages:
             raise HTTPException(429, "Queue is full")
         pinned_model = None
@@ -931,7 +979,10 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         db: Annotated[Database, Depends(database)],
     ) -> dict[str, Any]:
         job = db.get_task_run(run_id)
-        if not job or job["effective_user_id"] != principal["user"]["id"]:
+        if (
+            not job or job["effective_user_id"] != principal["user"]["id"]
+            or job.get("chat_deleted_at")
+        ):
             raise HTTPException(404, "Task run not found")
         return public_task_run(job)
 
@@ -944,7 +995,10 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
     ) -> dict[str, Any]:
         job = db.get_task_run(run_id)
         user = principal["user"]
-        if not job or (job["effective_user_id"] != user["id"] and user["role"] != "admin"):
+        if not job or (
+            user["role"] != "admin"
+            and (job["effective_user_id"] != user["id"] or job.get("chat_deleted_at"))
+        ):
             raise HTTPException(404, "Task run not found")
         if job["status"] != "completed":
             return {"run_id": run_id, "status": "not_completed", "text": None}
@@ -984,21 +1038,11 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
     ) -> dict[str, Any]:
         job = db.get_task_run(run_id)
         user_id = principal["user"]["id"]
-        if not job or job["effective_user_id"] != user_id:
+        if not job or job["effective_user_id"] != user_id or job.get("chat_deleted_at"):
             raise HTTPException(404, "Task run not found")
-        db.audit(
-            user_id, "job.stop.request", effective_user_id=user_id,
-            object_type="job", object_id=run_id,
-            metadata={"previous_status": job["status"], "task_id": job["task_id"]},
-        )
-        result = await request.app.state.dispatcher.stop_job(run_id)
+        result = await stop_job_audited(request, db, user_id, job)
         if result is None:
             raise HTTPException(404, "Task run not found")
-        if result["status"] == "cancelled" and job["status"] == "queued":
-            db.audit(
-                user_id, "job.stop.completed", effective_user_id=user_id,
-                object_type="job", object_id=run_id,
-            )
         return public_task_run(result)
 
     @app.get("/api/admin/tasks")
@@ -1118,7 +1162,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
     ) -> list[dict[str, Any]]:
         return [
             {**public_task_run(job), "owner_login": job["effective_login"]}
-            for job in db.list_task_runs()
+            for job in db.list_task_runs(include_deleted=True)
         ]
 
     @app.post("/api/admin/task-runs/title-sync")
@@ -1127,7 +1171,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         principal: Annotated[dict[str, Any], Depends(admin_principal)],
         db: Annotated[Database, Depends(database)],
     ) -> list[dict[str, Any]]:
-        return await sync_task_titles(request, db, db.list_task_runs())
+        return await sync_task_titles(request, db, db.list_task_runs(include_deleted=True))
 
     @app.get("/api/admin/task-runs/{run_id}/messages")
     async def admin_task_run_messages(
@@ -1367,7 +1411,8 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         db: Annotated[Database, Depends(database)],
     ) -> list[dict[str, Any]]:
         return [job for job in db.list_jobs(principal["user"]["id"])
-                if not job.get("task_id") and not job.get("consultation")]
+                if not job.get("task_id") and not job.get("consultation")
+                and not job.get("chat_deleted_at")]
 
     @app.get("/api/jobs/{job_id}")
     async def get_job(
@@ -1378,7 +1423,10 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         job = db.get_job(job_id)
         if not job or (
             principal["user"]["role"] != "admin"
-            and (job["effective_user_id"] != principal["user"]["id"] or job.get("task_id"))
+            and (
+                job["effective_user_id"] != principal["user"]["id"] or job.get("task_id")
+                or job.get("chat_deleted_at")
+            )
         ):
             raise HTTPException(404, "Job not found")
         if job.get("consultation") and principal["user"]["role"] != "admin":
@@ -1416,6 +1464,98 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             raise HTTPException(409, "Chat is not running")
         job = await request.app.state.dispatcher.stop_job(active["id"])
         return {"aborted": bool(job and job["status"] == "cancelled")}
+
+    def chat_action_audit(
+        db: Database, user: dict[str, Any], action: str, item: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        db.audit(
+            user["id"], action, effective_user_id=user["id"], object_type="chat",
+            object_id=item["chat_id"],
+            metadata={"kind": public_item(item)["kind"], **(metadata or {})},
+        )
+
+    @app.post("/api/chats/{chat_id}/archive")
+    async def archive_chat(
+        chat_id: str,
+        principal: Annotated[dict[str, Any], Depends(csrf_principal)],
+        db: Annotated[Database, Depends(database)],
+    ) -> dict[str, Any]:
+        user = principal["user"]
+        item = visible_item(db, user, chat_id)
+        # Archiving never stops work; it only moves the chat out of the main lists.
+        if db.archive_chat(chat_id):
+            chat_action_audit(
+                db, user, "chat.archive", item,
+                {"snoozed_until": item["snoozed_until"]} if item["snoozed_until"] else None,
+            )
+            item = visible_item(db, user, chat_id)
+        return public_item(item)
+
+    @app.post("/api/chats/{chat_id}/unarchive")
+    async def unarchive_chat(
+        chat_id: str,
+        principal: Annotated[dict[str, Any], Depends(csrf_principal)],
+        db: Annotated[Database, Depends(database)],
+    ) -> dict[str, Any]:
+        user = principal["user"]
+        item = visible_item(db, user, chat_id)
+        if item["archived_at"] and db.get_chat(chat_id).get("archived_reason"):
+            raise HTTPException(409, "Chat was archived after a workspace change")
+        if db.unarchive_chat(chat_id):
+            chat_action_audit(db, user, "chat.unarchive", item)
+            item = visible_item(db, user, chat_id)
+        return public_item(item)
+
+    @app.post("/api/chats/{chat_id}/snooze")
+    async def snooze_chat(
+        chat_id: str,
+        body: SnoozeBody,
+        principal: Annotated[dict[str, Any], Depends(csrf_principal)],
+        db: Annotated[Database, Depends(database)],
+    ) -> dict[str, Any]:
+        user = principal["user"]
+        item = visible_item(db, user, chat_id)
+        if body.until <= datetime.now(UTC):
+            raise HTTPException(422, "Snooze time must be in the future")
+        if item["archived_at"]:
+            raise HTTPException(409, "Archived chat cannot be snoozed")
+        until = body.until.astimezone(UTC).isoformat()
+        if not db.snooze_chat(chat_id, until):
+            raise HTTPException(409, "Archived chat cannot be snoozed")
+        chat_action_audit(db, user, "chat.snooze", item, {"until": until})
+        return public_item(visible_item(db, user, chat_id))
+
+    @app.post("/api/chats/{chat_id}/unsnooze")
+    async def unsnooze_chat(
+        chat_id: str,
+        principal: Annotated[dict[str, Any], Depends(csrf_principal)],
+        db: Annotated[Database, Depends(database)],
+    ) -> dict[str, Any]:
+        user = principal["user"]
+        item = visible_item(db, user, chat_id)
+        if db.unsnooze_chat(chat_id):
+            chat_action_audit(db, user, "chat.unsnooze", item)
+            item = visible_item(db, user, chat_id)
+        return public_item(item)
+
+    @app.delete("/api/chats/{chat_id}", status_code=204)
+    async def delete_chat(
+        chat_id: str,
+        request: Request,
+        principal: Annotated[dict[str, Any], Depends(csrf_principal)],
+        db: Annotated[Database, Depends(database)],
+    ) -> Response:
+        user = principal["user"]
+        item = visible_item(db, user, chat_id)
+        stopped: list[str] = []
+        # Unfinished work goes through the regular stop path before the chat disappears.
+        for job in db.unfinished_chat_jobs(chat_id):
+            await stop_job_audited(request, db, user["id"], job, {"reason": "chat.delete"})
+            stopped.append(job["id"])
+        if db.delete_chat(chat_id):
+            chat_action_audit(db, user, "chat.delete", item, {"stopped_job_ids": stopped})
+        return Response(status_code=204)
 
     @app.post("/api/chats/{chat_id}/permissions/{permission_id}")
     async def respond_permission(
@@ -1575,7 +1715,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             object_type="user",
             object_id=user_id,
         )
-        return db.list_chats(user_id)
+        return db.list_chats(user_id, include_deleted=True)
 
     @app.post("/api/admin/users/{user_id}/chats/title-sync")
     async def admin_sync_chat_titles_from_opencode(
@@ -1586,7 +1726,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
     ) -> list[dict[str, Any]]:
         if not db.get_user(user_id):
             raise HTTPException(404, "User not found")
-        return await sync_chat_titles(request, db, db.list_chats(user_id))
+        return await sync_chat_titles(request, db, db.list_chats(user_id, include_deleted=True))
 
     @app.get("/api/admin/users/{user_id}/task-runs")
     async def admin_user_task_runs(
@@ -1605,7 +1745,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         )
         return [
             {**public_task_run(job), "owner_login": job["effective_login"]}
-            for job in db.list_task_runs(user_id)
+            for job in db.list_task_runs(user_id, include_deleted=True)
         ]
 
     @app.post("/api/admin/users/{user_id}/task-runs/title-sync")
@@ -1617,7 +1757,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
     ) -> list[dict[str, Any]]:
         if not db.get_user(user_id):
             raise HTTPException(404, "User not found")
-        return await sync_task_titles(request, db, db.list_task_runs(user_id))
+        return await sync_task_titles(request, db, db.list_task_runs(user_id, include_deleted=True))
 
     @app.get("/api/admin/users/{user_id}/tasks")
     async def admin_user_tasks(
