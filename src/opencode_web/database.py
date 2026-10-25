@@ -1131,21 +1131,29 @@ class Database:
             raise ValueError("Unknown visibility")
         if not self.get_task(task_id):
             return None
-        now = utcnow()
         with self.transaction() as connection:
-            connection.execute(
-                "UPDATE tasks SET visibility = ?, updated_at = ?, updated_by = ? WHERE id = ?",
-                (visibility, now, actor_id, task_id),
+            self._write_task_audience(
+                connection, task_id, visibility, user_ids, actor_id, utcnow()
             )
-            connection.execute("DELETE FROM task_audience WHERE task_id = ?", (task_id,))
-            if visibility == "selected":
-                for user_id in dict.fromkeys(user_ids or []):
-                    connection.execute(
-                        """INSERT OR IGNORE INTO task_audience (task_id, user_id, created_at)
-                           VALUES (?, ?, ?)""",
-                        (task_id, user_id, now),
-                    )
         return self.get_task(task_id)
+
+    @staticmethod
+    def _write_task_audience(
+        connection: sqlite3.Connection, task_id: str, visibility: str,
+        user_ids: list[str] | None, actor_id: str | None, now: str,
+    ) -> None:
+        connection.execute(
+            "UPDATE tasks SET visibility = ?, updated_at = ?, updated_by = ? WHERE id = ?",
+            (visibility, now, actor_id, task_id),
+        )
+        connection.execute("DELETE FROM task_audience WHERE task_id = ?", (task_id,))
+        if visibility == "selected":
+            for user_id in dict.fromkeys(user_ids or []):
+                connection.execute(
+                    """INSERT OR IGNORE INTO task_audience (task_id, user_id, created_at)
+                       VALUES (?, ?, ?)""",
+                    (task_id, user_id, now),
+                )
 
     def list_user_task_access(self, user_id: str) -> list[dict[str, Any]]:
         return self._all(
@@ -1184,9 +1192,14 @@ class Database:
 
     def update_task(
         self, task_id: str, fields: dict[str, Any], *, actor_id: str | None = None,
-        expected_updated_at: str | None = None,
+        expected_updated_at: str | None = None, visibility: str | None = None,
+        user_ids: list[str] | None = None,
     ) -> dict[str, Any] | None:
-        """None when the task is missing, deleted or no longer at `expected_updated_at`."""
+        """None when the task is missing, deleted or no longer at `expected_updated_at`.
+        `visibility` and `user_ids` replace the audience in the same write; the one left
+        out keeps its stored value."""
+        if visibility not in (None, "all", "selected"):
+            raise ValueError("Unknown visibility")
         current = self.get_task(task_id)
         if not current:
             return None
@@ -1199,6 +1212,7 @@ class Database:
         if bool(updated["provider_id"]) != bool(updated["model_id"]):
             raise ValueError("Provider and model must be specified together")
         self._active_queue(updated.get("queue_id") or DEFAULT_QUEUE_ID)
+        now = utcnow()
         try:
             with self.transaction() as connection:
                 if "next_task_ids" in fields:
@@ -1221,7 +1235,7 @@ class Database:
                         int(updated["is_published"]),
                         int(updated["plan_first"]),
                         clean_input_hint(updated.get("input_hint")),
-                        utcnow(),
+                        now,
                         actor_id,
                         task_id,
                         expected_updated_at,
@@ -1230,6 +1244,18 @@ class Database:
                 )
                 if not cursor.rowcount:
                     raise StaleWrite(task_id)  # roll back the successor changes too
+                if visibility is not None or user_ids is not None:
+                    stored = connection.execute(
+                        "SELECT visibility FROM tasks WHERE id = ?", (task_id,)
+                    ).fetchone()["visibility"]
+                    if user_ids is None:
+                        user_ids = [row["user_id"] for row in connection.execute(
+                            """SELECT user_id FROM task_audience WHERE task_id = ?
+                               ORDER BY created_at""", (task_id,),
+                        )]
+                    self._write_task_audience(
+                        connection, task_id, visibility or stored, user_ids, actor_id, now
+                    )
         except StaleWrite:
             return None
         return self.get_task(task_id)

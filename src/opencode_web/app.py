@@ -1236,21 +1236,13 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         fields.update(agent=agent, provider_id=provider_id, model_id=model_id)
         try:
             updated = db.update_task(
-                task_id, fields, actor_id=principal["user"]["id"], expected_updated_at=expected
+                task_id, fields, actor_id=principal["user"]["id"], expected_updated_at=expected,
+                visibility=visibility, user_ids=user_ids,
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         if not updated:
             raise edit_error(db.edit_state("tasks", task_id))
-        if visibility is not None or user_ids is not None:
-            target_visibility = visibility or updated["visibility"]
-            target_user_ids = (
-                user_ids if user_ids is not None else db.list_task_audience(task_id)
-            )
-            db.set_task_audience(
-                task_id, target_visibility, target_user_ids, principal["user"]["id"]
-            )
-            updated = db.get_task(task_id)
         db.audit(
             principal["user"]["id"], "task.update", object_type="task", object_id=task_id
         )

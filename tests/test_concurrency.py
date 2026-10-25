@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import sqlite3
+
+import pytest
 from test_chat_actions import ui_app as ui_app
 from test_tasks_api import create_task, login
 
@@ -186,3 +189,51 @@ def test_updated_by_columns_are_added_to_old_databases(tmp_path):
         columns = {row["name"] for row in db._all(f"PRAGMA table_info({table})")}
         assert "updated_by" in columns, table
     db.close()
+
+
+async def test_task_patch_writes_fields_and_audience_as_one_change(ui_app):
+    t = ui_app
+    task = await create_task(t.client, title="Сборка")
+    path = f"/api/admin/tasks/{task['id']}"
+    worker = t.users["worker"]["id"]
+    audience = {"visibility": "selected", "user_ids": [worker]}
+
+    response = await patch(
+        t, path, {"title": "Новое", **audience, "updated_at": "2000-01-01T00:00:00+00:00"}
+    )
+    assert response.status_code == 409
+    stored = t.db.get_task(task["id"])
+    assert (stored["title"], stored["visibility"]) == ("Сборка", task["visibility"])
+    assert t.db.list_task_audience(task["id"]) == []
+
+    response = await patch(
+        t, path, {"title": "Новое", **audience, "updated_at": task["updated_at"]}
+    )
+    assert response.status_code == 200, response.text
+    stored = t.db.get_task(task["id"])
+    assert (stored["title"], stored["visibility"]) == ("Новое", "selected")
+    assert t.db.list_task_audience(task["id"]) == [worker]
+    assert response.json()["updated_at"] == stored["updated_at"]
+
+    # Changing only one of the two keeps the other.
+    response = await patch(
+        t, path, {"visibility": "all", "updated_at": stored["updated_at"]}
+    )
+    assert response.status_code == 200, response.text
+    assert t.db.get_task(task["id"])["visibility"] == "all"
+    response = await patch(t, path, {"visibility": "selected"})
+    assert response.status_code == 200, response.text
+    assert t.db.list_task_audience(task["id"]) == []
+
+
+async def test_failed_audience_write_rolls_back_the_task_fields(ui_app):
+    t = ui_app
+    task = await create_task(t.client, title="Сборка")
+    with pytest.raises(sqlite3.IntegrityError):
+        t.db.update_task(
+            task["id"], {"title": "Новое"}, visibility="selected", user_ids=["no-such-user"],
+            expected_updated_at=task["updated_at"],
+        )
+    stored = t.db.get_task(task["id"])
+    assert (stored["title"], stored["visibility"]) == ("Сборка", task["visibility"])
+    assert stored["updated_at"] == task["updated_at"]
