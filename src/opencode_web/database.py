@@ -1513,6 +1513,15 @@ class Database:
                    WHERE id = ? AND deleted_at IS NULL""",
                 (utcnow(), chat_id),
             )
+            if cursor.rowcount:
+                # Nobody is pinged about a chat that is gone; sent ones stay as history.
+                connection.execute(
+                    """DELETE FROM notification_outbox
+                       WHERE status IN ('pending', 'sending')
+                         AND (object_id = ?
+                              OR object_id IN (SELECT id FROM queue_jobs WHERE chat_id = ?))""",
+                    (chat_id, chat_id),
+                )
         return cursor.rowcount > 0
 
     def unfinished_chat_jobs(self, chat_id: str) -> list[dict[str, Any]]:
@@ -2108,10 +2117,16 @@ class Database:
         dedupe_key: str,
         kind: str,
         object_id: str,
+        chat_id: str,
         user_id: str,
         title: str,
         link_path: str,
     ) -> None:
+        deleted = connection.execute(
+            "SELECT 1 FROM chats WHERE id = ? AND deleted_at IS NOT NULL", (chat_id,)
+        ).fetchone()
+        if deleted:
+            return
         user = connection.execute(
             "SELECT mattermost_user_id FROM users WHERE id = ?", (user_id,)
         ).fetchone()
@@ -2140,6 +2155,7 @@ class Database:
             dedupe_key=f"task-chain:{root['id']}",
             kind="task_completed",
             object_id=root["id"],
+            chat_id=root["chat_id"],
             user_id=root["effective_user_id"],
             title=root["task_title"] or "Таска",
             link_path=f"/tasks/runs/{root['id']}",
@@ -2172,6 +2188,7 @@ class Database:
                 dedupe_key=f"consultation-answer:{job_id}",
                 kind="consultation_answer_ready",
                 object_id=row["chat_id"],
+                chat_id=row["chat_id"],
                 user_id=row["effective_user_id"],
                 title=row["chat_title"] or "Консультация",
                 link_path=f"/questions/{row['chat_id']}",

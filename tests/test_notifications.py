@@ -150,6 +150,67 @@ def test_consultation_completion_and_notification_are_idempotent(tmp_path):
         db.close()
 
 
+def consultation_case(tmp_path):
+    db = Database(tmp_path / "db.sqlite", "secret")
+    db.initialize()
+    user = db.create_user(
+        "worker", "long-enough-password", "user", str(tmp_path),
+        mattermost_user_id=MM_USER,
+    )
+
+    def ask(chat=None, title="Вопрос"):
+        chat = chat or db.create_chat(user["id"], None, title, str(tmp_path), consultation=True)
+        job = db.create_job(
+            chat=chat, effective_user_id=user["id"], actor_user_id=user["id"],
+            content=title, agent="plan", provider_id="p", model_id="m", model_variant=None,
+        )
+        return chat, job
+
+    return db, ask
+
+
+def test_deleting_a_chat_drops_its_unsent_notifications(tmp_path):
+    db, ask = consultation_case(tmp_path)
+    try:
+        gone, first = ask(title="Удалю")
+        assert db.complete_consultation_run(first["id"], "Ответ")
+        sent = db.claim_notification()
+        db.mark_notification_sent(sent["id"], "post")
+        _, second = ask(gone)
+        assert db.complete_consultation_run(second["id"], "Ещё ответ")
+        kept, other = ask(title="Оставлю")
+        assert db.complete_consultation_run(other["id"], "Ответ")
+        assert len(db.list_notifications()) == 3
+
+        assert db.delete_chat(gone["id"])
+        remaining = {(row["object_id"], row["status"]) for row in db.list_notifications()}
+        assert remaining == {(gone["id"], "sent"), (kept["id"], "pending")}
+
+        # An answer finishing after the delete does not notify either.
+        _, late = ask(kept)
+        assert db.delete_chat(kept["id"])
+        assert db.complete_consultation_run(late["id"], "Поздно")
+        assert [row["status"] for row in db.list_notifications()] == ["sent"]
+    finally:
+        db.close()
+
+
+def test_deleting_a_task_run_drops_its_notification(task_database):
+    db, _, user, task = task_database
+    db.update_user(user["id"], mattermost_user_id=MM_USER)
+    worker = db.get_user(user["id"])
+    run = start_task(db, worker, task, "first")
+    db.complete_task_run(run["id"], {"text": "Готово"})
+    assert len(db.list_notifications()) == 1
+    assert db.delete_chat(db.get_job(run["id"])["chat_id"])
+    assert db.list_notifications() == []
+
+    late = start_task(db, worker, task, "second")
+    assert db.delete_chat(db.get_job(late["id"])["chat_id"])
+    db.complete_task_run(late["id"], {"text": "Готово"})
+    assert db.list_notifications() == []
+
+
 def test_outbox_retry_and_recovery(task_database):
     db, _, user, task = task_database
     db.update_user(user["id"], mattermost_user_id=MM_USER)
