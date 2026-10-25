@@ -78,6 +78,8 @@ class UserUpdateBody(BaseModel):
     tasks_only: bool | None = None
     max_active_jobs: int | None = Field(default=None, ge=1)
     mattermost_username: str | None = Field(default=None, max_length=23)
+    # The `updated_at` the edit started from; a newer stored value is a conflict (409).
+    updated_at: AwareDatetime | None = None
 
 
 class UserProfileUpdateBody(BaseModel):
@@ -149,6 +151,8 @@ class TaskPatchBody(BaseModel):
     user_ids: list[str] | None = None
     next_task_ids: list[str] = Field(default_factory=list)
     queue_id: str | None = None
+    # The `updated_at` the edit started from; a newer stored value is a conflict (409).
+    updated_at: AwareDatetime | None = None
 
 
 class TaskAudienceBody(BaseModel):
@@ -180,6 +184,11 @@ class WorkQueueBody(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     priority: int = Field(ge=-1_000_000, le=1_000_000)
     max_workers: int = Field(ge=1)
+
+
+class WorkQueuePatchBody(WorkQueueBody):
+    # The `updated_at` the edit started from; a newer stored value is a conflict (409).
+    updated_at: AwareDatetime | None = None
 
 
 class QueueRoutingBody(BaseModel):
@@ -294,6 +303,32 @@ def checked_user_ids(db: Database, user_ids: list[str] | None) -> list[str]:
             raise HTTPException(422, f"Unknown user: {user_id}")
         result.append(user_id)
     return result
+
+
+def edit_error(state: dict[str, Any] | None) -> HTTPException:
+    """404 when the object is gone, otherwise 409 naming who changed it last."""
+    if not state or state["deleted"]:
+        deleted_by = state["updated_by"] if state else None
+        return HTTPException(404, {"code": "deleted", "deleted_by": deleted_by})
+    return HTTPException(
+        409,
+        {"code": "conflict", "updated_by": state["updated_by"], "updated_at": state["updated_at"]},
+    )
+
+
+def edit_base(
+    db: Database, table: str, object_id: str, sent: datetime | None
+) -> str | None:
+    """Stored `updated_at` to compare-and-set against, or None when the client sent
+    none (last write wins). Raises the 404/409 from `edit_error`."""
+    state = db.edit_state(table, object_id)
+    if (
+        not state
+        or state["deleted"]
+        or (sent is not None and datetime.fromisoformat(state["updated_at"]) != sent)
+    ):
+        raise edit_error(state)
+    return state["updated_at"] if sent is not None else None
 
 
 def admin_task_payload(db: Database, task: dict[str, Any]) -> dict[str, Any]:
@@ -885,6 +920,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
                 principal["user"]["id"],
                 mattermost_username=username,
                 mattermost_user_id=user_id,
+                actor_id=principal["user"]["id"],
             )
         except sqlite3.IntegrityError as exc:
             raise HTTPException(409, "Mattermost user is already assigned") from exc
@@ -1135,7 +1171,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         if visibility != "all" or user_ids:
-            db.set_task_audience(task["id"], visibility, user_ids)
+            db.set_task_audience(task["id"], visibility, user_ids, principal["user"]["id"])
         db.audit(
             principal["user"]["id"], "task.create", object_type="task", object_id=task["id"]
         )
@@ -1148,10 +1184,11 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         principal: Annotated[dict[str, Any], Depends(admin_principal)],
         db: Annotated[Database, Depends(database)],
     ) -> dict[str, Any]:
+        expected = edit_base(db, "tasks", task_id, body.updated_at)
         task = db.get_task(task_id)
         if not task:
-            raise HTTPException(404, "Task not found")
-        fields = body.model_dump(exclude_unset=True)
+            raise edit_error(db.edit_state("tasks", task_id))
+        fields = body.model_dump(exclude_unset=True, exclude={"updated_at"})
         for key in (
             "title", "content", "agent", "model", "is_published", "plan_first", "queue_id"
         ):
@@ -1169,17 +1206,21 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         )
         fields.update(agent=agent, provider_id=provider_id, model_id=model_id)
         try:
-            updated = db.update_task(task_id, fields)
+            updated = db.update_task(
+                task_id, fields, actor_id=principal["user"]["id"], expected_updated_at=expected
+            )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         if not updated:
-            raise HTTPException(404, "Task not found")
+            raise edit_error(db.edit_state("tasks", task_id))
         if visibility is not None or user_ids is not None:
             target_visibility = visibility or updated["visibility"]
             target_user_ids = (
                 user_ids if user_ids is not None else db.list_task_audience(task_id)
             )
-            db.set_task_audience(task_id, target_visibility, target_user_ids)
+            db.set_task_audience(
+                task_id, target_visibility, target_user_ids, principal["user"]["id"]
+            )
             updated = db.get_task(task_id)
         db.audit(
             principal["user"]["id"], "task.update", object_type="task", object_id=task_id
@@ -1197,7 +1238,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             raise HTTPException(404, "Task not found")
         visibility = checked_visibility(body.visibility)
         user_ids = checked_user_ids(db, body.user_ids)
-        updated = db.set_task_audience(task_id, visibility, user_ids)
+        updated = db.set_task_audience(task_id, visibility, user_ids, principal["user"]["id"])
         db.audit(
             principal["user"]["id"],
             "task.audience.update",
@@ -1213,7 +1254,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         principal: Annotated[dict[str, Any], Depends(admin_principal)],
         db: Annotated[Database, Depends(database)],
     ) -> None:
-        if not db.delete_task(task_id):
+        if not db.delete_task(task_id, principal["user"]["id"]):
             raise HTTPException(404, "Task not found")
         db.audit(
             principal["user"]["id"], "task.delete", object_type="task", object_id=task_id
@@ -1748,6 +1789,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
                 tasks_only=body.tasks_only,
                 mattermost_username=mattermost_username,
                 mattermost_user_id=mattermost_user_id,
+                actor_id=principal["user"]["id"],
             )
         except sqlite3.IntegrityError as exc:
             raise HTTPException(409, "Login or Mattermost user already exists") from exc
@@ -1765,9 +1807,10 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         db: Annotated[Database, Depends(database)],
         config: Annotated[Settings, Depends(settings_dep)],
     ) -> dict[str, Any]:
+        expected = edit_base(db, "users", user_id, body.updated_at)
         current = db.get_user(user_id)
         if not current:
-            raise HTTPException(404, "User not found")
+            raise edit_error(None)
         role = body.role or current["role"]
         path_candidate = (
             body.workspace_path if body.workspace_path is not None else current["workspace_path"]
@@ -1804,12 +1847,15 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         try:
             updated = db.update_user(
                 user_id, role=role, workspace_path=workspace, status=body.status,
-                tasks_only=body.tasks_only, **updates,
+                tasks_only=body.tasks_only, actor_id=principal["user"]["id"],
+                expected_updated_at=expected, **updates,
             )
         except sqlite3.IntegrityError as exc:
             raise HTTPException(409, "Mattermost user is already assigned") from exc
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
+        if not updated:
+            raise edit_error(db.edit_state("users", user_id))
         archived_chat_ids = (
             db.archive_chats_outside_workspace(user_id, workspace)
             if workspace_changed and workspace else []
@@ -1844,7 +1890,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
                 result.update(ok=True, skipped=True, reason="already")
             else:
                 try:
-                    db.update_user(user_id, status=target)
+                    db.update_user(user_id, status=target, actor_id=admin_id)
                 except ValueError:
                     result["reason"] = "invalid"
                     continue
@@ -1865,7 +1911,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         if not db.get_user(user_id):
             raise HTTPException(404, "User not found")
         try:
-            db.reset_password(user_id, body.password)
+            db.reset_password(user_id, body.password, principal["user"]["id"])
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         db.audit(
@@ -2113,7 +2159,9 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         if body.max_workers > settings.max_active_sessions_hard_limit:
             raise HTTPException(422, "Value exceeds MAX_ACTIVE_SESSIONS_HARD_LIMIT")
         try:
-            queue = db.create_work_queue(body.name, body.priority, body.max_workers)
+            queue = db.create_work_queue(
+                body.name, body.priority, body.max_workers, principal["user"]["id"]
+            )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         db.audit(
@@ -2126,22 +2174,24 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
     @app.patch("/api/admin/queues/{queue_id}")
     async def update_queue(
         queue_id: str,
-        body: WorkQueueBody,
+        body: WorkQueuePatchBody,
         request: Request,
         principal: Annotated[dict[str, Any], Depends(admin_principal)],
         db: Annotated[Database, Depends(database)],
     ) -> dict[str, Any]:
         if body.max_workers > settings.max_active_sessions_hard_limit:
             raise HTTPException(422, "Value exceeds MAX_ACTIVE_SESSIONS_HARD_LIMIT")
+        expected = edit_base(db, "work_queues", queue_id, body.updated_at)
         try:
             queue = db.update_work_queue(
                 queue_id, name=body.name, priority=body.priority,
-                max_workers=body.max_workers,
+                max_workers=body.max_workers, actor_id=principal["user"]["id"],
+                expected_updated_at=expected,
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         if not queue:
-            raise HTTPException(404, "Queue not found")
+            raise edit_error(db.edit_state("work_queues", queue_id))
         db.audit(
             principal["user"]["id"], "queue.update", object_type="queue",
             object_id=queue_id,
@@ -2157,7 +2207,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         db: Annotated[Database, Depends(database)],
     ) -> None:
         try:
-            archived = db.archive_work_queue(queue_id)
+            archived = db.archive_work_queue(queue_id, principal["user"]["id"])
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
         if not archived:

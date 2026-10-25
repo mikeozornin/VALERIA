@@ -48,6 +48,27 @@ LEFT JOIN queue_jobs j ON j.id = (
         q.sequence DESC
     LIMIT 1
 )"""
+# Who last changed an admin-editable object, and whether it is gone. Deleting a task or
+# archiving a queue is its last change, so `updated_by` then names who removed it.
+EDIT_STATE_QUERIES = {
+    "users": """SELECT o.updated_at, editor.login AS updated_by, 0 AS deleted
+                FROM users o LEFT JOIN users editor ON editor.id = o.updated_by
+                WHERE o.id = ?""",
+    "tasks": """SELECT o.updated_at, editor.login AS updated_by,
+                       o.deleted_at IS NOT NULL AS deleted
+                FROM tasks o LEFT JOIN users editor ON editor.id = o.updated_by
+                WHERE o.id = ?""",
+    "work_queues": """SELECT o.updated_at, editor.login AS updated_by,
+                             o.status = 'archived' AS deleted
+                      FROM work_queues o LEFT JOIN users editor ON editor.id = o.updated_by
+                      WHERE o.id = ?""",
+}
+
+
+class StaleWrite(Exception):
+    """The row changed or disappeared after the caller read it."""
+
+
 AUDIT_QUERY = """SELECT a.*, actor.login AS actor_login, effective.login AS effective_login
 FROM audit_log a
 LEFT JOIN users actor ON actor.id = a.actor_user_id
@@ -340,6 +361,13 @@ class Database:
                 self._connection.execute(
                     "UPDATE tasks SET queue_id = ? WHERE queue_id IS NULL", (DEFAULT_QUEUE_ID,)
                 )
+            for table in ("users", "tasks", "work_queues"):
+                columns = {
+                    row[1]
+                    for row in self._connection.execute(f"PRAGMA table_info({table})").fetchall()
+                }
+                if "updated_by" not in columns:
+                    self._connection.execute(f"ALTER TABLE {table} ADD COLUMN updated_by TEXT")
             chat_columns = {
                 row[1] for row in self._connection.execute("PRAGMA table_info(chats)").fetchall()
             }
@@ -576,6 +604,7 @@ class Database:
         tasks_only: bool = False,
         mattermost_username: str | None = None,
         mattermost_user_id: str | None = None,
+        actor_id: str | None = None,
     ) -> dict[str, Any]:
         user_id = str(uuid.uuid4())
         now = utcnow()
@@ -596,8 +625,9 @@ class Database:
             connection.execute(
                 """INSERT INTO users
                    (id, login, password_hash, role, workspace_path, tasks_only,
-                    mattermost_username, mattermost_user_id, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    mattermost_username, mattermost_user_id, created_at, updated_at,
+                    updated_by)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     user_id,
                     normalized,
@@ -609,6 +639,7 @@ class Database:
                     mattermost_user_id,
                     now,
                     now,
+                    actor_id,
                 ),
             )
         return self.get_user(user_id)  # type: ignore[return-value]
@@ -646,7 +677,10 @@ class Database:
         max_active_jobs: Any = UNSET,
         mattermost_username: Any = UNSET,
         mattermost_user_id: Any = UNSET,
+        actor_id: str | None = None,
+        expected_updated_at: str | None = None,
     ) -> dict[str, Any] | None:
+        """None when the user is missing or no longer at `expected_updated_at`."""
         current = self.get_user(user_id)
         if not current:
             return None
@@ -682,12 +716,12 @@ class Database:
         if new_role not in {"user", "admin"} or new_status not in {"active", "disabled"}:
             raise ValueError("Invalid user fields")
         with self.transaction() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 """UPDATE users SET role = ?, workspace_path = ?, status = ?, tasks_only = ?,
                    max_active_jobs = ?, mattermost_username = ?, mattermost_user_id = ?,
-                   updated_at = ?,
+                   updated_at = ?, updated_by = ?,
                    auth_version = auth_version + CASE WHEN status != ? THEN 1 ELSE 0 END
-                   WHERE id = ?""",
+                   WHERE id = ? AND (? IS NULL OR updated_at = ?)""",
                 (
                     new_role,
                     new_workspace,
@@ -697,18 +731,23 @@ class Database:
                     new_mattermost_username,
                     new_mattermost_user_id,
                     utcnow(),
+                    actor_id,
                     new_status,
                     user_id,
+                    expected_updated_at,
+                    expected_updated_at,
                 ),
             )
-        return self.get_user(user_id)
+        return self.get_user(user_id) if cursor.rowcount else None
 
-    def reset_password(self, user_id: str, password: str) -> None:
+    def reset_password(
+        self, user_id: str, password: str, actor_id: str | None = None
+    ) -> None:
         with self.transaction() as connection:
             connection.execute(
                 """UPDATE users SET password_hash = ?, auth_version = auth_version + 1,
-                   updated_at = ? WHERE id = ?""",
-                (hash_password(password), utcnow(), user_id),
+                   updated_at = ?, updated_by = ? WHERE id = ?""",
+                (hash_password(password), utcnow(), actor_id, user_id),
             )
             connection.execute("DELETE FROM auth_sessions WHERE user_id = ?", (user_id,))
 
@@ -731,9 +770,9 @@ class Database:
                     now.isoformat(),
                 ),
             )
+            # Not an edit: leave updated_at alone so open admin forms do not conflict.
             connection.execute(
-                "UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?",
-                (now.isoformat(), now.isoformat(), user["id"]),
+                "UPDATE users SET last_login_at = ? WHERE id = ?", (now.isoformat(), user["id"])
             )
 
     def get_user_for_token(self, token: str) -> tuple[dict[str, Any], str] | None:
@@ -842,7 +881,7 @@ class Database:
         )
 
     def create_work_queue(
-        self, name: str, priority: int, max_workers: int
+        self, name: str, priority: int, max_workers: int, actor_id: str | None = None
     ) -> dict[str, Any]:
         normalized = name.strip()
         if not normalized or len(normalized) > 120:
@@ -854,19 +893,22 @@ class Database:
             with self.transaction() as connection:
                 connection.execute(
                     """INSERT INTO work_queues
-                       (id, name, priority, max_workers, status, is_system, created_at, updated_at)
-                       VALUES (?, ?, ?, ?, 'active', 0, ?, ?)""",
-                    (queue_id, normalized, int(priority), int(max_workers), now, now),
+                       (id, name, priority, max_workers, status, is_system, created_at, updated_at,
+                        updated_by)
+                       VALUES (?, ?, ?, ?, 'active', 0, ?, ?, ?)""",
+                    (queue_id, normalized, int(priority), int(max_workers), now, now, actor_id),
                 )
         except sqlite3.IntegrityError as exc:
             raise ValueError("Queue name already exists") from exc
         return self.get_work_queue(queue_id)  # type: ignore[return-value]
 
     def update_work_queue(
-        self, queue_id: str, *, name: str, priority: int, max_workers: int
+        self, queue_id: str, *, name: str, priority: int, max_workers: int,
+        actor_id: str | None = None, expected_updated_at: str | None = None,
     ) -> dict[str, Any] | None:
+        """None when the queue is missing, archived or no longer at `expected_updated_at`."""
         current = self.get_work_queue(queue_id)
-        if not current:
+        if not current or current["status"] != "active":
             return None
         normalized = name.strip()
         if not normalized or len(normalized) > 120:
@@ -875,16 +917,18 @@ class Database:
             raise ValueError("Queue worker limit must be positive")
         try:
             with self.transaction() as connection:
-                connection.execute(
+                cursor = connection.execute(
                     """UPDATE work_queues SET name = ?, priority = ?, max_workers = ?,
-                       updated_at = ? WHERE id = ?""",
-                    (normalized, int(priority), int(max_workers), utcnow(), queue_id),
+                       updated_at = ?, updated_by = ?
+                       WHERE id = ? AND status = 'active' AND (? IS NULL OR updated_at = ?)""",
+                    (normalized, int(priority), int(max_workers), utcnow(), actor_id, queue_id,
+                     expected_updated_at, expected_updated_at),
                 )
         except sqlite3.IntegrityError as exc:
             raise ValueError("Queue name already exists") from exc
-        return self.get_work_queue(queue_id)
+        return self.get_work_queue(queue_id) if cursor.rowcount else None
 
-    def archive_work_queue(self, queue_id: str) -> bool:
+    def archive_work_queue(self, queue_id: str, actor_id: str | None = None) -> bool:
         queue = self.get_work_queue(queue_id)
         if not queue:
             return False
@@ -905,8 +949,10 @@ class Database:
             raise ValueError("Queue is still assigned or contains unfinished jobs")
         with self.transaction() as connection:
             connection.execute(
-                "UPDATE work_queues SET status = 'archived', updated_at = ? WHERE id = ?",
-                (utcnow(), queue_id),
+                # Archiving twice keeps the first archiver as `updated_by`.
+                "UPDATE work_queues SET status = 'archived', updated_at = ?, updated_by = ? "
+                "WHERE id = ? AND status = 'active'",
+                (utcnow(), actor_id, queue_id),
             )
         return True
 
@@ -932,6 +978,7 @@ class Database:
         queue_id: str = DEFAULT_QUEUE_ID,
         input_hint: str | None = None,
     ) -> dict[str, Any]:
+        """`admin_id` creates the task and is its first `updated_by`."""
         if not title.strip() or not content.strip() or not agent.strip():
             raise ValueError("Title, content and agent are required")
         if bool(provider_id) != bool(model_id):
@@ -946,8 +993,8 @@ class Database:
                 """INSERT INTO tasks
                    (id, title, description, content, agent, provider_id, model_id,
                     model_variant, queue_id, is_published, created_by_admin_id,
-                    created_at, updated_at, input_hint)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    created_at, updated_at, input_hint, updated_by)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     task_id,
                     title.strip(),
@@ -963,6 +1010,7 @@ class Database:
                     now,
                     now,
                     clean_input_hint(input_hint),
+                    admin_id,
                 ),
             )
             connection.execute(
@@ -1020,6 +1068,11 @@ class Database:
     def get_task(self, task_id: str) -> dict[str, Any] | None:
         return self._one("SELECT * FROM tasks WHERE id = ? AND deleted_at IS NULL", (task_id,))
 
+    def edit_state(self, table: str, object_id: str) -> dict[str, Any] | None:
+        """`updated_at`, editor login and a `deleted` flag for a users, tasks or
+        work_queues row; None when the row never existed."""
+        return self._one(EDIT_STATE_QUERIES[table], (object_id,))
+
     def list_tasks(self, *, published_only: bool) -> list[dict[str, Any]]:
         where = "deleted_at IS NULL"
         if published_only:
@@ -1067,7 +1120,8 @@ class Database:
         ]
 
     def set_task_audience(
-        self, task_id: str, visibility: str, user_ids: list[str] | None
+        self, task_id: str, visibility: str, user_ids: list[str] | None,
+        actor_id: str | None = None,
     ) -> dict[str, Any] | None:
         if visibility not in ("all", "selected"):
             raise ValueError("Unknown visibility")
@@ -1076,8 +1130,8 @@ class Database:
         now = utcnow()
         with self.transaction() as connection:
             connection.execute(
-                "UPDATE tasks SET visibility = ?, updated_at = ? WHERE id = ?",
-                (visibility, now, task_id),
+                "UPDATE tasks SET visibility = ?, updated_at = ?, updated_by = ? WHERE id = ?",
+                (visibility, now, actor_id, task_id),
             )
             connection.execute("DELETE FROM task_audience WHERE task_id = ?", (task_id,))
             if visibility == "selected":
@@ -1124,7 +1178,11 @@ class Database:
                     )
         return self.list_user_task_access(user_id)
 
-    def update_task(self, task_id: str, fields: dict[str, Any]) -> dict[str, Any] | None:
+    def update_task(
+        self, task_id: str, fields: dict[str, Any], *, actor_id: str | None = None,
+        expected_updated_at: str | None = None,
+    ) -> dict[str, Any] | None:
+        """None when the task is missing, deleted or no longer at `expected_updated_at`."""
         current = self.get_task(task_id)
         if not current:
             return None
@@ -1137,33 +1195,42 @@ class Database:
         if bool(updated["provider_id"]) != bool(updated["model_id"]):
             raise ValueError("Provider and model must be specified together")
         self._active_queue(updated.get("queue_id") or DEFAULT_QUEUE_ID)
-        with self.transaction() as connection:
-            if "next_task_ids" in fields:
-                self._set_task_successors(connection, task_id, fields["next_task_ids"])
-            connection.execute(
-                """UPDATE tasks SET title = ?, description = ?, content = ?, agent = ?,
-                   provider_id = ?, model_id = ?, model_variant = ?, queue_id = ?,
-                   is_published = ?, plan_first = ?, input_hint = ?, updated_at = ?
-                   WHERE id = ? AND deleted_at IS NULL""",
-                (
-                    updated["title"].strip(),
-                    updated["description"],
-                    updated["content"],
-                    updated["agent"].strip(),
-                    updated["provider_id"],
-                    updated["model_id"],
-                    updated["model_variant"],
-                    updated.get("queue_id") or DEFAULT_QUEUE_ID,
-                    int(updated["is_published"]),
-                    int(updated["plan_first"]),
-                    clean_input_hint(updated.get("input_hint")),
-                    utcnow(),
-                    task_id,
-                ),
-            )
+        try:
+            with self.transaction() as connection:
+                if "next_task_ids" in fields:
+                    self._set_task_successors(connection, task_id, fields["next_task_ids"])
+                cursor = connection.execute(
+                    """UPDATE tasks SET title = ?, description = ?, content = ?, agent = ?,
+                       provider_id = ?, model_id = ?, model_variant = ?, queue_id = ?,
+                       is_published = ?, plan_first = ?, input_hint = ?, updated_at = ?,
+                       updated_by = ?
+                       WHERE id = ? AND deleted_at IS NULL AND (? IS NULL OR updated_at = ?)""",
+                    (
+                        updated["title"].strip(),
+                        updated["description"],
+                        updated["content"],
+                        updated["agent"].strip(),
+                        updated["provider_id"],
+                        updated["model_id"],
+                        updated["model_variant"],
+                        updated.get("queue_id") or DEFAULT_QUEUE_ID,
+                        int(updated["is_published"]),
+                        int(updated["plan_first"]),
+                        clean_input_hint(updated.get("input_hint")),
+                        utcnow(),
+                        actor_id,
+                        task_id,
+                        expected_updated_at,
+                        expected_updated_at,
+                    ),
+                )
+                if not cursor.rowcount:
+                    raise StaleWrite(task_id)  # roll back the successor changes too
+        except StaleWrite:
+            return None
         return self.get_task(task_id)
 
-    def delete_task(self, task_id: str) -> bool:
+    def delete_task(self, task_id: str, actor_id: str | None = None) -> bool:
         now = utcnow()
         with self.transaction() as connection:
             connection.execute(
@@ -1171,9 +1238,9 @@ class Database:
                 (task_id, task_id),
             )
             cursor = connection.execute(
-                """UPDATE tasks SET deleted_at = ?, updated_at = ?, is_published = 0
+                """UPDATE tasks SET deleted_at = ?, updated_at = ?, updated_by = ?, is_published = 0
                    WHERE id = ? AND deleted_at IS NULL""",
-                (now, now, task_id),
+                (now, now, actor_id, task_id),
             )
         return cursor.rowcount > 0
 
