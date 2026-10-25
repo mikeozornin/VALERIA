@@ -203,6 +203,16 @@ export class ItemsStore {
                     this.patch((i) => i.kind === 'question' && same(i.chat_id, chatId), pick(job, ['status', 'title']));
                 if (!found) this.scheduleRefresh();
             });
+        // Folder chats: the backend also sends `chat.updated` on every folder transition (RECONCILE); `job.updated`
+        // is the fallback. An unfinished job is the chat status, anything else means the agent is free (`idle`).
+        ev.on('job.updated')
+            .pipe(takeUntilDestroyed(this.destroyRef))
+            .subscribe((e) => {
+                const job = (e['job'] ?? {}) as { chat_id?: string | number; status?: string };
+                if (job.chat_id === undefined || !job.status) return;
+                const status = isActive(job.status) ? job.status : 'idle';
+                this.patch((i) => i.kind === 'folder' && same(i.chat_id, job.chat_id), { status });
+            });
         ev.on('task.updated')
             .pipe(takeUntilDestroyed(this.destroyRef))
             .subscribe((e) => {

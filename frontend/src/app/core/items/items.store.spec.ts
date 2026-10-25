@@ -147,6 +147,21 @@ describe('ItemsStore', () => {
         expect(seen).toEqual(['r1:running->completed']);
     });
 
+    it('falls back to job.updated for folder chats: unfinished job status, otherwise idle', async () => {
+        api.list.mockResolvedValue([item('f', 'idle', -5, { kind: 'folder' }), item('q', 'completed', -6)]);
+        await store.start();
+
+        events.next({ type: 'job.updated', job: { chat_id: 'c-f', status: 'waiting_permission' } });
+        expect(store.items().find((i) => i.id === 'f')?.status).toBe('waiting_permission');
+
+        events.next({ type: 'job.updated', job: { chat_id: 'c-f', status: 'completed' } });
+        expect(store.items().find((i) => i.id === 'f')?.status).toBe('idle');
+
+        // Questions keep following consultation.updated / chat.updated only.
+        events.next({ type: 'job.updated', job: { chat_id: 'c-q', status: 'running' } });
+        expect(store.items().find((i) => i.id === 'q')?.status).toBe('completed');
+    });
+
     it('applies chat.updated / chat.deleted', async () => {
         api.list.mockResolvedValue([item('a', 'completed', -5), item('b', 'completed', -6)]);
         await store.start();
