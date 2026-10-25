@@ -1,0 +1,242 @@
+:host {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.v-task-run__body {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.v-task-run__content {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.v-task-run__scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: var(--kbq-size-l) var(--kbq-size-xxl) var(--kbq-size-xxl);
+}
+
+.kbq-dd.v-task-run__input,
+kbq-dd.v-task-run__input {
+    font-family: var(--kbq-typography-mono-normal-font-family);
+    font-size: var(--kbq-typography-mono-normal-font-size);
+    line-height: var(--kbq-typography-mono-normal-line-height);
+    word-break: break-all;
+}
+
+.v-task-run__badge {
+    margin-left: var(--kbq-size-m);
+}
+
+.v-runcard__icon {
+    flex: none;
+    color: var(--kbq-icon-contrast-fade);
+}
+
+.v-task-run__code {
+    margin-top: var(--kbq-size-xs);
+    color: var(--kbq-foreground-contrast-tertiary);
+}
+
+/* Stages (prototype .v-stages) */
+.v-stages {
+    display: flex;
+    list-style: none;
+    margin: 0 0 var(--kbq-size-l);
+    padding: var(--kbq-size-l);
+    border-radius: 12px;
+    background: var(--kbq-background-card);
+    border: 1px solid var(--kbq-line-contrast-less);
+}
+
+.v-stages__item {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 28px;
+    color: var(--kbq-foreground-contrast-tertiary);
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 9px;
+        left: 22px;
+        right: 4px;
+        height: 2px;
+        background: var(--kbq-line-contrast-less);
+    }
+
+    &:last-child::before {
+        display: none;
+    }
+}
+
+.v-stages__dot {
+    position: absolute;
+    top: 0;
+    left: 0;
+    box-sizing: border-box;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid var(--kbq-line-contrast-fade);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--kbq-background-card);
+}
+
+.v-stages__time {
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--kbq-foreground-contrast-secondary);
+}
+
+.v-stages__item_done,
+.v-stages__item_active,
+.v-stages__item_error {
+    color: var(--kbq-foreground-contrast);
+}
+
+.v-stages__item_done {
+    &::before {
+        background: var(--kbq-background-success);
+    }
+
+    .v-stages__dot {
+        border-color: var(--kbq-background-success);
+        background: var(--kbq-background-success);
+        color: var(--kbq-foreground-on-contrast);
+    }
+}
+
+.v-stages__item_active {
+    .v-stages__dot {
+        border-color: var(--kbq-background-theme);
+        box-shadow: inset 0 0 0 4px var(--kbq-background-theme-fade);
+    }
+
+    .v-stages__name {
+        font-weight: 600;
+    }
+}
+
+.v-stages__item_error .v-stages__dot {
+    border-color: var(--kbq-background-error);
+    background: var(--kbq-background-error);
+    color: var(--kbq-foreground-on-contrast);
+}
+
+.v-stages__item_off .v-stages__dot {
+    border-style: dashed;
+}
+
+/* Cards */
+.v-runcard {
+    padding: var(--kbq-size-l);
+    border-radius: 12px;
+    background: var(--kbq-background-card);
+    border: 1px solid var(--kbq-line-contrast-less);
+}
+
+.v-runcard__status {
+    display: flex;
+    gap: var(--kbq-size-m);
+    align-items: flex-start;
+    padding: var(--kbq-size-s) 0;
+}
+
+.v-runcard__head {
+    display: flex;
+    align-items: center;
+    gap: var(--kbq-size-s);
+    margin-bottom: var(--kbq-size-m);
+}
+
+.v-runcard__spacer {
+    flex: 1;
+}
+
+.v-runcard__title {
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 600;
+}
+
+.v-runcard__sub {
+    color: var(--kbq-foreground-contrast-secondary);
+}
+
+.v-runcard__time {
+    margin-top: var(--kbq-size-s);
+    text-align: right;
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--kbq-foreground-contrast-tertiary);
+}
+
+/* Prototype `.k-alert__title`: body size, medium weight (Koobiq compact uses a 16px heading). */
+.kbq-alert.kbq-alert_compact .kbq-alert__title {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+}
+
+.v-runcard__title_sub {
+    font-size: 18px;
+    line-height: 26px;
+}
+
+/* Prototype `.v-md`: the report is set in body size, denser than the Koobiq article markdown. */
+.v-runcard__md ::ng-deep {
+    .kbq-markdown__h1,
+    .kbq-markdown__h2,
+    .kbq-markdown__h3,
+    .kbq-markdown__h4,
+    .kbq-markdown__h5,
+    .kbq-markdown__h6 {
+        margin: var(--kbq-size-l) 0 6px;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 600;
+
+        &:first-child {
+            margin-top: 0;
+        }
+    }
+
+    .kbq-markdown__p,
+    .kbq-markdown__ul,
+    .kbq-markdown__ol {
+        margin: 0 0 var(--kbq-size-s);
+        font-size: 14px;
+        line-height: 20px;
+    }
+
+    .kbq-markdown__pre {
+        margin: 0 0 var(--kbq-size-s);
+        padding: var(--kbq-size-m);
+        font-size: 12px;
+        line-height: 16px;
+    }
+}
+
+/* Prototype `.k-spinner--big`: 32px with a 3px ring (Koobiq big is 48px). */
+.v-runcard__spinner,
+.v-runcard__spinner ::ng-deep .kbq-progress-spinner__inner {
+    width: 32px;
+    height: 32px;
+}
+
+.v-runcard__spinner ::ng-deep .kbq-progress-spinner__circle {
+    stroke-width: 9.4%;
+}

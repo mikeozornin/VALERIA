@@ -1,0 +1,133 @@
+:host {
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: var(--kbq-size-l) var(--kbq-size-xxl) var(--kbq-size-xxl);
+}
+
+.v-home__narrow {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 880px;
+    margin: 0 auto;
+    padding-top: var(--kbq-size-s);
+}
+
+.v-home__nofolder {
+    margin-bottom: var(--kbq-size-l);
+}
+
+.v-home__head {
+    margin: 0 0 var(--kbq-size-m);
+    font-size: 20px;
+    line-height: 28px;
+    font-weight: 600;
+    color: var(--kbq-foreground-contrast);
+}
+
+.v-home__presets,
+.v-home__presetbar,
+.v-home__bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--kbq-size-s);
+}
+
+.v-home__presets {
+    margin-bottom: var(--kbq-size-m);
+}
+
+.v-home__bar {
+    margin-top: var(--kbq-size-m);
+}
+
+.v-home__variant {
+    flex-direction: column;
+    align-items: flex-start;
+    height: auto;
+    white-space: normal;
+}
+
+.v-home__inputbox {
+    position: relative;
+
+    kbq-form-field {
+        display: block;
+        width: 100%;
+    }
+
+    textarea {
+        display: block;
+        width: 100%;
+        resize: none;
+        min-height: 56px;
+        padding-bottom: 44px;
+    }
+}
+
+.v-home__inputbox_preset {
+    margin-top: var(--kbq-size-l);
+}
+
+.v-home__send {
+    position: absolute;
+    z-index: 4;
+    right: var(--kbq-size-xs);
+    bottom: var(--kbq-size-xs);
+}
+
+.v-home__desc {
+    margin-top: var(--kbq-size-xs);
+    color: var(--kbq-foreground-contrast-secondary);
+}
+
+.v-home__hint {
+    margin-top: var(--kbq-size-xs);
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--kbq-foreground-contrast-secondary);
+}
+
+.v-home__hint-inline {
+    margin-left: var(--kbq-size-s);
+    color: var(--kbq-foreground-contrast-secondary);
+}
+
+.v-home__duplicate {
+    margin-top: var(--kbq-size-m);
+}
+
+.v-home__notify {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--kbq-size-s);
+    margin-top: var(--kbq-size-l);
+    color: var(--kbq-foreground-contrast-secondary);
+
+    i {
+        flex: none;
+        margin-top: 2px;
+    }
+}
+
+.v-home__model {
+    width: auto;
+    max-width: 260px;
+}
+
+/* Prototype `.k-btn--compact`: Koobiq has no compact button size. */
+.kbq-button.v-home__chip {
+    height: 24px;
+    min-height: 24px;
+    padding: 0 var(--kbq-size-s);
+    border-radius: 6px;
+}
+
+/* Prototype `.k-alert__title`: body size, medium weight (Koobiq compact uses a 16px heading). */
+.kbq-alert.kbq-alert_compact .kbq-alert__title {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+}

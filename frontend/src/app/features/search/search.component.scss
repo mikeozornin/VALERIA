@@ -1,0 +1,118 @@
+:host {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.v-search__overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 72px;
+    background: var(--kbq-background-overlay);
+}
+
+.v-palette {
+    display: flex;
+    flex-direction: column;
+    width: 640px;
+    max-width: calc(100% - 48px);
+    max-height: calc(100% - 120px);
+    border-radius: 12px;
+    background: var(--kbq-background-card);
+    box-shadow: var(--kbq-shadow-overlay);
+    color: var(--kbq-foreground-contrast);
+}
+
+.v-palette__head {
+    display: flex;
+    align-items: center;
+    gap: var(--kbq-size-m);
+    padding: var(--kbq-size-m) var(--kbq-size-m) var(--kbq-size-m) var(--kbq-size-l);
+    border-bottom: 1px solid var(--kbq-line-contrast-less);
+
+    i {
+        flex: none;
+    }
+}
+
+.v-palette__input {
+    flex: 1;
+    min-width: 0;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    background: none;
+    outline: none;
+    color: var(--kbq-foreground-contrast);
+    font: inherit;
+    font-size: 16px;
+    line-height: 24px;
+
+    &::placeholder {
+        color: var(--kbq-foreground-contrast-tertiary);
+    }
+}
+
+.v-palette__list {
+    overflow: auto;
+    padding: var(--kbq-size-s);
+}
+
+.v-palette__sec {
+    padding: var(--kbq-size-xs) 0;
+}
+
+.v-palette__cap {
+    padding: 6px var(--kbq-size-s);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--kbq-foreground-contrast-secondary);
+}
+
+.v-palette__item {
+    display: flex;
+    align-items: center;
+    gap: var(--kbq-size-m);
+    padding: var(--kbq-size-s);
+    border-radius: var(--kbq-size-s);
+    cursor: pointer;
+
+    > i {
+        flex: none;
+    }
+}
+
+.v-palette__item_active {
+    background: var(--kbq-states-background-transparent-hover);
+}
+
+.v-palette__main {
+    flex: 1;
+    min-width: 0;
+}
+
+.v-palette__title {
+    white-space: normal;
+}
+
+.v-palette__sub {
+    font-size: 13px;
+    line-height: 18px;
+    color: var(--kbq-foreground-contrast-secondary);
+}
+
+.v-palette__empty {
+    padding: var(--kbq-size-3xl) var(--kbq-size-l);
+}
+
+.v-palette__empty-icon {
+    color: var(--kbq-icon-contrast-fade);
+}

@@ -14,6 +14,10 @@ const placeholder = () => import('./shared/placeholder/placeholder.component').t
 const accessDenied = () =>
     import('./shared/access-denied/access-denied.component').then((m) => m.AccessDeniedComponent);
 
+const home = () => import('./features/home/home.component').then((m) => m.HomeComponent);
+const search = () => import('./features/search/search.component').then((m) => m.SearchComponent);
+const taskRun = () => import('./features/task-run/task-run.component').then((m) => m.TaskRunComponent);
+
 function screen(path: string, name: string): Route {
     return { path, loadComponent: placeholder, data: { screen: name } };
 }
@@ -35,11 +39,11 @@ function withDirtyGuard(routes: Route[]): Route[] {
 export const FOLDER_SECTION = 'Работа в папке';
 
 const shellRoutes: Route[] = withDirtyGuard([
-    screen('', 'Новый запрос'),
-    screen('new/:taskId', 'Новый запрос'),
-    screen('search', 'Поиск и команды'),
+    { ...screen('', 'Новый запрос'), loadComponent: home },
+    { ...screen('new/:taskId', 'Новый запрос'), loadComponent: home },
+    { ...screen('search', 'Поиск и команды'), loadComponent: search },
     screen('questions/:id', 'Вопрос'),
-    screen('tasks/runs/:id', 'Запуск задачи'),
+    { ...screen('tasks/runs/:id', 'Запуск задачи'), loadComponent: taskRun },
     { ...screen('folder/:id', FOLDER_SECTION), canMatch: [notTasksOnlyMatch] },
     denied('folder/:id', FOLDER_SECTION, 'tasks-only'),
 
