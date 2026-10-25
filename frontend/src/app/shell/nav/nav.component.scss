@@ -1,0 +1,265 @@
+// Side menu. Encapsulation is off because the rules restyle Koobiq navbar internals; every selector is
+// scoped by `.v-nav`. Sizes follow the prototype (`.k-navbar`): 240 px, 8 px inset, 32 px rows, 2 px gap.
+// Unlike the prototype (whole menu scrolls), only the chat list scrolls; the user block is pinned (product decision).
+
+.v-nav-host {
+    display: flex;
+    flex: none;
+    height: 100%;
+}
+
+.v-nav.kbq-vertical-navbar {
+    height: 100%;
+
+    .kbq-vertical-navbar__container {
+        background: var(--kbq-background-bg-tertiary);
+        border-right: 1px solid var(--kbq-line-contrast-less);
+        justify-content: flex-start;
+    }
+
+    // Three containers: the top (brand, search, «Новый запрос») and the bottom («Система», user) stay pinned,
+    // only the list between them scrolls. Selectors carry the container class to beat Koobiq's
+    // `.kbq-navbar-container + .kbq-navbar-container` paddings.
+    .kbq-navbar-container.v-nav__top,
+    .kbq-navbar-container.v-nav__list,
+    .kbq-navbar-container.v-nav__bottom {
+        // Koobiq's flex rule for containers ships with the horizontal navbar only; set it here
+        display: flex;
+        flex-direction: column;
+        gap: var(--kbq-size-3xs);
+        margin: 0;
+        padding: 0;
+    }
+
+    .kbq-navbar-container.v-nav__top {
+        flex: none;
+        padding-top: var(--kbq-size-s);
+    }
+
+    .kbq-navbar-container.v-nav__list {
+        flex: 1 1 auto;
+        padding-top: var(--kbq-size-3xs);
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    .kbq-navbar-container.v-nav__bottom {
+        flex: none;
+        padding: var(--kbq-size-xxs) 0 var(--kbq-size-s);
+    }
+
+    .v-nav__spacer {
+        flex: 1 1 0;
+    }
+
+    // Rows
+    .kbq-navbar-item.kbq-vertical {
+        flex: none;
+        height: var(--kbq-size-3xl);
+        padding: 0 var(--kbq-size-l);
+        gap: var(--kbq-size-s);
+        // Rows are <a>/<button>: drop the UA link colour and button font
+        color: var(--kbq-foreground-contrast);
+        font: inherit;
+        text-decoration: none;
+
+        // The prototype rows use regular text weight; the Koobiq navbar title is medium
+        .kbq-navbar-title {
+            font-weight: var(--kbq-typography-text-normal-font-weight);
+        }
+
+        &::after {
+            top: 0;
+            bottom: 0;
+        }
+
+        .kbq-navbar-item__container {
+            gap: var(--kbq-size-s);
+        }
+
+        > .kbq-icon.kbq-empty {
+            color: var(--kbq-icon-contrast-fade) !important;
+        }
+
+        &.kbq-active > .kbq-icon.kbq-empty {
+            color: var(--kbq-icon-contrast) !important;
+        }
+    }
+
+    .v-nav__brand {
+        display: flex;
+        align-items: center;
+        gap: var(--kbq-size-s);
+        height: var(--kbq-size-4xl);
+        padding: 0 var(--kbq-size-l);
+        margin-bottom: var(--kbq-size-s);
+        color: var(--kbq-foreground-contrast);
+        font-weight: 600;
+        flex: none;
+    }
+
+    .v-nav__logo {
+        width: var(--kbq-size-xxl);
+        height: var(--kbq-size-xxl);
+        border-radius: var(--kbq-size-xs);
+        background: var(--kbq-background-theme);
+        flex: none;
+    }
+
+    // «Поиск и команды»: a bordered field-like row (prototype `.v-search`)
+    .kbq-navbar-item.kbq-vertical.v-nav__search {
+        height: auto;
+        margin: var(--kbq-size-xxs) var(--kbq-size-s);
+        padding: var(--kbq-size-xs) calc(var(--kbq-size-s) + var(--kbq-size-3xs));
+        border: 1px solid var(--kbq-line-contrast-less);
+        border-radius: var(--kbq-size-s);
+        background: var(--kbq-background-bg);
+
+        &::after {
+            inset: 0;
+        }
+
+        .kbq-navbar-title {
+            color: var(--kbq-foreground-contrast-secondary);
+        }
+    }
+
+    // «Новый запрос»: theme-fade button (prototype `.k-btn--theme-fade`); Koobiq 20.4 has no filled theme-fade
+    // style, so the transparent theme button gets the fade background from tokens.
+    .kbq-navbar-item.kbq-vertical.v-nav__newreq-item {
+        height: auto;
+        padding: var(--kbq-size-xxs) var(--kbq-size-s) var(--kbq-size-s);
+        cursor: default;
+    }
+
+    .v-nav__newreq.kbq-button {
+        width: 100%;
+        justify-content: flex-start;
+        background: var(--kbq-background-theme-fade);
+
+        &:hover:not(.kbq-disabled) {
+            background: var(--kbq-states-background-theme-fade-hover);
+        }
+
+        &:active:not(.kbq-disabled) {
+            background: var(--kbq-states-background-theme-fade-active);
+        }
+
+        .kbq-button-wrapper {
+            justify-content: flex-start;
+        }
+    }
+
+    .v-nav__newreq_active.kbq-button {
+        box-shadow: inset 0 0 0 1px var(--kbq-line-theme);
+    }
+
+    .v-nav__section {
+        flex: none;
+        padding: var(--kbq-size-m) var(--kbq-size-l) var(--kbq-size-xxs);
+        color: var(--kbq-foreground-contrast-secondary);
+    }
+
+    // Chat rows: status (or return time) on the right; «…» replaces it on hover, focus and while the menu is open
+    .v-nav__st {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+    }
+
+    .v-nav__when {
+        color: var(--kbq-foreground-contrast-tertiary);
+    }
+
+    .v-nav__chat .v-nav__more {
+        display: none;
+        // Above the item's ::after state layer, which would otherwise take the click (and navigate)
+        position: relative;
+        z-index: 1;
+    }
+
+    .v-nav__chat:is(:hover, :focus-visible, .cdk-keyboard-focused, .v-nav__chat_menu) {
+        .v-nav__more {
+            display: inline-flex;
+        }
+
+        .v-nav__st {
+            display: none;
+        }
+    }
+
+    // Collapsible blocks «Отложенные» / «Архив»
+    .v-nav__fold {
+        .kbq-navbar-title {
+            color: var(--kbq-foreground-contrast-secondary);
+        }
+
+        > .kbq-icon.kbq-empty {
+            color: var(--kbq-icon-contrast-fade) !important;
+        }
+    }
+
+    .v-nav__count {
+        flex: none;
+        color: var(--kbq-foreground-contrast-tertiary);
+    }
+
+    // User block
+    .v-nav__user {
+        justify-content: flex-start;
+        color: var(--kbq-foreground-contrast);
+    }
+
+    .v-nav__avatar {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: var(--kbq-size-xxl);
+        height: var(--kbq-size-xxl);
+        border-radius: 50%;
+        background: var(--kbq-background-theme-fade);
+        color: var(--kbq-foreground-theme);
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .v-nav__user-name {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+// Menus of the bottom block (rendered in an overlay, outside `.v-nav`). The trigger rows span the full nav
+// width while their state layer is inset; the panel lines up with the visible row, as in the prototype.
+// Koobiq stretches the pane to the trigger width (`min-width: max(200px, 100%)` on the panel).
+.kbq-dropdown__panel.v-nav__menu {
+    min-width: max(var(--kbq-dropdown-size-container-width-min), calc(100% - 2 * var(--kbq-size-s)));
+    margin-left: var(--kbq-size-s);
+}
+
+// Theme items: the hint sits on the right of the label (Koobiq stacks item text in a column)
+.kbq-dropdown-item.v-nav__theme {
+    .kbq-dropdown-item__text {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: row;
+        align-items: baseline;
+        gap: var(--kbq-size-l);
+    }
+
+    .v-nav__theme-label {
+        flex: 1 1 auto;
+    }
+
+    .v-nav__hint {
+        color: var(--kbq-foreground-contrast-tertiary);
+    }
+
+    .v-nav__check_off {
+        visibility: hidden;
+    }
+}
