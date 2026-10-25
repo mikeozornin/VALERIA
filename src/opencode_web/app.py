@@ -85,6 +85,9 @@ class UserProfileUpdateBody(BaseModel):
     mattermost_username: str | None = Field(default=None, max_length=23)
 
 
+TERMINAL_OUTCOMES = frozenset({"completed", "failed", "cancelled"})
+
+
 class UserBatchBody(BaseModel):
     ids: list[str] = Field(min_length=1, max_length=500)
     status: Literal["active", "blocked"]
@@ -2033,6 +2036,43 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             "day": selected_day.isoformat(),
             "timezone": timezone,
             **db.task_statistics(start.isoformat(), end.isoformat()),
+        }
+
+    @app.get("/api/admin/statistics/runs")
+    async def admin_statistics_runs(
+        principal: Annotated[dict[str, Any], Depends(admin_read_principal)],
+        db: Annotated[Database, Depends(database)],
+        start: Annotated[str | None, Query(alias="from")] = None,
+        end: Annotated[str | None, Query(alias="to")] = None,
+        kind: Annotated[str, Query(alias="type")] = "",
+        timezone: str = "UTC",
+    ) -> dict[str, Any]:
+        try:
+            created_from, created_to = time_range(start, end, timezone)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        kind = kind.strip()
+        rows = db.list_statistics_runs(
+            kind=kind if kind in {"question", "task"} else None,
+            task_id=kind if kind not in {"", "question", "task"} else None,
+            created_from=created_from,
+            created_to=created_to,
+        )
+        return {
+            "items": [
+                {
+                    "id": row["id"],
+                    "kind": "task" if row["task_id"] else "question",
+                    "task_id": row["task_id"],
+                    "task_title": row["task_title"],
+                    "created_at": row["created_at"],
+                    "started_at": row["started_at"],
+                    "finished_at": row["finished_at"],
+                    "outcome": row["status"] if row["status"] in TERMINAL_OUTCOMES else None,
+                }
+                for row in rows
+            ],
+            "generated_at": datetime.now(UTC).isoformat(),
         }
 
     @app.get("/api/admin/queue")

@@ -1743,6 +1743,42 @@ class Database:
             (start, end),
         ) or {}
 
+    def list_statistics_runs(
+        self,
+        *,
+        kind: str | None = None,
+        task_id: str | None = None,
+        created_from: str | None = None,
+        created_to: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Every question and task run, deleted chats included; deduplicated launches
+        that never ran are left out."""
+        conditions = [
+            "(q.task_id IS NOT NULL OR (c.kind = 'chat' AND c.consultation = 1))",
+            "COALESCE(q.error_code, '') != 'duplicate_task'",
+        ]
+        params: list[Any] = []
+        if kind == "question":
+            conditions.append("q.task_id IS NULL")
+        elif kind == "task":
+            conditions.append("q.task_id IS NOT NULL")
+        if task_id:
+            conditions.append("q.task_id = ?")
+            params.append(task_id)
+        if created_from:
+            conditions.append("julianday(q.created_at) >= julianday(?)")
+            params.append(created_from)
+        if created_to:
+            conditions.append("julianday(q.created_at) < julianday(?)")
+            params.append(created_to)
+        return self._all(
+            f"""SELECT q.id, q.task_id, q.task_title, q.status, q.created_at, q.started_at,
+                       q.finished_at
+                FROM queue_jobs q JOIN chats c ON c.id = q.chat_id
+                WHERE {' AND '.join(conditions)} ORDER BY q.sequence""",
+            tuple(params),
+        )
+
     def get_task_run(self, run_id: str) -> dict[str, Any] | None:
         job = self.get_job(run_id)
         return job if job and job["task_id"] is not None else None
