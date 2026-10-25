@@ -71,6 +71,20 @@ def public_item(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def public_admin_request(row: dict[str, Any]) -> dict[str, Any]:
+    """`/api/admin/requests` row; soft-deleted chats stay listed with `deleted_at`."""
+    item = public_item(row)
+    return {
+        **{key: item[key] for key in ("kind", "id", "chat_id", "title", "status")},
+        "user": {"id": row["owner_user_id"], "login": row["owner_login"]},
+        "task_id": item["task_id"],
+        "task_title": row.get("task_title") if item["task_id"] else None,
+        "created_at": item["created_at"],
+        "updated_at": item["updated_at"],
+        "deleted_at": row.get("deleted_at"),
+    }
+
+
 def allowed_item_kinds(user: dict[str, Any]) -> tuple[str, ...]:
     return ("question", "task") if user.get("tasks_only") else ITEM_KINDS
 

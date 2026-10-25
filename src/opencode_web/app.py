@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime, BaseModel, Field
@@ -24,12 +24,15 @@ from .database import (
 )
 from .dispatcher import QueueDispatcher
 from .events import EventBroker
+from .filters import matches_search, search_tokens, time_range
 from .items import (
     CHAT_EVENT_TYPES,
+    ITEM_KINDS,
     allowed_item_kinds,
     chat_event_for_user,
     job_kind,
     job_status,
+    public_admin_request,
     public_error_code,
     public_item,
     public_queue_job,
@@ -45,7 +48,7 @@ from .notifications import (
 )
 from .opencode_client import OpenCodeError, OpenCodeManager
 from .questions import question_event, session_questions, validate_answers
-from .security import new_token, verify_password
+from .security import new_token, normalize_login, verify_password
 from .submissions import submission
 from .task_results import task_final_answer
 
@@ -1521,6 +1524,58 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             raise HTTPException(409, "Chat is not running")
         job = await request.app.state.dispatcher.stop_job(active["id"])
         return {"aborted": bool(job and job["status"] == "cancelled")}
+
+    @app.get("/api/me/items")
+    async def my_items(
+        principal: Annotated[dict[str, Any], Depends(current_principal)],
+        db: Annotated[Database, Depends(database)],
+    ) -> list[dict[str, Any]]:
+        user = principal["user"]
+        rows = db.list_items(
+            owner_id=user["id"],
+            workspace=user.get("workspace_path"),
+            kinds=allowed_item_kinds(user),
+        )
+        return [public_item(row) for row in rows]
+
+    @app.get("/api/admin/requests")
+    async def admin_requests(
+        principal: Annotated[dict[str, Any], Depends(admin_read_principal)],
+        db: Annotated[Database, Depends(database)],
+        user: str = "",
+        start: Annotated[str | None, Query(alias="from")] = None,
+        end: Annotated[str | None, Query(alias="to")] = None,
+        kind: Annotated[str, Query(alias="type")] = "",
+        task: str | None = None,
+        q: str = "",
+        timezone: str = "UTC",
+    ) -> list[dict[str, Any]]:
+        kinds = list(dict.fromkeys(part.strip() for part in kind.split(",") if part.strip()))
+        if unknown := [value for value in kinds if value not in ITEM_KINDS]:
+            raise HTTPException(422, f"Unknown type: {', '.join(unknown)}")
+        try:
+            created_from, created_to = time_range(start, end, timezone)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        logins = [normalize_login(part) for part in user.split(",") if part.strip()]
+        rows = db.list_items(
+            owner_logins=logins or None,
+            kinds=kinds or None,
+            task_id=task or None,
+            created_from=created_from,
+            created_to=created_to,
+            include_deleted=True,
+        )
+        tokens = search_tokens(q)
+        result = []
+        for row in rows:
+            request_row = public_admin_request(row)
+            if matches_search(
+                tokens, request_row["title"], request_row["user"]["login"],
+                request_row["task_title"],
+            ):
+                result.append(request_row)
+        return result
 
     def chat_action_audit(
         db: Database, user: dict[str, Any], action: str, item: dict[str, Any],
