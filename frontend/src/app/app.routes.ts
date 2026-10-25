@@ -29,13 +29,9 @@ function denied(path: string, section: string, reason: DeniedReason): Route {
 }
 
 /** Admin screen + its access-denied twin. `section` is the «Система» item the path belongs to. */
-function admin(path: string, section: string, name = section): Route[] {
-    return [{ ...screen(path, name), canMatch: [adminMatch] }, denied(path, section, 'admin')];
-}
-
-/** Replaces the placeholder of the real (first) route of an `admin()` pair with the screen's component. */
-function loaded(load: NonNullable<Route['loadComponent']>, routes: Route[]): Route[] {
-    return routes.map((r, i) => (i === 0 ? { ...r, loadComponent: load } : r));
+function admin(path: string, section: string, name = section, load?: Route['loadComponent']): Route[] {
+    const real = { ...screen(path, name), canMatch: [adminMatch] };
+    return [load ? { ...real, loadComponent: load } : real, denied(path, section, 'admin')];
 }
 
 /** Adds the app-wide unsaved-changes guard to every leaf route. */
@@ -54,36 +50,44 @@ const shellRoutes: Route[] = withDirtyGuard([
     { ...screen('folder/:id', FOLDER_SECTION), loadComponent: folder, canMatch: [notTasksOnlyMatch] },
     denied('folder/:id', FOLDER_SECTION, 'tasks-only'),
 
-    ...admin('admin/statistics', 'Статистика'),
-    ...loaded(
-        () => import('./features/admin/users/users.component').then((m) => m.UsersComponent),
-        admin('admin/users', 'Пользователи'),
+    ...admin('admin/statistics', 'Статистика', 'Статистика', () =>
+        import('./features/admin/statistics/statistics.component').then((m) => m.StatisticsComponent),
     ),
-    ...loaded(
-        () => import('./features/admin/users/user-create.component').then((m) => m.UserCreateComponent),
-        admin('admin/users/new', 'Пользователи', 'Новый пользователь'),
+    ...admin('admin/users', 'Пользователи', 'Пользователи', () =>
+        import('./features/admin/users/users.component').then((m) => m.UsersComponent),
     ),
-    ...loaded(
-        () => import('./features/admin/users/user-edit.component').then((m) => m.UserEditComponent),
-        admin('admin/users/:login/edit', 'Пользователи', 'Изменение пользователя'),
+    ...admin('admin/users/new', 'Пользователи', 'Новый пользователь', () =>
+        import('./features/admin/users/user-create.component').then((m) => m.UserCreateComponent),
     ),
-    ...admin('admin/tasks', 'Настройка задач'),
-    ...admin('admin/tasks/new', 'Настройка задач', 'Новая задача'),
-    ...admin('admin/tasks/:id', 'Настройка задач', 'Задача'),
-    ...admin('admin/queue', 'Очередь'),
-    ...admin('admin/queue/settings', 'Очередь', 'Настройки очереди'),
-    ...admin('admin/queue/settings/edit', 'Очередь', 'Изменение настроек очереди'),
-    ...loaded(
-        () => import('./features/admin/requests/requests.component').then((m) => m.RequestsComponent),
-        admin('admin/requests', 'Запросы пользователей'),
+    ...admin('admin/users/:login/edit', 'Пользователи', 'Изменение пользователя', () =>
+        import('./features/admin/users/user-edit.component').then((m) => m.UserEditComponent),
     ),
-    ...loaded(
-        () => import('./features/admin/requests/request-view.component').then((m) => m.RequestViewComponent),
-        admin('admin/requests/:id', 'Запросы пользователей', 'Запрос'),
+    ...admin('admin/tasks', 'Настройка задач', 'Настройка задач', () =>
+        import('./features/admin/tasks/task-list.component').then((m) => m.TaskListComponent),
     ),
-    ...loaded(
-        () => import('./features/admin/audit/audit.component').then((m) => m.AuditComponent),
-        admin('admin/audit', 'Аудит'),
+    ...admin('admin/tasks/new', 'Настройка задач', 'Новая задача', () =>
+        import('./features/admin/tasks/task-form.component').then((m) => m.TaskFormComponent),
+    ),
+    ...admin('admin/tasks/:id', 'Настройка задач', 'Задача', () =>
+        import('./features/admin/tasks/task-form.component').then((m) => m.TaskFormComponent),
+    ),
+    ...admin('admin/queue', 'Очередь', 'Очередь', () =>
+        import('./features/admin/queue/queue-live.component').then((m) => m.QueueLiveComponent),
+    ),
+    ...admin('admin/queue/settings', 'Очередь', 'Настройки очереди', () =>
+        import('./features/admin/queue/queue-settings.component').then((m) => m.QueueSettingsComponent),
+    ),
+    ...admin('admin/queue/settings/edit', 'Очередь', 'Изменение настроек очереди', () =>
+        import('./features/admin/queue/queue-edit.component').then((m) => m.QueueEditComponent),
+    ),
+    ...admin('admin/requests', 'Запросы пользователей', 'Запросы пользователей', () =>
+        import('./features/admin/requests/requests.component').then((m) => m.RequestsComponent),
+    ),
+    ...admin('admin/requests/:id', 'Запросы пользователей', 'Запрос', () =>
+        import('./features/admin/requests/request-view.component').then((m) => m.RequestViewComponent),
+    ),
+    ...admin('admin/audit', 'Аудит', 'Аудит', () =>
+        import('./features/admin/audit/audit.component').then((m) => m.AuditComponent),
     ),
     // Any other path inside the app: home (no extra «not found» screen in SPEC §5 besides «Чат не найден»).
     { path: '**', redirectTo: '' },
