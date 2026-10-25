@@ -97,7 +97,7 @@ const CUSTOM = '\u0000custom';
             background: var(--kbq-background-bg);
         }
         .v-qcard__head { display: flex; align-items: center; gap: var(--kbq-size-s); font-weight: 600; }
-        .v-qcard__question { margin: var(--kbq-size-s) 0 0; }
+        .v-qcard__question { margin: 0; }
         .v-qcard__options { display: flex; flex-direction: column; gap: var(--kbq-size-s); margin-top: var(--kbq-size-s); }
         .v-qcard__options kbq-radio-group { display: flex; flex-direction: column; gap: var(--kbq-size-s); }
         .v-qcard__custom { display: block; width: 100%; }

@@ -67,6 +67,7 @@ import {
     upsertPart,
     workingText,
 } from './folder.model';
+import { PRIMARY_BUTTON_CSS } from '../../shared/chat-composer/primary-button';
 
 interface ViewMessage {
     id: string;
@@ -268,7 +269,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                         </div>
                                     } @else if (phase() === 'clarify' && pendingQuestion(); as q) {
                                         <v-clarify-card [request]="q" [submit]="reply" />
-                                    } @else {
+                                    } @else if (phase() !== 'permission' && phase() !== 'clarify') {
                                         <v-chat-composer
                                             [draftKey]="'folder:' + id()"
                                             placeholder="Сообщение агенту"
@@ -333,7 +334,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                         <span><i kbq-icon="kbq-check-circle_16" [color]="colors.Success"></i>{{ s.name }}</span>
                                     } @else {
                                         <span
-                                            ><i kbq-icon="kbq-triangle-exclamation_16" [color]="colors.Warning"></i>{{ s.name }} ·
+                                            ><i kbq-icon="kbq-circle-exclamation_16" [color]="colors.Warning"></i>{{ s.name }} ·
                                             переподключается</span
                                         >
                                     }
@@ -347,7 +348,9 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
             </div>
         }
     `,
-    styles: `
+    styles: [
+        PRIMARY_BUTTON_CSS,
+        `
         :host { display: flex; flex-direction: column; min-height: 0; }
         .v-row { flex: 1 1 auto; display: flex; min-height: 0; }
         .v-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
@@ -362,7 +365,8 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
         }
         .v-secondary { color: var(--kbq-foreground-contrast-secondary); }
         .v-tertiary { color: var(--kbq-foreground-contrast-tertiary); }
-        .v-titleic { display: inline-flex; align-items: center; border-radius: var(--kbq-size-xxs); }
+        .v-titleic { display: inline-flex; flex: none; align-items: center; margin-right: var(--kbq-size-s); border-radius: var(--kbq-size-xxs); }
+        .v-titleic .kbq-icon { font-size: 20px; width: 20px; height: 20px; }
         .v-titleic:focus-visible { outline: 2px solid var(--kbq-states-line-focus-theme); outline-offset: 2px; }
         .v-modeline {
             margin: var(--kbq-size-m) 0 calc(-1 * var(--kbq-size-xxs));
@@ -392,12 +396,12 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
         .v-perm__acts { display: flex; flex-wrap: wrap; gap: var(--kbq-size-s); margin-top: var(--kbq-size-m); }
         .v-code {
             margin: var(--kbq-size-s) 0 0;
-            padding: var(--kbq-size-s) var(--kbq-size-m);
+            padding: var(--kbq-size-m);
             border-radius: var(--kbq-size-s);
-            background: var(--kbq-background-contrast-fade);
+            background: var(--kbq-background-bg-secondary);
             font-family: var(--kbq-typography-mono-normal-font-family, monospace);
-            font-size: 13px;
-            line-height: 20px;
+            font-size: 12px;
+            line-height: 16px;
             white-space: pre-wrap;
             word-break: break-word;
         }
@@ -405,10 +409,11 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
         .v-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--kbq-size-s); margin-top: var(--kbq-size-m); }
         .v-select { width: auto; min-width: 0; max-width: 260px; }
         .v-hint { margin-left: auto; padding-left: var(--kbq-size-l); color: var(--kbq-foreground-contrast-tertiary); font-size: 12px; }
-        .v-mono { font-family: var(--kbq-typography-mono-normal-font-family, monospace); word-break: break-all; }
+        kbq-dd.v-mono { font-family: var(--kbq-typography-mono-normal-font-family, monospace); word-break: break-all; }
         .v-mcp { display: flex; flex-direction: column; gap: var(--kbq-size-xxs); }
         .v-mcp span { display: inline-flex; align-items: center; gap: 6px; }
     `,
+    ],
 })
 export class FolderComponent {
     /** Route param (`withComponentInputBinding`). */
