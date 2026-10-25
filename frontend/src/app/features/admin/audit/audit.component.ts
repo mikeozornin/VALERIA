@@ -24,8 +24,7 @@ import { KbqTableModule } from '@koobiq/components/table';
 import { ApiService } from '../../../core/api/api.service';
 import { matches, tokenize } from '../../../core/search/search';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
-import { cpanelWidth } from '../../../shell/aside/panel-width';
-import { AdminCpanelSaveDirective } from '../shared/cpanel-save.directive';
+import { cpanelWidth, CpanelWidthDirective } from '../../../shell/aside/panel-width';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { AdminRequest, AdminTask, AdminUser } from '../shared/admin.models';
 import { AdminSearchComponent } from '../shared/admin-search.component';
@@ -62,7 +61,7 @@ interface AuditRow extends AuditEvent {
         ScreenHeaderComponent,
         PageStateComponent,
         AdminSearchComponent,
-        AdminCpanelSaveDirective,
+        CpanelWidthDirective,
         KbqFilterBarModule,
         KbqTableModule,
         KbqButtonModule,
@@ -181,7 +180,7 @@ interface AuditRow extends AuditEvent {
 
                 <kbq-content-panel>
                     @if (selected(); as a) {
-                        <kbq-content-panel-header [vAdminCpanelSave]="panel">
+                        <kbq-content-panel-header [vCpanelWidth]="panel">
                             <div kbqContentPanelHeaderTitle class="v-panel-title">{{ a.label }}</div>
                         </kbq-content-panel-header>
                     }

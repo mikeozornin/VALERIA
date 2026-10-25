@@ -1,4 +1,16 @@
-import { computed, DestroyRef, Directive, ElementRef, inject, Injectable, input, NgZone, signal, Signal } from '@angular/core';
+import {
+    afterEveryRender,
+    computed,
+    DestroyRef,
+    Directive,
+    ElementRef,
+    inject,
+    Injectable,
+    input,
+    NgZone,
+    signal,
+    Signal,
+} from '@angular/core';
 import { CPANEL_WIDTH, cpanelWidthKey, UiStateService } from '../../core/state/ui-state.service';
 
 /** Width of the expanded vertical navbar (Koobiq `.kbq-vertical-navbar__container.kbq-expanded`). */
@@ -72,9 +84,11 @@ export function cpanelWidth(screen: string): CpanelWidth {
 }
 
 /**
- * Put on `kbq-content-panel`: watches the Koobiq panel wrapper (its parent, which the built-in resizer resizes)
- * with a `ResizeObserver`, debounced 300 ms, and saves user-made width changes. The container has no width
- * output in Koobiq 20.4.2, hence the observer (SPEC §6.4).
+ * Put on `kbq-content-panel` (or any element inside it): watches the Koobiq panel wrapper
+ * (`.kbq-content-panel-container__panel`, which the built-in resizer resizes) with a `ResizeObserver`, debounced
+ * 300 ms, and saves user-made width changes. The container has no width output in Koobiq 20.4.2, hence the
+ * observer (SPEC §6.4). The wrapper is rendered only while the panel is open (`@if (openedState())`), so it is
+ * looked up after every render and re-attached when the panel opens again.
  */
 @Directive({ selector: '[vCpanelWidth]' })
 export class CpanelWidthDirective {
@@ -85,29 +99,39 @@ export class CpanelWidthDirective {
         const zone = inject(NgZone);
         let timer: ReturnType<typeof setTimeout> | null = null;
         let observer: ResizeObserver | null = null;
-        const destroyRef = inject(DestroyRef);
+        let target: HTMLElement | null = null;
 
-        queueMicrotask(() => {
-            const target = host.parentElement;
-            if (!target || typeof ResizeObserver === 'undefined' || observer) return;
-            zone.runOutsideAngular(() => {
-                observer = new ResizeObserver((entries) => {
-                    const box = entries[entries.length - 1].borderBoxSize?.[0];
-                    const observed = Math.round(box ? box.inlineSize : target.getBoundingClientRect().width);
-                    if (timer) clearTimeout(timer);
-                    timer = setTimeout(() => {
-                        const panel = this.panel();
-                        if (panel.squeezed() || observed === panel.width() || observed <= 0) return;
-                        zone.run(() => panel.save(observed));
-                    }, 300);
-                });
-                observer.observe(target, { box: 'border-box' });
-            });
-        });
-
-        destroyRef.onDestroy(() => {
+        const stop = () => {
             observer?.disconnect();
+            observer = null;
+            target = null;
             if (timer) clearTimeout(timer);
+            timer = null;
+        };
+
+        afterEveryRender({
+            read: () => {
+                const wrapper = host.closest<HTMLElement>('.kbq-content-panel-container__panel');
+                if (wrapper === target) return;
+                stop();
+                if (!wrapper || typeof ResizeObserver === 'undefined') return;
+                target = wrapper;
+                zone.runOutsideAngular(() => {
+                    observer = new ResizeObserver((entries) => {
+                        const box = entries[entries.length - 1].borderBoxSize?.[0];
+                        const observed = Math.round(box ? box.inlineSize : wrapper.getBoundingClientRect().width);
+                        if (timer) clearTimeout(timer);
+                        timer = setTimeout(() => {
+                            const panel = this.panel();
+                            if (panel.squeezed() || observed === panel.width() || observed <= 0) return;
+                            zone.run(() => panel.save(observed));
+                        }, 300);
+                    });
+                    observer.observe(wrapper, { box: 'border-box' });
+                });
+            },
         });
+
+        inject(DestroyRef).onDestroy(stop);
     }
 }

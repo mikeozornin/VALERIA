@@ -37,8 +37,7 @@ import { matches, tokenize } from '../../../core/search/search';
 import { describeError } from '../../../core/status/error-codes';
 import { KIND_ICON, statusLabel } from '../../../core/status/status';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
-import { cpanelWidth } from '../../../shell/aside/panel-width';
-import { AdminCpanelSaveDirective } from '../shared/cpanel-save.directive';
+import { cpanelWidth, CpanelWidthDirective } from '../../../shell/aside/panel-width';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import {
     accountType,
@@ -79,7 +78,7 @@ const RECENT_LIMIT = 20;
         KbqIconModule,
         KbqToolTipModule,
         KbqContentPanelModule,
-        AdminCpanelSaveDirective,
+        CpanelWidthDirective,
         KbqDlModule,
         KbqEmptyStateModule,
         KbqActionsPanelModule,
@@ -183,7 +182,7 @@ const RECENT_LIMIT = 20;
 
                 <kbq-content-panel>
                     @if (focused(); as u) {
-                        <kbq-content-panel-header [vAdminCpanelSave]="panel">
+                        <kbq-content-panel-header [vCpanelWidth]="panel">
                             <div kbqContentPanelHeaderTitle class="v-panel-title v-mono">{{ u.login }}</div>
                         </kbq-content-panel-header>
                     }
