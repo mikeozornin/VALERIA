@@ -237,7 +237,7 @@ async def test_tasks_only_reaches_only_chat_actions(ui_app):
     for method, path in (
         ("GET", base), ("GET", f"{base}/messages"), ("POST", f"{base}/abort"),
         ("GET", f"/api/chats/{question['chat_id']}"), ("GET", "/api/chats"),
-        ("POST", "/api/chats/title-sync"), ("GET", "/api/queue/me"),
+        ("POST", "/api/chats/title-sync"),
     ):
         assert (await t.client.request(method, path)).status_code == 403, (method, path)
     archived = await t.client.post(f"/api/chats/{question['chat_id']}/archive")

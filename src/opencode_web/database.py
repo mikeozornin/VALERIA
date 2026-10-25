@@ -1651,6 +1651,15 @@ class Database:
         query += " ORDER BY q.sequence DESC LIMIT 500"
         return self._all(query, params)
 
+    def queue_positions(self) -> dict[str, int]:
+        """1-based place of every queued job, in the order `claim_next_job` prefers."""
+        rows = self._all(
+            """SELECT q.id FROM queue_jobs q JOIN work_queues w ON w.id = q.queue_id
+               WHERE q.status = 'queued'
+               ORDER BY (q.resume_content IS NOT NULL) DESC, w.priority DESC, q.sequence"""
+        )
+        return {row["id"]: position for position, row in enumerate(rows, start=1)}
+
     def list_queue_overview_jobs(self) -> list[dict[str, Any]]:
         """Return the bounded projection used by the global queue screen."""
         return self._all(

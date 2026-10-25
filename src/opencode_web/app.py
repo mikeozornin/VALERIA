@@ -28,7 +28,11 @@ from .items import (
     CHAT_EVENT_TYPES,
     allowed_item_kinds,
     chat_event_for_user,
+    job_kind,
+    job_status,
+    public_error_code,
     public_item,
+    public_queue_job,
     publish_chat_deleted,
     publish_chat_updated,
     task_phase,
@@ -232,20 +236,17 @@ async def mattermost_identity(
 
 
 def public_task_run(job: dict[str, Any]) -> dict[str, Any]:
-    state = job["status"]
     return {
         "id": job["id"],
         "task_id": job["task_id"],
         "plan_first": bool(job.get("plan_first")),
         "phase": task_phase(job),
         "title": task_run_display_title(job),
-        "status": (
-            state if state in {
-                "queued", "dispatching", "completed", "failed", "cancelled", "cancelling"
-            }
-            else "running"
-        ),
+        "status": job_status(job["status"]),
+        "user_input": job.get("user_input") or None,
+        "error_code": public_error_code(job.get("error_code")),
         "created_at": job["created_at"],
+        "started_at": job.get("started_at"),
         "finished_at": job["finished_at"],
     }
 
@@ -556,7 +557,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             request.url.path.startswith("/api/auth/")
             or request.url.path in {
                 "/api/config/public", "/api/events", "/api/profile", "/api/tasks",
-                "/api/consultations", "/api/me/items",
+                "/api/consultations", "/api/me/items", "/api/queue/me",
             }
             or request.url.path.startswith((
                 "/api/tasks/", "/api/task-runs", "/api/consultations/",
@@ -1458,9 +1459,13 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         principal: Annotated[dict[str, Any], Depends(current_principal)],
         db: Annotated[Database, Depends(database)],
     ) -> list[dict[str, Any]]:
-        return [job for job in db.list_jobs(principal["user"]["id"])
-                if not job.get("task_id") and not job.get("consultation")
-                and not job.get("chat_deleted_at")]
+        kinds = allowed_item_kinds(principal["user"])
+        positions = db.queue_positions()
+        return [
+            public_queue_job(job, positions.get(job["id"]))
+            for job in db.list_jobs(principal["user"]["id"])
+            if not job.get("chat_deleted_at") and job_kind(job) in kinds
+        ]
 
     @app.get("/api/jobs/{job_id}")
     async def get_job(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .database import UNFINISHED_JOB_STATUSES
@@ -10,6 +11,18 @@ ITEM_KINDS = ("question", "task", "folder")
 ITEM_STATUSES = frozenset(
     {*UNFINISHED_JOB_STATUSES, "completed", "idle", "failed", "cancelled"}
 )
+ERROR_CODE = re.compile(r"[a-z][a-z0-9_]{0,63}")
+
+
+def public_error_code(code: str | None) -> str | None:
+    """Machine codes only; anything free-form stays server-side."""
+    if code is None:
+        return None
+    return code if ERROR_CODE.fullmatch(code) else "internal_error"
+
+
+def job_status(status: str | None) -> str:
+    return status if status in ITEM_STATUSES else "running"
 
 
 def task_run_display_title(job: dict[str, Any]) -> str:
@@ -33,13 +46,11 @@ def item_kind(row: dict[str, Any]) -> str:
     return "question" if row.get("consultation") else "folder"
 
 
-def item_status(kind: str, job_status: str | None) -> str:
+def item_status(kind: str, status: str | None) -> str:
     if kind == "folder":
         # A folder chat is "idle" whenever its agent has nothing unfinished.
-        return job_status if job_status in UNFINISHED_JOB_STATUSES else "idle"
-    if job_status is None:
-        return "idle"
-    return job_status if job_status in ITEM_STATUSES else "running"
+        return status if status in UNFINISHED_JOB_STATUSES else "idle"
+    return "idle" if status is None else job_status(status)
 
 
 def public_item(row: dict[str, Any]) -> dict[str, Any]:
@@ -119,3 +130,30 @@ def chat_event_for_user(user: dict[str, Any], event: dict[str, Any]) -> dict[str
     if admin:
         visible["owner_user_id"] = row.get("owner_user_id")
     return visible
+
+
+QUEUE_JOB_FIELDS = (
+    "id", "chat_id", "queue_id", "queue_name", "created_at", "started_at", "finished_at",
+)
+
+
+def job_kind(job: dict[str, Any]) -> str:
+    if job.get("task_id"):
+        return "task"
+    return "question" if job.get("consultation") else "folder"
+
+
+def public_queue_job(job: dict[str, Any], position: int | None) -> dict[str, Any]:
+    """`/api/queue/me` row; questions and tasks never expose prompts or sessions."""
+    kind = job_kind(job)
+    if kind == "folder":
+        return {**job, "kind": kind, "position": position}
+    return {
+        **{key: job.get(key) for key in QUEUE_JOB_FIELDS},
+        "kind": kind,
+        "status": job_status(job["status"]),
+        "title": task_run_display_title(job) if kind == "task" else job.get("chat_title"),
+        "task_id": job.get("task_id"),
+        "error_code": public_error_code(job.get("error_code")),
+        "position": position,
+    }
