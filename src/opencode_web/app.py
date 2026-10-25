@@ -31,6 +31,7 @@ from .items import (
     ITEM_KINDS,
     allowed_item_kinds,
     chat_event_for_user,
+    item_kind,
     job_kind,
     job_status,
     public_admin_request,
@@ -1688,7 +1689,10 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
     ) -> dict[str, Any]:
         user = principal["user"]
         item = visible_item(db, user, chat_id)
-        if item["archived_at"] and db.get_chat(chat_id).get("archived_reason"):
+        if (
+            item["archived_at"] and item_kind(item) != "task"
+            and db.get_chat(chat_id).get("archived_reason")
+        ):
             raise HTTPException(409, "Chat was archived after a workspace change")
         if db.unarchive_chat(chat_id):
             chat_action_audit(db, user, "chat.unarchive", item)
@@ -1880,12 +1884,12 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             raise HTTPException(422, str(exc)) from exc
         if not updated:
             raise edit_error(db.edit_state("users", user_id))
-        archived_chat_ids = (
-            db.archive_chats_outside_workspace(user_id, workspace)
+        changed_chat_ids = (
+            db.apply_workspace_change(user_id, workspace)
             if workspace_changed and workspace else []
         )
         db.audit(principal["user"]["id"], "user.update", object_type="user", object_id=user_id)
-        for chat_id in archived_chat_ids:
+        for chat_id in changed_chat_ids:
             await publish_chat_updated(db, request.app.state.events, chat_id)
         return public_user(updated)  # type: ignore[arg-type]
 

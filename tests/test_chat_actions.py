@@ -318,23 +318,74 @@ async def test_deleting_unfinished_chat_stops_its_job_first(ui_app, kind, status
     assert (await t.client.get(f"/api/jobs/{job['id']}")).status_code == 200
 
 
-async def test_workspace_change_archive_sets_archived_at_and_cannot_be_undone(
+async def test_workspace_change_archives_folder_chats_and_questions_but_not_task_runs(
     ui_app, workspace
 ):
     t = ui_app
+    worker = t.users["worker"]
+    question = await make_question(t, "worker")
     run = await make_run(t, "worker")
-    assert (await t.client.post(f"/api/chats/{run['chat_id']}/snooze", json={
+    folder = await make_folder(t, "worker")
+    assert (await t.client.post(f"/api/chats/{folder['chat_id']}/snooze", json={
         "until": future(),
     })).status_code == 200
+    for item in (question, run, folder):
+        for job in t.db.unfinished_chat_jobs(item["chat_id"]):
+            t.db.set_job_status(job["id"], "cancelled")
     moved = workspace / "moved"
     moved.mkdir()
-    t.db.archive_chats_outside_workspace(t.users["worker"]["id"], str(moved))
-    chat = t.db.get_chat(run["chat_id"])
-    assert chat["archived_reason"] == "workspace_changed"
-    assert chat["archived_at"] and chat["snoozed_until"] is None
+
+    async def move_to(path):
+        await login(t.client)
+        response = await t.client.patch(
+            f"/api/admin/users/{worker['id']}", json={"workspace_path": str(path)}
+        )
+        assert response.status_code == 200, response.text
+
+    await move_to(moved)
+    for item in (question, folder):
+        chat = t.db.get_chat(item["chat_id"])
+        assert chat["archived_reason"] == "workspace_changed"
+        assert chat["archived_at"] and chat["snoozed_until"] is None
+    task_chat = t.db.get_chat(run["chat_id"])
+    assert task_chat["archived_reason"] is None and task_chat["archived_at"] is None
+    # The old workspace's chats are out of reach until the user moves back.
+    await login(t.client, "worker")
+    archived_at = t.db.get_chat(folder["chat_id"])["archived_at"]
+    response = await t.client.post(f"/api/chats/{folder['chat_id']}/unarchive")
+    assert response.status_code == 404
+    assert t.db.get_chat(folder["chat_id"])["archived_at"] == archived_at
+    assert set(await my_chat_ids(t)) == {run["chat_id"]}
+
+    # Moving back brings the chats of that workspace back.
+    await move_to(worker["workspace_path"])
+    for item in (question, folder):
+        chat = t.db.get_chat(item["chat_id"])
+        assert chat["archived_reason"] is None and chat["archived_at"] is None
+    await login(t.client, "worker")
+    assert set(await my_chat_ids(t)) == {question["chat_id"], run["chat_id"], folder["chat_id"]}
+
+
+async def my_chat_ids(t):
+    response = await t.client.get("/api/me/items")
+    assert response.status_code == 200, response.text
+    return [item["chat_id"] for item in response.json()]
+
+
+async def test_task_run_archived_by_an_old_workspace_change_can_be_unarchived(ui_app):
+    t = ui_app
+    run = await make_run(t, "worker")
+    with t.db.transaction() as connection:
+        connection.execute(
+            "UPDATE chats SET archived_reason = 'workspace_changed', archived_at = ? "
+            "WHERE id = ?",
+            (future(-1), run["chat_id"]),
+        )
     response = await t.client.post(f"/api/chats/{run['chat_id']}/unarchive")
-    assert response.status_code == 409
-    assert t.db.get_chat(run["chat_id"])["archived_at"] == chat["archived_at"]
+    assert response.status_code == 200, response.text
+    assert response.json()["archived_at"] is None
+    chat = t.db.get_chat(run["chat_id"])
+    assert chat["archived_reason"] is None and chat["archived_at"] is None
 
 
 def test_existing_database_gets_chat_state_columns(tmp_path):

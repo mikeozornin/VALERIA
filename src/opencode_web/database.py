@@ -1344,21 +1344,32 @@ class Database:
         query += " ORDER BY c.updated_at DESC"
         return self._all(query, tuple(params))
 
-    def archive_chats_outside_workspace(self, owner_id: str, workspace: str) -> list[str]:
+    def apply_workspace_change(self, owner_id: str, workspace: str) -> list[str]:
+        """Archive the owner's folder chats and questions from other workspaces and
+        bring back the ones archived earlier for leaving `workspace`. Task runs follow
+        the user across workspaces and stay as they are. Returns the changed chat ids."""
         now = utcnow()
-        condition = """owner_user_id = ? AND workspace_snapshot != ?
-                       AND archived_reason IS NULL"""
+        outside = """owner_user_id = ? AND workspace_snapshot != ? AND kind != 'task'
+                     AND archived_reason IS NULL"""
+        back = """owner_user_id = ? AND workspace_snapshot = ?
+                  AND archived_reason = 'workspace_changed'"""
         with self.transaction() as connection:
             chat_ids = [
                 row["id"] for row in connection.execute(
-                    f"SELECT id FROM chats WHERE {condition}", (owner_id, workspace)
+                    f"SELECT id FROM chats WHERE ({outside}) OR ({back})",
+                    (owner_id, workspace, owner_id, workspace),
                 )
             ]
             connection.execute(
                 f"""UPDATE chats SET archived_reason = 'workspace_changed', updated_at = ?,
                            archived_at = COALESCE(archived_at, ?), snoozed_until = NULL
-                    WHERE {condition}""",
+                    WHERE {outside}""",
                 (now, now, owner_id, workspace),
+            )
+            connection.execute(
+                f"""UPDATE chats SET archived_reason = NULL, archived_at = NULL, updated_at = ?
+                    WHERE {back}""",
+                (now, owner_id, workspace),
             )
         return chat_ids
 
@@ -1434,11 +1445,14 @@ class Database:
         return cursor.rowcount > 0
 
     def unarchive_chat(self, chat_id: str) -> bool:
+        # Task runs were once auto-archived on a workspace change by mistake; let them out.
         with self.transaction() as connection:
             cursor = connection.execute(
-                """UPDATE chats SET archived_at = NULL
-                   WHERE id = ? AND archived_at IS NOT NULL AND archived_reason IS NULL
-                     AND deleted_at IS NULL""",
+                """UPDATE chats SET archived_at = NULL,
+                          archived_reason = CASE WHEN kind = 'task' THEN NULL
+                                                 ELSE archived_reason END
+                   WHERE id = ? AND archived_at IS NOT NULL
+                     AND (archived_reason IS NULL OR kind = 'task') AND deleted_at IS NULL""",
                 (chat_id,),
             )
         return cursor.rowcount > 0
