@@ -89,8 +89,12 @@ export interface YScale {
     ticks: number[];
 }
 
+/**
+ * The axis fits finished runs with their wait and unfinished ones by work only: a run stuck in the queue for hours
+ * must not flatten everything else; its stem is clipped at the top of the plot.
+ */
 export function yScale(runs: readonly ChartRun[]): YScale {
-    const top = Math.max(5, ...runs.map((r) => r.wait + r.work)) * 1.05;
+    const top = Math.max(5, ...runs.map((r) => (r.st === 'queued' || r.st === 'running' ? r.work : r.wait + r.work))) * 1.05;
     const max = niceUp(top, [5, 10, 15, 20, 30, 40, 50, 60, 90, 120, 180]);
     const step = niceUp(max / 5, [1, 2, 5, 10, 15, 20, 30, 60]);
     const ticks: number[] = [];
