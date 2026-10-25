@@ -1,0 +1,38 @@
+// Global styles. Colours come only from Koobiq tokens (`--kbq-*`); fonts are self-hosted (angular.json).
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    font-family: var(--kbq-typography-text-normal-font-family);
+    color: var(--kbq-foreground-contrast);
+}
+
+v-root {
+    display: block;
+    height: 100%;
+}
+
+// The routed screen fills the content area as a flex column: header on top, body below.
+.v-shell__main > :not(router-outlet) {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+// Caption inside a dropdown (prototype `.k-dropdown__caption`: 12/16, secondary), e.g. «Отложить», «Тема».
+// Koobiq's own group header is a bold title; this keeps its paddings and swaps the typography.
+.kbq-dropdown__group-header.v-menu-caption {
+    min-height: 0;
+    padding-bottom: var(--kbq-size-xxs);
+    color: var(--kbq-foreground-contrast-secondary);
+    font-family: var(--kbq-typography-text-compact-font-family);
+    font-size: var(--kbq-typography-text-compact-font-size);
+    font-weight: var(--kbq-typography-text-compact-font-weight);
+    line-height: var(--kbq-typography-text-compact-line-height);
+    letter-spacing: var(--kbq-typography-text-compact-letter-spacing);
+}
