@@ -73,7 +73,7 @@ const FAILED_HINT =
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { class: 'v-task-run' },
     templateUrl: './task-run.component.html',
-    styleUrls: ['./task-run.component.scss', '../../shared/primary-button/primary-button.scss'],
+    styleUrls: ['./task-run.component.scss'],
 })
 export class TaskRunComponent {
     readonly id = input.required<string>();

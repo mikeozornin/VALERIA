@@ -79,7 +79,7 @@ export const POLL_MS = 5000;
                                         <button
                                             kbq-button
                                             class="v-compact"
-                                            [class.v-error-fade]="r.long"
+                                            [class.v-reject]="r.long"
                                             [color]="colors.ContrastFade"
                                             [disabled]="busy().has(r.id)"
                                             (click)="askStop(r)"

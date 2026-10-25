@@ -1,6 +1,6 @@
 /**
- * Compact button (prototype `k-btn--compact`, 24px) and the error-tinted variant (`k-btn--error-fade`): Koobiq 20 has
- * neither, so they are local classes on `kbq-button`, added to a component's `styles`.
+ * Compact button (prototype `k-btn--compact`, 24px): Koobiq 20 has
+ * none, so it is a local class on `kbq-button`, added to a component's `styles`. The error-fade variant is the global `.v-reject`.
  */
 export const BUTTON_CSS = `
     .v-compact {
@@ -10,10 +10,5 @@ export const BUTTON_CSS = `
         min-height: 24px;
         font-size: var(--kbq-typography-text-compact-font-size);
         line-height: var(--kbq-typography-text-compact-line-height);
-    }
-    .v-error-fade.kbq-button:not([disabled]) {
-        background: var(--kbq-background-error-fade);
-        color: var(--kbq-foreground-error);
-        border-color: transparent;
     }
 `;

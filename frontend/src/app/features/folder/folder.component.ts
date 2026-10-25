@@ -67,7 +67,6 @@ import {
     upsertPart,
     workingText,
 } from './folder.model';
-import { PRIMARY_BUTTON_CSS } from '../../shared/chat-composer/primary-button';
 
 interface ViewMessage {
     id: string;
@@ -349,7 +348,6 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
         }
     `,
     styles: [
-        PRIMARY_BUTTON_CSS,
         `
         :host { display: flex; flex-direction: column; min-height: 0; }
         .v-row { flex: 1 1 auto; display: flex; min-height: 0; }
@@ -405,7 +403,6 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
             white-space: pre-wrap;
             word-break: break-word;
         }
-        .v-reject.kbq-button { background: var(--kbq-background-error-fade); color: var(--kbq-foreground-error); }
         .v-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--kbq-size-s); margin-top: var(--kbq-size-m); }
         .v-select { width: auto; min-width: 0; max-width: 260px; }
         .v-hint { margin-left: auto; padding-left: var(--kbq-size-l); color: var(--kbq-foreground-contrast-tertiary); font-size: 12px; }

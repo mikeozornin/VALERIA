@@ -3,7 +3,6 @@ import { KbqButtonModule, KbqButtonStyles } from '@koobiq/components/button';
 import { KbqComponentColors, PopUpPlacements } from '@koobiq/components/core';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
 import { sendShortcutHint } from './send-action';
-import { PRIMARY_BUTTON_CSS } from './primary-button';
 
 /**
  * Send button of the async-action pattern: disabled with `kbq-progress` while the request is in flight; the tooltip
@@ -47,7 +46,6 @@ import { PRIMARY_BUTTON_CSS } from './primary-button';
         </ng-template>
     `,
     styles: [
-        PRIMARY_BUTTON_CSS,
         `
         :host { display: inline-flex; }
         .v-send-button__wrap { display: inline-flex; border-radius: var(--kbq-size-border-radius); }
