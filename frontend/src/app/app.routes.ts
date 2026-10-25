@@ -17,6 +17,8 @@ const accessDenied = () =>
 const home = () => import('./features/home/home.component').then((m) => m.HomeComponent);
 const search = () => import('./features/search/search.component').then((m) => m.SearchComponent);
 const taskRun = () => import('./features/task-run/task-run.component').then((m) => m.TaskRunComponent);
+const question = () => import('./features/question/question.component').then((m) => m.QuestionComponent);
+const folder = () => import('./features/folder/folder.component').then((m) => m.FolderComponent);
 
 function screen(path: string, name: string): Route {
     return { path, loadComponent: placeholder, data: { screen: name } };
@@ -42,9 +44,9 @@ const shellRoutes: Route[] = withDirtyGuard([
     { ...screen('', 'Новый запрос'), loadComponent: home },
     { ...screen('new/:taskId', 'Новый запрос'), loadComponent: home },
     { ...screen('search', 'Поиск и команды'), loadComponent: search },
-    screen('questions/:id', 'Вопрос'),
+    { ...screen('questions/:id', 'Вопрос'), loadComponent: question },
     { ...screen('tasks/runs/:id', 'Запуск задачи'), loadComponent: taskRun },
-    { ...screen('folder/:id', FOLDER_SECTION), canMatch: [notTasksOnlyMatch] },
+    { ...screen('folder/:id', FOLDER_SECTION), loadComponent: folder, canMatch: [notTasksOnlyMatch] },
     denied('folder/:id', FOLDER_SECTION, 'tasks-only'),
 
     ...admin('admin/statistics', 'Статистика'),
