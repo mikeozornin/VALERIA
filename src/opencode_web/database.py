@@ -48,6 +48,10 @@ LEFT JOIN queue_jobs j ON j.id = (
         q.sequence DESC
     LIMIT 1
 )"""
+AUDIT_QUERY = """SELECT a.*, actor.login AS actor_login, effective.login AS effective_login
+FROM audit_log a
+LEFT JOIN users actor ON actor.id = a.actor_user_id
+LEFT JOIN users effective ON effective.id = a.effective_user_id"""
 ITEM_KIND_CONDITIONS = {
     "question": "(c.kind = 'chat' AND c.consultation = 1)",
     "folder": "(c.kind = 'chat' AND c.consultation = 0)",
@@ -2416,10 +2420,43 @@ class Database:
             )
 
     def list_audit(self) -> list[dict[str, Any]]:
-        return self._all(
-            """SELECT a.*, actor.login AS actor_login, effective.login AS effective_login
-               FROM audit_log a
-               LEFT JOIN users actor ON actor.id = a.actor_user_id
-               LEFT JOIN users effective ON effective.id = a.effective_user_id
-               ORDER BY a.id DESC LIMIT 500"""
-        )
+        return self._all(AUDIT_QUERY + " ORDER BY a.id DESC LIMIT 500")
+
+    def iter_audit(
+        self,
+        *,
+        logins: list[str] | None = None,
+        actions: list[str] | None = None,
+        created_from: str | None = None,
+        created_to: str | None = None,
+        before_id: int | None = None,
+        batch: int = 500,
+    ) -> Iterator[dict[str, Any]]:
+        """Newest first, fetched lazily so callers can filter further in Python."""
+        conditions: list[str] = []
+        params: list[Any] = []
+        if logins:
+            marks = ", ".join("?" for _ in logins)
+            conditions.append(f"(actor.login IN ({marks}) OR effective.login IN ({marks}))")
+            params.extend([*logins, *logins])
+        if actions:
+            conditions.append(f"a.action IN ({', '.join('?' for _ in actions)})")
+            params.extend(actions)
+        if created_from:
+            conditions.append("julianday(a.created_at) >= julianday(?)")
+            params.append(created_from)
+        if created_to:
+            conditions.append("julianday(a.created_at) < julianday(?)")
+            params.append(created_to)
+        while True:
+            where = [*conditions, "a.id < ?"] if before_id is not None else conditions
+            rows = self._all(
+                AUDIT_QUERY
+                + (" WHERE " + " AND ".join(where) if where else "")
+                + " ORDER BY a.id DESC LIMIT ?",
+                (*params, *([before_id] if before_id is not None else []), batch),
+            )
+            yield from rows
+            if len(rows) < batch:
+                return
+            before_id = rows[-1]["id"]

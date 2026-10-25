@@ -2212,8 +2212,45 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
     async def admin_audit(
         principal: Annotated[dict[str, Any], Depends(admin_read_principal)],
         db: Annotated[Database, Depends(database)],
-    ) -> list[dict[str, Any]]:
-        return db.list_audit()
+        start: Annotated[str | None, Query(alias="from")] = None,
+        end: Annotated[str | None, Query(alias="to")] = None,
+        user: str = "",
+        action: str = "",
+        q: str = "",
+        cursor: str | None = None,
+        limit: Annotated[int, Query(ge=1, le=500)] = 100,
+        timezone: str = "UTC",
+    ) -> dict[str, Any]:
+        try:
+            created_from, created_to = time_range(start, end, timezone)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+        before_id = None
+        if cursor:
+            try:
+                before_id = int(cursor)
+            except ValueError:
+                raise HTTPException(422, "Invalid cursor") from None
+        rows = db.iter_audit(
+            logins=[normalize_login(part) for part in user.split(",") if part.strip()],
+            actions=[part.strip() for part in action.split(",") if part.strip()],
+            created_from=created_from,
+            created_to=created_to,
+            before_id=before_id,
+        )
+        tokens = search_tokens(q)
+        items: list[dict[str, Any]] = []
+        for row in rows:
+            if matches_search(
+                tokens, row["action"], row["object_type"], row["object_id"],
+                row["actor_login"], row["effective_login"], row["metadata_json"],
+            ):
+                items.append(row)
+                if len(items) > limit:
+                    break
+        more = len(items) > limit
+        items = items[:limit]
+        return {"items": items, "next_cursor": str(items[-1]["id"]) if more else None}
 
     @app.get("/api/events")
     async def events(
