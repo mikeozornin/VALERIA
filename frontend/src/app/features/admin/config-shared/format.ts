@@ -69,3 +69,8 @@ export function changedLabel(iso: string, nowMs = Date.now()): string {
 }
 
 export const EMPTY = '—';
+
+/** For strings that end up in `innerHTML` (the modal renders `kbqContent` and footer labels as HTML). */
+export function escapeHtml(s: string): string {
+    return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+}

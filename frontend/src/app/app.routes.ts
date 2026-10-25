@@ -53,8 +53,12 @@ const shellRoutes: Route[] = withDirtyGuard([
     ...admin('admin/tasks', 'Настройка задач'),
     ...admin('admin/tasks/new', 'Настройка задач', 'Новая задача'),
     ...admin('admin/tasks/:id', 'Настройка задач', 'Задача'),
-    ...admin('admin/queue', 'Очередь'),
-    ...admin('admin/queue/settings', 'Очередь', 'Настройки очереди'),
+    ...admin('admin/queue', 'Очередь', 'Очередь', () =>
+        import('./features/admin/queue/queue-live.component').then((m) => m.QueueLiveComponent),
+    ),
+    ...admin('admin/queue/settings', 'Очередь', 'Настройки очереди', () =>
+        import('./features/admin/queue/queue-settings.component').then((m) => m.QueueSettingsComponent),
+    ),
     ...admin('admin/queue/settings/edit', 'Очередь', 'Изменение настроек очереди'),
     ...admin('admin/requests', 'Запросы пользователей'),
     ...admin('admin/requests/:id', 'Запросы пользователей', 'Запрос'),
