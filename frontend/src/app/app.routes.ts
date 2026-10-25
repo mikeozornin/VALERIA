@@ -23,8 +23,9 @@ function denied(path: string, section: string, reason: DeniedReason): Route {
 }
 
 /** Admin screen + its access-denied twin. `section` is the «Система» item the path belongs to. */
-function admin(path: string, section: string, name = section): Route[] {
-    return [{ ...screen(path, name), canMatch: [adminMatch] }, denied(path, section, 'admin')];
+function admin(path: string, section: string, name = section, load?: Route['loadComponent']): Route[] {
+    const real = { ...screen(path, name), canMatch: [adminMatch] };
+    return [load ? { ...real, loadComponent: load } : real, denied(path, section, 'admin')];
 }
 
 /** Adds the app-wide unsaved-changes guard to every leaf route. */
@@ -43,7 +44,9 @@ const shellRoutes: Route[] = withDirtyGuard([
     { ...screen('folder/:id', FOLDER_SECTION), canMatch: [notTasksOnlyMatch] },
     denied('folder/:id', FOLDER_SECTION, 'tasks-only'),
 
-    ...admin('admin/statistics', 'Статистика'),
+    ...admin('admin/statistics', 'Статистика', 'Статистика', () =>
+        import('./features/admin/statistics/statistics.component').then((m) => m.StatisticsComponent),
+    ),
     ...admin('admin/users', 'Пользователи'),
     ...admin('admin/users/new', 'Пользователи', 'Новый пользователь'),
     ...admin('admin/users/:login/edit', 'Пользователи', 'Изменение пользователя'),
