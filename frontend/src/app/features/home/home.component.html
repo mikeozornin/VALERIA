@@ -46,11 +46,12 @@
                 <v-send-button
                     class="v-home__send"
                     label="Запустить"
-                    icon="kbq-play_16"
+                    [disabled]="!!launchReason()"
                     [reason]="launchReason()"
-                    [busy]="launching()"
-                    (send)="launch()"
-                />
+                    [sending]="launching()"
+                    (pressed)="launch()"
+                    ><i kbq-icon="kbq-play_16"></i>Запустить</v-send-button
+                >
             </div>
             <div class="v-home__hint">Текст добавится в конец инструкции задачи.</div>
             @if (duplicate()) {
@@ -128,10 +129,12 @@
             <v-send-button
                 class="v-home__send"
                 [label]="sendLabel()"
+                [disabled]="!!sendReason()"
                 [reason]="sendReason()"
-                [busy]="sending()"
-                (send)="send()"
-            />
+                [sending]="sending()"
+                (pressed)="send()"
+                >{{ sendLabel() }}</v-send-button
+            >
         </div>
 
         <div class="v-home__bar">

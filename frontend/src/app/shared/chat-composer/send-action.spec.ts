@@ -39,7 +39,7 @@ describe('IdempotentAction', () => {
 describe('send shortcut', () => {
     it('hint depends on the platform', () => {
         expect(sendShortcutHint('MacIntel')).toBe('⌘ Enter');
-        expect(sendShortcutHint('Win32')).toBe('Ctrl Enter');
+        expect(sendShortcutHint('Win32')).toBe('Ctrl + Enter');
     });
 
     it('accepts Ctrl+Enter and ⌘+Enter only', () => {

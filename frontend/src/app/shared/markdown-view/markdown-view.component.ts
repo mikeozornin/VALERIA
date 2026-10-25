@@ -4,7 +4,8 @@ import { SAFE_MARKED_OPTIONS } from './safe-markdown';
 
 /**
  * Agent answer rendered through `kbq-markdown` with the sanitizing renderer (raw HTML escaped, unsafe links dropped).
- * Spacing follows the prototype `.v-md`: paragraphs and lists 0 0 8px, list items 4px, h4 16/6.
+ * Spacing follows the prototype `.v-md`: body size, paragraphs and lists 0 0 8px, list items 4px, headings 14/600
+ * with 16/6 margins. Used for chat answers and the task-run report alike.
  */
 @Component({
     selector: 'v-markdown-view',
@@ -33,6 +34,19 @@ import { SAFE_MARKED_OPTIONS } from './safe-markdown';
             --kbq-markdown-code-size-multiline-margin-top: 0;
             --kbq-markdown-code-size-multiline-margin-bottom: var(--kbq-size-s);
             overflow: visible;
+        }
+        .v-md ::ng-deep :is(.kbq-markdown__p, .kbq-markdown__ul, .kbq-markdown__ol) {
+            font-size: var(--kbq-typography-text-normal-font-size);
+            line-height: var(--kbq-typography-text-normal-line-height);
+        }
+        .v-md ::ng-deep :is(.kbq-markdown__h1, .kbq-markdown__h2, .kbq-markdown__h3, .kbq-markdown__h4, .kbq-markdown__h5, .kbq-markdown__h6) {
+            margin: var(--kbq-size-l) 0 6px;
+            font-size: var(--kbq-typography-text-normal-font-size);
+            line-height: var(--kbq-typography-text-normal-line-height);
+            font-weight: 600;
+        }
+        .v-md ::ng-deep :is(.kbq-markdown__h1, .kbq-markdown__h2, .kbq-markdown__h3, .kbq-markdown__h4, .kbq-markdown__h5, .kbq-markdown__h6):first-child {
+            margin-top: 0;
         }
     `,
 })

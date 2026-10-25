@@ -31,8 +31,8 @@ import { ApiService } from '../../core/api/api.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { ItemsStore } from '../../core/items/items.store';
 import { NotifyService } from '../../core/notify/notify.service';
-import { failureText, isSendShortcut, RetryKey } from '../../shared/async-send/async-send';
-import { SendButtonComponent } from '../../shared/async-send/send-button.component';
+import { failureText, IdempotentAction, isSendShortcut } from '../../shared/chat-composer/send-action';
+import { SendButtonComponent } from '../../shared/chat-composer/send-button.component';
 import { clockTime, findActiveDuplicate, TaskDef, TaskRun, TemplateDef } from '../../shared/tasks/task.model';
 import { TasksCatalog } from '../../shared/tasks/tasks-catalog.service';
 import { HomeDrafts, HomeMode } from './home-drafts';
@@ -149,8 +149,8 @@ export class HomeComponent {
             : 'Например: почему nightly-сборка падает только на gcc 13?',
     );
 
-    private readonly sendKey = new RetryKey();
-    private readonly launchKey = new RetryKey();
+    private readonly sendKey = new IdempotentAction();
+    private readonly launchKey = new IdempotentAction();
 
     constructor() {
         void this.catalog.ensure().catch(() => undefined);
@@ -246,28 +246,27 @@ export class HomeComponent {
         this.sending.set(true);
         try {
             if (mode === 'ask') {
-                const key = this.sendKey.take(`ask:${message}`);
+                const key = this.sendKey.keyFor(['ask', message]);
                 const res = await this.api.post<{ id: string | number }>(
                     '/api/consultations',
                     { message },
                     { idempotencyKey: key },
                 );
-                this.sendKey.settle();
+                this.sendKey.done();
                 this.notify.info('Вопрос отправлен');
                 this.afterSend();
                 void this.router.navigate(['/questions', res.id]);
             } else {
                 const body = { message, agent: this.agent(), model: this.model() || undefined };
-                const key = this.sendKey.take(`do:${JSON.stringify(body)}`);
+                const key = this.sendKey.keyFor(['do', body]);
                 const res = await this.api.post<{ chat: { id: string | number } }>('/api/chats', body, {
                     idempotencyKey: key,
                 });
-                this.sendKey.settle();
+                this.sendKey.done();
                 this.afterSend();
                 void this.router.navigate(['/folder', res.chat.id]);
             }
         } catch (error) {
-            this.sendKey.settle(error);
             this.notify.error(
                 failureText(mode === 'ask' ? 'Не удалось отправить вопрос' : 'Не удалось начать работу', error),
             );
@@ -290,19 +289,18 @@ export class HomeComponent {
                 this.duplicate.set(duplicate);
                 return;
             }
-            const key = this.launchKey.take(`${task.id}:${userInput}`);
+            const key = this.launchKey.keyFor([task.id, userInput]);
             const run = await this.api.post<TaskRun>(
                 `/api/tasks/${encodeURIComponent(String(task.id))}/runs`,
                 { user_input: userInput },
                 { idempotencyKey: key },
             );
-            this.launchKey.settle();
+            this.launchKey.done();
             this.notify.info('Задача поставлена в очередь', `${NOTIFY_TEXT} @${this.login()}`);
             this.drafts.setAddition(task.id, '');
             void this.items.refresh().catch(() => undefined);
             void this.router.navigate(['/tasks/runs', run.id]);
         } catch (error) {
-            this.launchKey.settle(error);
             this.notify.error(failureText('Не удалось запустить задачу', error));
         } finally {
             this.launching.set(false);

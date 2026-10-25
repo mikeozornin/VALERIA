@@ -94,7 +94,7 @@
                                 </div>
                                 @if (result(); as res) {
                                     @if (res.text) {
-                                        <kbq-markdown class="v-runcard__md" [markdownText]="res.text" />
+                                        <v-markdown-view [text]="res.text" />
                                     } @else {
                                         <div class="v-runcard__sub">Итог недоступен.</div>
                                     }

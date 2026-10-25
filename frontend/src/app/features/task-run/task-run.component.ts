@@ -19,7 +19,6 @@ import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqComponentColors, PopUpPlacements } from '@koobiq/components/core';
 import { KbqDlModule } from '@koobiq/components/dl';
 import { KbqIconModule } from '@koobiq/components/icon';
-import { KbqMarkdownModule } from '@koobiq/components/markdown';
 import { KbqModalRef, KbqModalService, ModalSize } from '@koobiq/components/modal';
 import { KbqProgressSpinnerModule } from '@koobiq/components/progress-spinner';
 import { ApiError } from '../../core/api/api-error';
@@ -34,7 +33,8 @@ import { ChatAsideComponent } from '../../shell/aside/chat-aside.component';
 import { ScreenHeaderComponent } from '../../shell/screen-header/screen-header.component';
 import { NotFoundComponent } from '../../shared/not-found/not-found.component';
 import { PageStateComponent } from '../../shared/page-state/page-state.component';
-import { failureText } from '../../shared/async-send/async-send';
+import { failureText } from '../../shared/chat-composer/send-action';
+import { MarkdownViewComponent } from '../../shared/markdown-view/markdown-view.component';
 import { clockTime, sameId, TaskRun, TaskRunResult } from '../../shared/tasks/task.model';
 import { TasksCatalog } from '../../shared/tasks/tasks-catalog.service';
 import { HomeDrafts } from '../home/home-drafts';
@@ -67,7 +67,7 @@ const FAILED_HINT =
         KbqButtonModule,
         KbqDlModule,
         KbqIconModule,
-        KbqMarkdownModule,
+        MarkdownViewComponent,
         KbqProgressSpinnerModule,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,

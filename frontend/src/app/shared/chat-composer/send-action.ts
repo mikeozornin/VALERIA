@@ -1,8 +1,9 @@
 import { newIdempotencyKey } from '../../core/api/api.service';
+import { describeError } from '../../core/status/error-codes';
 
-/** Shortcut hint shown on the second line of send tooltips. */
+/** Shortcut hint shown on the second line of send tooltips (SPEC §11: `Ctrl + Enter` / `⌘ Enter`). */
 export function sendShortcutHint(platform = typeof navigator === 'undefined' ? '' : navigator.platform || navigator.userAgent): string {
-    return /Mac|iPhone|iPad|iPod/i.test(platform) ? '⌘ Enter' : 'Ctrl Enter';
+    return /Mac|iPhone|iPad|iPod/i.test(platform) ? '⌘ Enter' : 'Ctrl + Enter';
 }
 
 /** Ctrl/⌘ + Enter. */
@@ -60,4 +61,11 @@ export class IdempotentAction {
         this.payload = null;
         this.key = '';
     }
+}
+
+/** «Не удалось запустить задачу: сервер недоступен» (SPEC §7). */
+export function failureText(action: string, error: unknown): string {
+    const { text } = describeError(error);
+    const reason = text ? text.charAt(0).toLocaleLowerCase() + text.slice(1) : '';
+    return reason ? `${action}: ${reason.replace(/\.$/, '')}` : action;
 }
