@@ -11,7 +11,7 @@ export type SyncResult<T> = { ok: true; value: T } | { ok: false; error: unknown
 /**
  * One submit of a synchronous form: `busy` while it runs, `slow` after 30 s.
  * «Подождать еще» restarts the 30 s timer, «Отменить» returns the form to editing and drops the late result
- * (`ApiService` has no abort, so the request itself is not cancelled).
+ * (the request itself is not aborted: the server may already be applying it).
  * Create in an injection context (it clears its timer on destroy).
  */
 export class SyncOp {

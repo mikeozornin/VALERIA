@@ -12,8 +12,7 @@ export type SubmitResult<T> = { ok: true; value: T } | { ok: false; cancelled: b
  * Sync-form pattern (SPEC §15): one submit at a time, a warning after 30 s with «Подождать еще» / «Отменить»,
  * a 409/404 clash for the concurrent-edit alert, anything else as the form-level alert text.
  *
- * «Отменить» only stops waiting: `ApiService` has no abort signal, so the request may still be applied
- * on the server (reported as a core request in the handoff).
+ * «Отменить» only stops waiting: the request may already be applied on the server.
  */
 export class SyncSubmit {
     readonly pending = signal(false);

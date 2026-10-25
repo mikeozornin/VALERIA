@@ -1,7 +1,7 @@
 import { HttpClient, HttpContext, HttpContextToken, HttpHeaders, HttpInterceptorFn, HttpParams } from '@angular/common/http';
 import { inject, Injectable, InjectionToken, Injector } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, firstValueFrom, throwError } from 'rxjs';
+import { catchError, throwError } from 'rxjs';
 import { ApiError, toApiError } from './api-error';
 
 /** CSRF token from `/api/auth/me` or `/api/auth/login`. Memory only, never persisted (SPEC §15). */
@@ -64,6 +64,8 @@ export interface RequestOptions {
     idempotencyKey?: string;
     /** Don't redirect to /login on 401 (used by auth probes). */
     skipAuthRedirect?: boolean;
+    /** Aborts the HTTP request; the promise rejects with `ApiError` code `aborted` (status 0). */
+    signal?: AbortSignal;
 }
 
 /**
@@ -98,12 +100,35 @@ export class ApiService {
         let headers = new HttpHeaders();
         if (options.idempotencyKey) headers = headers.set('Idempotency-Key', options.idempotencyKey);
         const context = new HttpContext().set(SKIP_AUTH_REDIRECT, !!options.skipAuthRedirect);
-        return firstValueFrom(
-            this.http.request<T>(method, url, { body, headers, params: toParams(options.params), context }),
-        ).catch((error: unknown) => {
-            throw error instanceof ApiError ? error : toApiError(error);
+        const { signal } = options;
+        return new Promise<T>((resolve, reject) => {
+            if (signal?.aborted) return reject(abortedError());
+            let done = false;
+            const onAbort = () => {
+                subscription.unsubscribe();
+                reject(abortedError());
+            };
+            const subscription = this.http
+                .request<T>(method, url, { body, headers, params: toParams(options.params), context })
+                .subscribe({
+                    next: (value) => {
+                        done = true;
+                        signal?.removeEventListener('abort', onAbort);
+                        resolve(value);
+                    },
+                    error: (error: unknown) => {
+                        done = true;
+                        signal?.removeEventListener('abort', onAbort);
+                        reject(error instanceof ApiError ? error : toApiError(error));
+                    },
+                });
+            if (!done) signal?.addEventListener('abort', onAbort, { once: true });
         });
     }
+}
+
+function abortedError(): ApiError {
+    return new ApiError(0, 'aborted', null, null);
 }
 
 function toParams(params: RequestOptions['params']): HttpParams | undefined {
