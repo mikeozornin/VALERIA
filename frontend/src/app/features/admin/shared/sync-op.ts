@@ -79,12 +79,18 @@ export class SyncOp {
                 Операция занимает больше времени, чем ожидалось
                 <div kbq-alert-control>
                     <button kbq-button [color]="colors.ContrastFade" (click)="op().wait()">Подождать еще</button>
-                    <button kbq-button [color]="colors.ContrastFade" kbqStyle="transparent" (click)="op().cancel()">Отменить</button>
+                    <button kbq-button [color]="colors.ContrastFade" kbqStyle="transparent" (click)="op().cancel()">
+                        Отменить
+                    </button>
                 </div>
             </kbq-alert>
         }
     `,
-    styles: `:host { display: contents; }`,
+    styles: `
+        :host {
+            display: contents;
+        }
+    `,
 })
 export class SyncSlowAlertComponent {
     readonly op = input.required<SyncOp>();

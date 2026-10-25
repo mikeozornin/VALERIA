@@ -32,10 +32,16 @@ export function batchToast(action: BatchAction, results: readonly BatchResult[])
     const failedList = failed.map((r) => r.login || r.id).join(', ');
     if (!failed.length) {
         const n = done.length;
-        const word = action === 'block' ? plural(n, 'Заблокирован', 'Заблокированы', 'Заблокированы') : plural(n, 'Разблокирован', 'Разблокированы', 'Разблокированы');
+        const word =
+            action === 'block'
+                ? plural(n, 'Заблокирован', 'Заблокированы', 'Заблокированы')
+                : plural(n, 'Разблокирован', 'Разблокированы', 'Разблокированы');
         return { kind: 'success', title: `${word} ${n} ${plural(n, 'пользователь', 'пользователя', 'пользователей')}` };
     }
     if (!done.length) return { kind: 'error', title: `Не удалось ${verb} ${failedList}` };
-    const word = action === 'block' ? plural(done.length, 'Заблокирован', 'Заблокированы', 'Заблокированы') : plural(done.length, 'Разблокирован', 'Разблокированы', 'Разблокированы');
+    const word =
+        action === 'block'
+            ? plural(done.length, 'Заблокирован', 'Заблокированы', 'Заблокированы')
+            : plural(done.length, 'Разблокирован', 'Разблокированы', 'Разблокированы');
     return { kind: 'warning', title: `${word} ${done.length} из ${counted.length}: не удалось ${verb} ${failedList}` };
 }

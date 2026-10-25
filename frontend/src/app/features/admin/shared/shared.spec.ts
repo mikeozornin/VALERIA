@@ -57,7 +57,11 @@ describe('period ↔ query', () => {
     it('round-trips a custom range', () => {
         const state = periodFromQuery('custom', '2026-10-01T00:00:00.000Z', '2026-10-02T00:00:00.000Z');
         expect(state).toEqual({ from: '2026-10-01T00:00:00.000Z', to: '2026-10-02T00:00:00.000Z' });
-        expect(periodToQuery(state)).toEqual({ period: 'custom', from: '2026-10-01T00:00:00.000Z', to: '2026-10-02T00:00:00.000Z' });
+        expect(periodToQuery(state)).toEqual({
+            period: 'custom',
+            from: '2026-10-01T00:00:00.000Z',
+            to: '2026-10-02T00:00:00.000Z',
+        });
         expect(periodFromPipe(periodToPipe(state))).toEqual(state);
     });
 
@@ -70,7 +74,10 @@ describe('period ↔ query', () => {
     });
 
     it('computes API from/to', () => {
-        expect(periodRange({ code: '1h' }, now)).toEqual({ from: new Date(now.getTime() - 3_600_000).toISOString(), to: null });
+        expect(periodRange({ code: '1h' }, now)).toEqual({
+            from: new Date(now.getTime() - 3_600_000).toISOString(),
+            to: null,
+        });
         expect(periodRange(null, now)).toEqual({ from: null, to: null });
     });
 
@@ -83,23 +90,43 @@ describe('period ↔ query', () => {
 });
 
 describe('batchToast', () => {
-    const r = (login: string, ok: boolean, reason: BatchResult['reason'] = null): BatchResult => ({ id: login, login, ok, reason });
+    const r = (login: string, ok: boolean, reason: BatchResult['reason'] = null): BatchResult => ({
+        id: login,
+        login,
+        ok,
+        reason,
+    });
 
     it('all blocked', () => {
-        expect(batchToast('block', [r('a', true), r('b', true), r('c', true)])).toEqual({ kind: 'success', title: 'Заблокированы 3 пользователя' });
+        expect(batchToast('block', [r('a', true), r('b', true), r('c', true)])).toEqual({
+            kind: 'success',
+            title: 'Заблокированы 3 пользователя',
+        });
         expect(batchToast('block', [r('a', true)])).toEqual({ kind: 'success', title: 'Заблокирован 1 пользователь' });
-        expect(batchToast('unblock', Array.from({ length: 5 }, (_, i) => r(`u${i}`, true)))).toEqual({
+        expect(
+            batchToast(
+                'unblock',
+                Array.from({ length: 5 }, (_, i) => r(`u${i}`, true)),
+            ),
+        ).toEqual({
             kind: 'success',
             title: 'Разблокированы 5 пользователей',
         });
-        expect(batchToast('block', Array.from({ length: 21 }, (_, i) => r(`u${i}`, true)))?.title).toBe('Заблокирован 21 пользователь');
+        expect(
+            batchToast(
+                'block',
+                Array.from({ length: 21 }, (_, i) => r(`u${i}`, true)),
+            )?.title,
+        ).toBe('Заблокирован 21 пользователь');
     });
 
     it('partial success names the failed logins', () => {
-        expect(batchToast('block', [r('a.nikitina', true), r('m.belov', true), r('p.volkov', false, 'error')])).toEqual({
-            kind: 'warning',
-            title: 'Заблокированы 2 из 3: не удалось заблокировать p.volkov',
-        });
+        expect(batchToast('block', [r('a.nikitina', true), r('m.belov', true), r('p.volkov', false, 'error')])).toEqual(
+            {
+                kind: 'warning',
+                title: 'Заблокированы 2 из 3: не удалось заблокировать p.volkov',
+            },
+        );
     });
 
     it('nothing done is an error', () => {
@@ -147,13 +174,23 @@ describe('admin models', () => {
     });
 
     it('computes task access', () => {
-        expect(hasTaskAccess({ id: 't', title: '', visibility: 'all', is_published: 1, audience_user_ids: [] }, 'u')).toBe(true);
-        expect(hasTaskAccess({ id: 't', title: '', visibility: 'selected', is_published: 1, audience_user_ids: [7] }, 7)).toBe(true);
-        expect(hasTaskAccess({ id: 't', title: '', visibility: 'selected', is_published: 1, audience_user_ids: [] }, 'u')).toBe(false);
+        expect(
+            hasTaskAccess({ id: 't', title: '', visibility: 'all', is_published: 1, audience_user_ids: [] }, 'u'),
+        ).toBe(true);
+        expect(
+            hasTaskAccess({ id: 't', title: '', visibility: 'selected', is_published: 1, audience_user_ids: [7] }, 7),
+        ).toBe(true);
+        expect(
+            hasTaskAccess({ id: 't', title: '', visibility: 'selected', is_published: 1, audience_user_ids: [] }, 'u'),
+        ).toBe(false);
     });
 
     it('reads conflicts and resolves raw ids to logins', () => {
-        const err = new ApiError(409, 'conflict', null, { code: 'conflict', updated_by: 'u-pvolkov', updated_at: '2026-10-24T14:00:00.123456+00:00' });
+        const err = new ApiError(409, 'conflict', null, {
+            code: 'conflict',
+            updated_by: 'u-pvolkov',
+            updated_at: '2026-10-24T14:00:00.123456+00:00',
+        });
         const info = readConflict(err, [{ id: 'u-pvolkov', login: 'p.volkov' }]);
         expect(info).toEqual({ kind: 'conflict', by: 'p.volkov', updatedAt: '2026-10-24T14:00:00.123456+00:00' });
         expect(conflictText(info!)).toBe('Объект изменён пользователем p.volkov');

@@ -108,7 +108,10 @@ export interface ConflictInfo {
 }
 
 /** Reads a conflict / deletion from an error; null for anything else. `users` resolves raw ids to logins. */
-export function readConflict(err: unknown, users: readonly Pick<AdminUser, 'id' | 'login'>[] = []): ConflictInfo | null {
+export function readConflict(
+    err: unknown,
+    users: readonly Pick<AdminUser, 'id' | 'login'>[] = [],
+): ConflictInfo | null {
     if (!(err instanceof ApiError)) return null;
     const payload = (err.payload && typeof err.payload === 'object' ? err.payload : {}) as Record<string, unknown>;
     const resolve = (raw: unknown): string | null => {
@@ -123,7 +126,8 @@ export function readConflict(err: unknown, users: readonly Pick<AdminUser, 'id' 
             updatedAt: typeof payload['updated_at'] === 'string' ? (payload['updated_at'] as string) : null,
         };
     }
-    if (err.isNotFound && err.code === 'deleted') return { kind: 'deleted', by: resolve(payload['deleted_by']), updatedAt: null };
+    if (err.isNotFound && err.code === 'deleted')
+        return { kind: 'deleted', by: resolve(payload['deleted_by']), updatedAt: null };
     return null;
 }
 

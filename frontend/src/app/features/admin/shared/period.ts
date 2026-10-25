@@ -32,7 +32,11 @@ export const PERIODS: readonly PeriodPreset[] = [
 export type PeriodState = null | { code: string } | { from: string; to: string };
 
 /** Reads `period`/`from`/`to` query params. Unknown codes and broken ranges are ignored. */
-export function periodFromQuery(period: string | null | undefined, from?: string | null, to?: string | null): PeriodState {
+export function periodFromQuery(
+    period: string | null | undefined,
+    from?: string | null,
+    to?: string | null,
+): PeriodState {
     if (!period) return null;
     if (period === 'custom') {
         if (from && to && !Number.isNaN(Date.parse(from)) && !Number.isNaN(Date.parse(to))) return { from, to };
@@ -70,7 +74,9 @@ export function periodRange(state: PeriodState, now = new Date()): { from: strin
     if (!state) return { from: null, to: null };
     if ('code' in state) {
         const preset = PERIODS.find((p) => p.id === state.code);
-        return preset ? { from: new Date(now.getTime() - preset.ms).toISOString(), to: null } : { from: null, to: null };
+        return preset
+            ? { from: new Date(now.getTime() - preset.ms).toISOString(), to: null }
+            : { from: null, to: null };
     }
     return { from: new Date(state.from).toISOString(), to: new Date(state.to).toISOString() };
 }
