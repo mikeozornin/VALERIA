@@ -1,8 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, TemplateRef, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { LuxonDateAdapter } from '@koobiq/angular-luxon-adapter/adapter';
-import { DateAdapter, DateFormatter, KBQ_DATE_LOCALE } from '@koobiq/components/core';
 import { KbqEmptyStateModule } from '@koobiq/components/empty-state';
 import { KbqFilter, KbqFilterBarModule, KbqPipe, KbqPipeTemplate, KbqPipeTypes } from '@koobiq/components/filter-bar';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
@@ -30,13 +28,6 @@ interface TypeOption {
  */
 @Component({
     selector: 'v-statistics',
-    // The Luxon adapter only knows full locale names: with the app LOCALE_ID 'ru' it throws on creation. Provided on the
-    // element so the filter-bar date pipe (and its formatter) resolve these before the root ones.
-    providers: [
-        { provide: KBQ_DATE_LOCALE, useValue: 'ru-RU' },
-        { provide: DateAdapter, useClass: LuxonDateAdapter },
-        DateFormatter,
-    ],
     imports: [
         ScreenHeaderComponent,
         PageStateComponent,

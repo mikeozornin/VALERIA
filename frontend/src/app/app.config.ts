@@ -11,7 +11,8 @@ import {
 } from '@angular/core';
 import { provideAnimations } from '@angular/platform-browser/animations';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
-import { KBQ_LOCALE_SERVICE, KbqLocaleService } from '@koobiq/components/core';
+import { LuxonDateAdapter } from '@koobiq/angular-luxon-adapter/adapter';
+import { DateAdapter, DateFormatter, KBQ_DATE_LOCALE, KBQ_LOCALE_SERVICE, KbqLocaleService } from '@koobiq/components/core';
 import { kbqToastConfigurationProvider, KbqToastPosition } from '@koobiq/components/toast';
 import { routes } from './app.routes';
 import { apiInterceptor, ON_UNAUTHORIZED } from './core/api/api.service';
@@ -30,6 +31,10 @@ export const appConfig: ApplicationConfig = {
         provideAnimations(),
         { provide: LOCALE_ID, useValue: 'ru' },
         { provide: KBQ_LOCALE_SERVICE, useClass: KbqLocaleService },
+        // The only date locale provider. The Luxon adapter needs a full locale name ('ru' throws on creation).
+        { provide: KBQ_DATE_LOCALE, useValue: 'ru-RU' },
+        { provide: DateAdapter, useClass: LuxonDateAdapter },
+        DateFormatter,
         kbqToastConfigurationProvider({ position: KbqToastPosition.BOTTOM_RIGHT, indent: { vertical: 16, horizontal: 16 } }),
         {
             provide: ON_UNAUTHORIZED,
