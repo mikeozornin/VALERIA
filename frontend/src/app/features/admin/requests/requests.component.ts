@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
-import { KbqLuxonDateModule } from '@koobiq/angular-luxon-adapter/adapter';
+import { LuxonDateAdapter } from '@koobiq/angular-luxon-adapter/adapter';
 import { KbqBadgeColors, KbqBadgeModule } from '@koobiq/components/badge';
 import { KbqButtonModule } from '@koobiq/components/button';
-import { KbqComponentColors } from '@koobiq/components/core';
+import { DateAdapter, DateFormatter, KBQ_DATE_LOCALE, KbqComponentColors } from '@koobiq/components/core';
 import { KbqEmptyStateModule } from '@koobiq/components/empty-state';
 import {
     KbqFilter,
@@ -46,13 +46,19 @@ const KINDS: ItemKind[] = ['question', 'task', 'folder'];
         ScreenHeaderComponent,
         PageStateComponent,
         AdminSearchComponent,
-        KbqLuxonDateModule,
         KbqFilterBarModule,
         KbqTableModule,
         KbqBadgeModule,
         KbqButtonModule,
         KbqIconModule,
         KbqEmptyStateModule,
+    ],
+    providers: [
+        // The Luxon adapter only knows full locale names: with the app LOCALE_ID 'ru' it throws on creation. Provided on the
+        // element so the filter-bar date pipe (and its formatter) resolve these before the root ones.
+        { provide: KBQ_DATE_LOCALE, useValue: 'ru-RU' },
+        { provide: DateAdapter, useClass: LuxonDateAdapter },
+        DateFormatter,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `

@@ -74,7 +74,7 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
                 @if (request(); as r) {
                     <div class="v-chat">
                         <kbq-alert [alertColor]="alertColors.Info">
-                            <i kbq-icon="kbq-eye_16" kbq-icon-item></i>
+                            <i kbq-icon-item="kbq-eye_16"></i>
                             Вы смотрите {{ kindObject(r) }} пользователя <b>{{ r.user.login || dash }}</b
                             >. Ответить или написать от его имени отсюда нельзя.
                         </kbq-alert>
@@ -84,7 +84,9 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
                                 <kbq-dt>Задача</kbq-dt>
                                 <kbq-dd>{{ job()?.task_title || r.task_title || dash }}</kbq-dd>
                                 <kbq-dt>Пользователь</kbq-dt>
-                                <kbq-dd class="v-mono">{{ r.user.login || dash }}</kbq-dd>
+                                <kbq-dd
+                                    ><span class="v-mono">{{ r.user.login || dash }}</span></kbq-dd
+                                >
                                 <kbq-dt>Статус</kbq-dt>
                                 <kbq-dd
                                     ><kbq-badge [badgeColor]="badgeColor(r)">{{ status(r) }}</kbq-badge></kbq-dd
@@ -94,7 +96,9 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
                                 <kbq-dt>Очередь</kbq-dt>
                                 <kbq-dd>{{ job()?.queue_name || dash }}</kbq-dd>
                                 <kbq-dt>Модель</kbq-dt>
-                                <kbq-dd class="v-mono">{{ model() }}</kbq-dd>
+                                <kbq-dd
+                                    ><span class="v-mono">{{ model() }}</span></kbq-dd
+                                >
                             </kbq-dl>
 
                             @if (r.status === 'failed') {

@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
-import { KbqLuxonDateModule } from '@koobiq/angular-luxon-adapter/adapter';
+import { LuxonDateAdapter } from '@koobiq/angular-luxon-adapter/adapter';
 import { KbqButtonModule } from '@koobiq/components/button';
 import {
     KbqCodeBlockFile,
     KbqCodeBlockModule,
     kbqCodeBlockHighlightJsConfigProvider,
 } from '@koobiq/components/code-block';
-import { KbqComponentColors } from '@koobiq/components/core';
+import { DateAdapter, DateFormatter, KBQ_DATE_LOCALE, KbqComponentColors } from '@koobiq/components/core';
 import { KbqContentPanelModule } from '@koobiq/components/content-panel';
 import { KbqDlModule } from '@koobiq/components/dl';
 import { KbqEmptyStateModule } from '@koobiq/components/empty-state';
@@ -62,7 +62,6 @@ interface AuditRow extends AuditEvent {
         PageStateComponent,
         AdminSearchComponent,
         CpanelWidthDirective,
-        KbqLuxonDateModule,
         KbqFilterBarModule,
         KbqTableModule,
         KbqButtonModule,
@@ -73,6 +72,11 @@ interface AuditRow extends AuditEvent {
         KbqProgressSpinnerModule,
     ],
     providers: [
+        // The Luxon adapter only knows full locale names: with the app LOCALE_ID 'ru' it throws on creation. Provided on the
+        // element so the filter-bar date pipe (and its formatter) resolve these before the root ones.
+        { provide: KBQ_DATE_LOCALE, useValue: 'ru-RU' },
+        { provide: DateAdapter, useClass: LuxonDateAdapter },
+        DateFormatter,
         kbqCodeBlockHighlightJsConfigProvider({
             core: () => import('highlight.js/lib/core'),
             languages: { json: () => import('highlight.js/lib/languages/json') },
@@ -186,15 +190,21 @@ interface AuditRow extends AuditEvent {
                                 <kbq-dt>Когда</kbq-dt>
                                 <kbq-dd>{{ when(a.created_at) }}</kbq-dd>
                                 <kbq-dt>Кто</kbq-dt>
-                                <kbq-dd class="v-mono">{{ a.actor_login || dash }}</kbq-dd>
+                                <kbq-dd
+                                    ><span class="v-mono">{{ a.actor_login || dash }}</span></kbq-dd
+                                >
                                 @if (a.effective_login && a.effective_login !== a.actor_login) {
                                     <kbq-dt>За кого</kbq-dt>
-                                    <kbq-dd class="v-mono">{{ a.effective_login }}</kbq-dd>
+                                    <kbq-dd
+                                        ><span class="v-mono">{{ a.effective_login }}</span></kbq-dd
+                                    >
                                 }
                                 <kbq-dt>Объект</kbq-dt>
                                 <kbq-dd class="v-break-word">{{ a.object }}</kbq-dd>
                                 <kbq-dt>Код действия</kbq-dt>
-                                <kbq-dd class="v-mono">{{ a.action }}</kbq-dd>
+                                <kbq-dd
+                                    ><span class="v-mono">{{ a.action }}</span></kbq-dd
+                                >
                             </kbq-dl>
                             <section class="v-csec">
                                 <div class="v-csec__title">Подробности</div>

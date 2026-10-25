@@ -7,8 +7,9 @@ export const ADMIN_LIST_STYLES = `
     .v-body { position: relative; display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; }
     .v-body > kbq-content-panel-container { flex: 1 1 auto; min-width: 0; }
     .v-content { height: 100%; overflow: auto; box-sizing: border-box; padding: 16px 24px 24px; }
-    .v-filters { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .v-filters > kbq-filter-bar { flex: 1 1 auto; min-width: 0; }
+    .v-filters { display: flex; align-items: center; gap: 12px; }
+    .v-filters > kbq-filter-bar { flex: 1 1 0; min-width: 0; }
+    .v-filters > v-admin-search { flex: none; }
     .v-table { width: 100%; }
     .v-table tbody tr { cursor: pointer; }
     .v-table tbody tr:focus-visible { outline: 2px solid var(--kbq-states-line-focus-theme); outline-offset: -2px; }

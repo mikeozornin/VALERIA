@@ -214,7 +214,9 @@ const RECENT_LIMIT = 20;
                                     }
                                 </kbq-dd>
                                 <kbq-dt>Рабочая папка</kbq-dt>
-                                <kbq-dd class="v-mono v-break">{{ u.workspace_path || dash }}</kbq-dd>
+                                <kbq-dd class="v-break"
+                                    ><span class="v-mono">{{ u.workspace_path || dash }}</span></kbq-dd
+                                >
                                 <kbq-dt>Mattermost</kbq-dt>
                                 <kbq-dd>
                                     @if (u.mattermost_username) {
@@ -241,7 +243,7 @@ const RECENT_LIMIT = 20;
 
                             <section class="v-csec" aria-label="Запросы пользователя">
                                 <div class="v-csec__title v-csec__title--row">
-                                    <span>{{ recentTitle() }}</span>
+                                    <span>Последние запросы</span>
                                     @if (recent()?.length) {
                                         <a
                                             kbq-button
@@ -513,10 +515,6 @@ export class UsersComponent {
     protected readonly blockLogins = computed(() => this.blockTargets().map((u) => u.login));
     protected readonly alreadyBlocked = computed(() => this.unblockTargets().map((u) => u.login));
     protected readonly checkedIncludesMe = computed(() => this.checkedRows().some((u) => u.login === this.me()));
-    protected readonly recentTitle = computed(() => {
-        const n = this.recent()?.length ?? 0;
-        return n > RECENT_LIMIT ? `Последние ${RECENT_LIMIT} из ${n}` : 'Последние запросы';
-    });
 
     protected readonly resetPassword = new FormControl('', {
         nonNullable: true,

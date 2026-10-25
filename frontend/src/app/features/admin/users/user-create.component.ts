@@ -204,8 +204,14 @@ export class UserCreateComponent implements DirtyAware {
     protected readonly saveError = signal<string | null>(null);
     private readonly serverErrors = signal<Partial<Record<'login' | 'password' | 'ws' | 'mm', string>>>({});
     private created = false;
+    /** Known logins: «Логин … уже занят» is shown before the backend asks for the workspace. */
+    private knownLogins = new Set<string>();
 
     constructor() {
+        this.api.get<AdminUser[]>('/api/admin/users').then(
+            (users) => (this.knownLogins = new Set(users.map((u) => u.login))),
+            () => undefined,
+        );
         const untrack = inject(DirtyFormService).track(() => this.isDirty());
         inject(DestroyRef).onDestroy(untrack);
         for (const key of ['login', 'password', 'ws', 'mm'] as const) {
@@ -237,6 +243,10 @@ export class UserCreateComponent implements DirtyAware {
         const login = v.login.trim();
         const ws = v.ws.trim();
         const mm = v.mm.trim().replace(/^@/, '');
+        if (this.knownLogins.has(login)) {
+            this.serverErrors.set({ login: `Логин ${login} уже занят` });
+            return;
+        }
         if (v.type !== 'admin' && !ws) {
             this.serverErrors.set({ ws: 'Укажите рабочую папку' });
             return;
