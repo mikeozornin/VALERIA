@@ -522,9 +522,11 @@ def bootstrap_admin(database: Database, settings: Settings) -> None:
 
 
 class SpaPathConvertor(Convertor[str]):
-    """Any path outside /api and /static, so unknown API routes stay JSON 404s."""
+    """Any path outside /api and /static, so unknown API routes stay JSON 404s.
+    A last segment with a dot names a file (/favicon.ico, /main.js): a plain 404.
+    A trailing slash does not hide that dot, or the slash redirect would serve it."""
 
-    regex = r"(?!(?:api|static)(?:/|$)).*"
+    regex = r"(?!(?:api|static)(?:/|$))(?:(?:[^/]*/)*[^/.]+/?)?"
 
     def convert(self, value: str) -> str:
         return value

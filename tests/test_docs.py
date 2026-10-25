@@ -30,10 +30,13 @@ def test_docs_setting_reads_app_enable_docs(monkeypatch, workspace):
 
 async def test_api_docs_are_off_by_default(settings):
     assert settings.enable_docs is False
-    for path in DOC_PATHS:
+    for path in ("/docs", "/redoc"):
         response = await fetch(settings, path)
         # The page URL falls through to the app shell; no schema is exposed.
         assert response.content == INDEX, path
+    # The schema URL names a file, so it is a plain 404 rather than the app shell.
+    schema = await fetch(settings, "/openapi.json")
+    assert schema.status_code == 404 and schema.json() == {"detail": "Not Found"}
     assert (await fetch(settings, "/docs/oauth2-redirect")).content == INDEX
 
 

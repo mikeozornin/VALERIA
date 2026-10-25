@@ -13,6 +13,9 @@ async def test_page_urls_serve_the_single_page_app(ui_app):
     for path in (
         "/", "/questions/chat-1", "/tasks/runs/run-1", "/folder/chat-2",
         "/admin/users?status=blocked", "/apiary", "/staticky/page",
+        # A dot in a middle segment or in the query is still a page URL.
+        "/admin/users/i.sokolova/edit", "/admin/users?q=i.sokolova", "/folder/chat-2?file=a.py",
+        "/admin/users/",
     ):
         response = await t.client.get(path)
         assert response.status_code == 200, path
@@ -34,3 +37,18 @@ async def test_unknown_api_and_static_paths_stay_not_found(ui_app):
     # Real routes keep their own answers.
     assert (await t.client.get("/api/health")).json()["status"] == "ok"
     assert (await t.client.post("/api/health")).status_code == 405
+
+
+async def test_file_like_paths_are_plain_not_found(ui_app):
+    t = ui_app
+    t.client.cookies.clear()
+    for path in (
+        "/favicon.ico", "/robots.txt", "/main.js", "/assets/app.css", "/admin/users/i.sokolova",
+        "/.env", "/folder/report.pdf?download=1", "/favicon.ico/", "/admin/users/i.sokolova/",
+    ):
+        response = await t.client.get(path)
+        assert response.status_code == 404, path
+        assert response.json() == {"detail": "Not Found"}, path
+    # Real static files are still served.
+    response = await t.client.get("/static/index.html")
+    assert response.status_code == 200 and response.content == INDEX
