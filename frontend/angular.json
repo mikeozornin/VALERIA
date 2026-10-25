@@ -107,7 +107,10 @@
             "tsConfig": "tsconfig.spec.json",
             "buildTarget": "valeria:build:development",
             "runner": "vitest",
-            "watch": false
+            "watch": false,
+            "setupFiles": [
+              "src/test-setup.ts"
+            ]
           }
         }
       }
