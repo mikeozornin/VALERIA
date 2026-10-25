@@ -190,6 +190,7 @@ async def test_task_launch_privacy_and_fixed_configuration(task_app, username):
             "title": task["title"],
             "description": task["description"],
             "plan_first": 0,
+            "input_hint": None,
         }
     ]
     response = await t.client.post(f"/api/tasks/{task['id']}/runs", json={"user_input": "my input"})

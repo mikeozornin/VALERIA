@@ -14,6 +14,12 @@ from typing import Any
 from .security import hash_password, normalize_login, token_digest
 
 
+def clean_input_hint(value: str | None) -> str | None:
+    """The run-form placeholder; blank means none."""
+    hint = (value or "").strip()
+    return hint or None
+
+
 def utcnow() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -321,6 +327,8 @@ class Database:
                 self._connection.execute(
                     "ALTER TABLE tasks ADD COLUMN plan_first INTEGER NOT NULL DEFAULT 0"
                 )
+            if "input_hint" not in task_columns:
+                self._connection.execute("ALTER TABLE tasks ADD COLUMN input_hint TEXT")
             if "queue_id" not in task_columns:
                 self._connection.execute(
                     "ALTER TABLE tasks ADD COLUMN queue_id TEXT REFERENCES work_queues(id)"
@@ -918,6 +926,7 @@ class Database:
         next_task_ids: list[str] | None = None,
         plan_first: bool = False,
         queue_id: str = DEFAULT_QUEUE_ID,
+        input_hint: str | None = None,
     ) -> dict[str, Any]:
         if not title.strip() or not content.strip() or not agent.strip():
             raise ValueError("Title, content and agent are required")
@@ -933,8 +942,8 @@ class Database:
                 """INSERT INTO tasks
                    (id, title, description, content, agent, provider_id, model_id,
                     model_variant, queue_id, is_published, created_by_admin_id,
-                    created_at, updated_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    created_at, updated_at, input_hint)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     task_id,
                     title.strip(),
@@ -949,6 +958,7 @@ class Database:
                     admin_id,
                     now,
                     now,
+                    clean_input_hint(input_hint),
                 ),
             )
             connection.execute(
@@ -1129,7 +1139,7 @@ class Database:
             connection.execute(
                 """UPDATE tasks SET title = ?, description = ?, content = ?, agent = ?,
                    provider_id = ?, model_id = ?, model_variant = ?, queue_id = ?,
-                   is_published = ?, plan_first = ?, updated_at = ?
+                   is_published = ?, plan_first = ?, input_hint = ?, updated_at = ?
                    WHERE id = ? AND deleted_at IS NULL""",
                 (
                     updated["title"].strip(),
@@ -1142,6 +1152,7 @@ class Database:
                     updated.get("queue_id") or DEFAULT_QUEUE_ID,
                     int(updated["is_published"]),
                     int(updated["plan_first"]),
+                    clean_input_hint(updated.get("input_hint")),
                     utcnow(),
                     task_id,
                 ),

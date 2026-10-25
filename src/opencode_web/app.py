@@ -117,6 +117,7 @@ class TaskBody(BaseModel):
     model_variant: str | None = Field(default=None, max_length=100)
     is_published: bool = False
     plan_first: bool = False
+    input_hint: str | None = Field(default=None, max_length=500)
     visibility: str = "all"
     user_ids: list[str] | None = None
     next_task_ids: list[str] = Field(default_factory=list)
@@ -132,6 +133,7 @@ class TaskPatchBody(BaseModel):
     model_variant: str | None = Field(default=None, max_length=100)
     is_published: bool | None = None
     plan_first: bool | None = None
+    input_hint: str | None = Field(default=None, max_length=500)
     visibility: str | None = None
     user_ids: list[str] | None = None
     next_task_ids: list[str] = Field(default_factory=list)
@@ -252,7 +254,9 @@ def public_task_run(job: dict[str, Any]) -> dict[str, Any]:
 
 
 def public_task(task: dict[str, Any]) -> dict[str, Any]:
-    return {key: task.get(key) for key in ("id", "title", "description", "plan_first")}
+    return {
+        key: task.get(key) for key in ("id", "title", "description", "plan_first", "input_hint")
+    }
 
 
 def admin_task(task: dict[str, Any]) -> dict[str, Any]:
@@ -1115,7 +1119,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
                 principal["user"]["id"], body.title, body.description, body.content,
                 agent, provider_id, model_id, body.model_variant, body.is_published,
                 next_task_ids=body.next_task_ids, plan_first=body.plan_first,
-                queue_id=body.queue_id,
+                queue_id=body.queue_id, input_hint=body.input_hint,
             )
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
