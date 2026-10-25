@@ -600,7 +600,15 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
                     finally:
                         database.close()
 
-    app = FastAPI(title="OpenCode Web", version="0.1.0", lifespan=lifespan)
+    docs = settings.enable_docs
+    app = FastAPI(
+        title="OpenCode Web",
+        version="0.1.0",
+        lifespan=lifespan,
+        docs_url="/docs" if docs else None,
+        redoc_url="/redoc" if docs else None,
+        openapi_url="/openapi.json" if docs else None,
+    )
     app.mount("/static", StaticFiles(directory=PACKAGE_DIR / "static"), name="static")
 
     def database(request: Request) -> Database:
