@@ -78,7 +78,7 @@ def test_task_completion_creates_one_durable_notification(task_database):
     assert notification["kind"] == "task_completed"
     assert notification["object_id"] == run["id"]
     assert notification["mattermost_user_id"] == MM_USER
-    assert notification["link_path"] == f"/#/tasks/runs/{run['id']}"
+    assert notification["link_path"] == f"/tasks/runs/{run['id']}"
     assert "private result" not in str(notification)
 
     reopened = Database(db.path, db.session_secret)
@@ -145,7 +145,7 @@ def test_consultation_completion_and_notification_are_idempotent(tmp_path):
         assert db.consultation_jobs(chat["id"])[0]["answer"] == "Ответ"
         (notification,) = db.list_notifications()
         assert notification["kind"] == "consultation_answer_ready"
-        assert notification["link_path"] == f"/#/consultations/{chat['id']}"
+        assert notification["link_path"] == f"/questions/{chat['id']}"
     finally:
         db.close()
 

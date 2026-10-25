@@ -12,6 +12,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, s
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import AwareDatetime, BaseModel, Field
+from starlette.convertors import Convertor, register_url_convertor
 
 from .config import ConfigError, Settings
 from .consultations import public_job as public_consultation_job
@@ -516,6 +517,21 @@ def bootstrap_admin(database: Database, settings: Settings) -> None:
     password = password_file.read_text(encoding="utf-8").strip()
     admin = database.create_user(settings.bootstrap_admin_login, password, "admin", None)
     database.audit(admin["id"], "admin.bootstrap", object_type="user", object_id=admin["id"])
+
+
+class SpaPathConvertor(Convertor[str]):
+    """Any path outside /api and /static, so unknown API routes stay JSON 404s."""
+
+    regex = r"(?!(?:api|static)(?:/|$)).*"
+
+    def convert(self, value: str) -> str:
+        return value
+
+    def to_string(self, value: str) -> str:
+        return value
+
+
+register_url_convertor("spa_path", SpaPathConvertor())
 
 
 def create_app(settings: Settings | None = None, *, start_dispatcher: bool = True) -> FastAPI:
@@ -2408,4 +2424,10 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         app, settings, database, current_principal, csrf_principal,
         admin_read_principal, admin_principal, validate_agent_model,
     )
+
+    # Registered last: the client-side router owns every other page URL.
+    @app.get("/{path:spa_path}", include_in_schema=False)
+    async def spa_fallback(path: str) -> FileResponse:
+        return FileResponse(PACKAGE_DIR / "static" / "index.html")
+
     return app

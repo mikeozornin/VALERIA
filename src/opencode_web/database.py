@@ -2089,7 +2089,7 @@ class Database:
             object_id=root["id"],
             user_id=root["effective_user_id"],
             title=root["task_title"] or "Таска",
-            link_path=f"/#/tasks/runs/{root['id']}",
+            link_path=f"/tasks/runs/{root['id']}",
         )
 
     def complete_consultation_run(self, job_id: str, content: str) -> bool:
@@ -2121,7 +2121,7 @@ class Database:
                 object_id=row["chat_id"],
                 user_id=row["effective_user_id"],
                 title=row["chat_title"] or "Консультация",
-                link_path=f"/#/consultations/{row['chat_id']}",
+                link_path=f"/questions/{row['chat_id']}",
             )
             return True
 
