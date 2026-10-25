@@ -13,6 +13,7 @@ from test_tasks_api import login
 
 from opencode_web.app import event_for_user
 from opencode_web.dispatcher import QueueDispatcher
+from opencode_web.opencode_client import OpenCodeError
 
 CHAT_FIELDS = {
     "type", "kind", "id", "chat_id", "title", "status", "phase", "task_id", "created_at",
@@ -75,9 +76,13 @@ async def test_chat_actions_publish_events_only_for_owner_and_admins(
         assert response.status_code == 200, response.text
     assert (await t.client.delete(f"/api/chats/{chat_id}")).status_code == 204
 
-    # Idempotent repeats change nothing, so they publish nothing.
+    # Idempotent repeats change nothing, so they publish nothing. Deleting a folder
+    # chat first stops its queued job, and that end updates the chat once more.
     published = recorder.of("chat.updated", "chat.deleted")
-    assert [event["type"] for event in published] == ["chat.updated"] * 4 + ["chat.deleted"]
+    stopped = ["chat.updated"] if kind == "folder" else []
+    assert [event["type"] for event in published] == (
+        ["chat.updated"] * 4 + stopped + ["chat.deleted"]
+    )
     states = [
         (bool(event["item"]["archived_at"]), bool(event["item"]["snoozed_until"]))
         for event in published[:4]
@@ -315,6 +320,94 @@ async def test_folder_chat_status_shows_when_it_waits_for_the_user(ui_app, monke
         worker.cancel()
         with suppress(asyncio.CancelledError):
             await worker
+    assert len(recorder.of("chat.updated")) == 2
+
+
+async def started_folder(t):
+    folder = await make_folder(t, "worker")
+    chat_id = folder["chat_id"]
+    job = t.db.unfinished_chat_jobs(chat_id)[0]
+    assert t.db.claim_next_job(5)["id"] == job["id"]
+    attach_session(t, chat_id, "folder-monitor", "Новый диалог")
+    return chat_id, t.db.get_job(job["id"])
+
+
+@pytest.mark.parametrize("outcome", ["completed", "failed"])
+async def test_folder_chat_end_publishes_one_chat_update(ui_app, monkeypatch, outcome):
+    t = ui_app
+    original_sleep = asyncio.sleep
+
+    async def fast_sleep(delay):
+        await original_sleep(0)
+
+    monkeypatch.setattr("opencode_web.dispatcher.asyncio.sleep", fast_sleep)
+    chat_id, job = await started_folder(t)
+    # A snoozed chat: its question clears the snooze along with the waiting status.
+    await t.client.post(f"/api/chats/{chat_id}/snooze", json={"until": future()})
+    question = {"id": "r1", "sessionID": "folder-monitor", "questions": [{"question": "?"}]}
+    client = folder_monitor_client("folder-monitor", questions=[question])
+    recorder = record(t, monkeypatch)
+    dispatcher = QueueDispatcher(t.db, t.manager, t.app.state.events, 1)
+    worker = asyncio.create_task(dispatcher._execute(job, client))
+
+    async def chat_updates(count):
+        while len(recorder.of("chat.updated")) < count:
+            await original_sleep(0)
+        return recorder.of("chat.updated")
+
+    try:
+        [waiting] = await asyncio.wait_for(chat_updates(1), 2)
+        assert views(t, waiting)["worker"]["status"] == "waiting_question"
+        assert views(t, waiting)["worker"]["snoozed_until"] is None
+        # The user answers; then the agent either finishes or OpenCode goes away.
+        client.questions.return_value = []
+        if outcome == "completed":
+            client.session_statuses.return_value = {}
+        else:
+            client.session_statuses.side_effect = OpenCodeError("unavailable")
+        await asyncio.wait_for(worker, 2)
+    finally:
+        worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await worker
+    assert t.db.get_job(job["id"])["status"] == outcome
+    updates = recorder.of("chat.updated")
+    ended = updates[-1]
+    assert ended["item"]["job_status"] == outcome
+    assert set(views(t, ended)["worker"]) == CHAT_FIELDS
+    assert views(t, ended)["worker"]["status"] == await my_item_status(t, chat_id)
+    assert views(t, ended)["worker"]["status"] != "running"
+    expected = ["waiting_question", "running", outcome] if outcome == "completed" else [
+        "waiting_question", outcome,
+    ]
+    assert [event["item"]["job_status"] for event in updates] == expected
+    assert recorder.of("job.updated")[-1]["job"]["status"] == outcome
+
+
+async def test_stopping_folder_chat_publishes_one_chat_update(ui_app, monkeypatch):
+    t = ui_app
+    queued = await make_folder(t, "worker")
+    queued_job = t.db.unfinished_chat_jobs(queued["chat_id"])[0]
+    recorder = record(t, monkeypatch)
+    dispatcher = QueueDispatcher(t.db, t.manager, t.app.state.events, 1)
+    await dispatcher.stop_job(queued_job["id"])
+    [event] = recorder.of("chat.updated")
+    assert event["item"]["chat_id"] == queued["chat_id"]
+    assert event["item"]["job_status"] == "cancelled"
+
+    # A running job ends once OpenCode confirms the abort.
+    chat_id, job = await started_folder(t)
+    t.db.set_job_status(job["id"], "running")
+    t.manager.client.abort = AsyncMock(return_value=True)
+    t.manager.client.session_statuses = AsyncMock(return_value={})
+    await dispatcher.stop_job(job["id"])
+    await asyncio.wait_for(dispatcher._cancellations[job["id"]], 2)
+    assert t.db.get_job(job["id"])["status"] == "cancelled"
+    [_, event] = recorder.of("chat.updated")
+    assert event["item"]["chat_id"] == chat_id
+    assert event["item"]["job_status"] == "cancelled"
+    # Stopping a finished job again publishes nothing more.
+    await dispatcher.stop_job(job["id"])
     assert len(recorder.of("chat.updated")) == 2
 
 
