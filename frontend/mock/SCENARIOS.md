@@ -52,8 +52,8 @@ The prototype is `valeria-ui/prototype.html` (`STEPS` + `STEPS_FIND`). The setup
 |---|---|---|---|
 | 1 | home · feed «Я только спросить» | `?as=user` | `GET /api/me/items`, `GET /api/tasks`, `GET /api/consultations`. Ask: `POST /api/consultations {message}` + `Idempotency-Key` |
 | 2 | home · folder «Сделать» | `?as=user` (folder assigned) | `GET /api/config/public` (workspace), `GET /api/options`, `GET /api/templates`. Send: `POST /api/chats {message, agent:"plan"\|"build", model}` → `{chat, job}` |
-| 3 | home · preset «Выбрана задача» (ci) | `?as=user` | `GET /api/tasks` → `t-ci`. Run: `POST /api/tasks/t-ci/runs {user_input}` → 202 public_task_run |
-| 4 | home · duplicate «Такой запуск уже идёт» (mr + MR !1932) | `?as=user` | `r-running` (t-mr, running, title «Ревью merge request: !1932 — Поддержка TLS 1.3 в HTTP-клиенте») is in `GET /api/task-runs`, `/api/me/items`, `/api/queue/me` |
+| 3 | home · preset «Выбрана задача» (ci) | `?as=user` | `GET /api/tasks` → `t-ci` with `input_hint` «Ссылка на пайплайн или job GitLab» (composer placeholder). Run: `POST /api/tasks/t-ci/runs {user_input}` → 202 public_task_run |
+| 4 | home · duplicate «Такой запуск уже идёт» (mr + MR !1932) | `?as=user` | Pick `t-mr` and enter `https://gitlab.example.com/fw/firmware-sdk/-/merge_requests/1932`. `GET /api/task-runs` contains `r-running` with `task_id:"t-mr"` and that exact `user_input`, status `running` → the UI matches on `task_id` + `user_input` |
 | 5 | home · first «Первый вход» | `?as=user&first=1` | `GET /api/me/items` → `[]`, `/api/task-runs` → `[]` |
 | 6 | ask · queued | `?as=user` | `q-queued`: `GET /api/consultations/q-queued` status `queued`; `/api/queue/me` position 3. Live: `POST /__mock/play {"id":"q-queued"}` |
 | 7 | ask · running «Готовит ответ» | `?as=user` | `q-running` (status `running`). Live: a new `POST /api/consultations` goes queued → dispatching → running over SSE `consultation.updated` |
@@ -113,7 +113,7 @@ The prototype is `valeria-ui/prototype.html` (`STEPS` + `STEPS_FIND`). The setup
 |---|---|
 | Logged out → login screen | `?as=none` → `GET /api/auth/me` 401. Then `POST /api/auth/login {login:"i.sokolova", password:"valeria-demo-2026"}`; wrong password → 401 «Неверный логин или пароль»; `s.egorova` is blocked → 401 |
 | No folder assigned | `?as=user&folder=0` → `config.workspace: null`; `POST /api/chats` → 422 «No workspace assigned»; task run → 422 |
-| tasks_only account | `?as=tasks` → `/api/options`, `/api/chats`, `/api/queue/me` → 403 «This account can only use tasks and consultations»; `/api/me/items` has no folders |
+| tasks_only account | `?as=tasks` → `/api/options`, `/api/chats`, `/api/templates` → 403 «This account can only use tasks and consultations»; `/api/me/items` has no folders; `/api/queue/me` is allowed (questions + tasks with `position`) |
 | Duplicate run in progress | see #4 (`r-running`) |
 | Unknown ids | `/api/task-runs/r-nope` → 404 «Task run not found»; `/api/consultations/x` → 404 «Диалог не найден»; `/api/chats/x` → 404 «Chat not found» |
 | Loader (300 ms) | `?delay=300` on the page URL or the request, or `x-mock-delay: 300` |
@@ -122,3 +122,8 @@ The prototype is `valeria-ui/prototype.html` (`STEPS` + `STEPS_FIND`). The setup
 | Snooze cleared by attention | A snoozed chat whose job goes to waiting_question/permission is unsnoozed (`chat.updated`) |
 | Live plan_first run | `POST /__mock/patch {"collection":"tasks","id":"t-conan","set":{"is_published":1}}`, then `POST /api/tasks/t-conan/runs` (`?as=user`) → phase `plan` → `build` → completed |
 | Mattermost profile | `PATCH /api/profile {"mattermost_username":"p.volkov"}` → 409 «Mattermost user is already assigned» |
+
+## Contract notes (BRIEF §7, §10)
+
+- `public_task_run` returns the real status (including `waiting_question` and `waiting_permission`) and also `user_input`, `error_code` and `started_at`. `/api/me/items` task items use the same status. Live waiting status: put `#permission` or `#question` in `user_input`.
+- `public_task` (`/api/tasks`) and the admin task routes return `input_hint`; admin create and PATCH accept it (max 500 characters, otherwise 422). The seed hints are the prototype's texts. `t-yt` is not in the prototype's task list, so its hint is `null`.

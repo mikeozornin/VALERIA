@@ -840,7 +840,12 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
   }, 204);
 
   // -------------------------------------------------------------- admin: tasks
-  const taskSpec = { title: "string", description: "string", content: "string", agent: "string", model: "string", model_variant: "string", is_published: "bool", plan_first: "bool", visibility: "string", user_ids: "list", next_task_ids: "list", queue_id: "string", updated_at: "string" };
+  const taskSpec = { title: "string", description: "string", content: "string", agent: "string", model: "string", model_variant: "string", is_published: "bool", plan_first: "bool", visibility: "string", user_ids: "list", next_task_ids: "list", queue_id: "string", input_hint: "string", updated_at: "string" };
+  const checkHint = (body: Json) => {
+    if (typeof body.input_hint === "string" && body.input_hint.length > 500) {
+      fail(422, [{ type: "string_too_long", loc: ["body", "input_hint"], msg: "String should have at most 500 characters", input: body.input_hint, ctx: { max_length: 500 } }]);
+    }
+  };
   const checkUsers = (ids: string[] | null | undefined) => {
     const out: string[] = [];
     for (const id of new Set(ids ?? [])) { if (!store.users.has(id)) fail(422, `Unknown user: ${id}`); out.push(id); }
@@ -860,6 +865,7 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     validate(c.body, spec);
     minLen(c.body, "title", 1);
     minLen(c.body, "content", 1);
+    checkHint(c.body);
     checkAgent(c.body.agent);
     const model = splitModel(c.body.model)!;
     const visibility = checkVisibility(c.body.visibility ?? "all");
@@ -872,6 +878,7 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
       id: store.newId("t"), title: c.body.title, description: c.body.description ?? null, content: c.body.content, agent: c.body.agent,
       provider_id, model_id, model_variant: c.body.model_variant ?? null, queue_id: queueId, is_published: c.body.is_published ? 1 : 0,
       visibility, created_by_admin_id: c.user.id, created_at: now, updated_at: now, deleted_at: null, plan_first: c.body.plan_first ? 1 : 0,
+      input_hint: c.body.input_hint ?? null,
     };
     store.tasks.set(task.id, task);
     store.taskAudience.set(task.id, new Set(visibility === "selected" ? users : []));
@@ -887,12 +894,13 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     for (const key of ["title", "content", "agent", "model", "is_published", "plan_first", "queue_id"]) {
       if (key in c.body && c.body[key] === null) fail(422, `${key} cannot be null`);
     }
+    checkHint(c.body);
     if (c.body.visibility != null) checkVisibility(c.body.visibility);
     const users = c.body.user_ids != null ? checkUsers(c.body.user_ids) : null;
     checkAgent(c.body.agent);
     const model = c.body.model ? splitModel(c.body.model)! : `${task.provider_id}/${task.model_id}`;
     if (c.body.queue_id) checkQueue(c.body.queue_id);
-    for (const key of ["title", "description", "content", "agent", "model_variant", "queue_id"]) if (key in c.body) task[key] = c.body[key];
+    for (const key of ["title", "description", "content", "agent", "model_variant", "queue_id", "input_hint"]) if (key in c.body) task[key] = c.body[key];
     if ("is_published" in c.body) task.is_published = c.body.is_published ? 1 : 0;
     if ("plan_first" in c.body) task.plan_first = c.body.plan_first ? 1 : 0;
     [task.provider_id, task.model_id] = model.split("/");
@@ -1128,7 +1136,7 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
 
   // -------------------------------------------------------------- dispatch
   const tasksOnlyAllowed = (method: string, path: string) =>
-    path.startsWith("/api/auth/") || ["/api/config/public", "/api/events", "/api/profile", "/api/tasks", "/api/consultations", "/api/me/items"].includes(path)
+    path.startsWith("/api/auth/") || ["/api/config/public", "/api/events", "/api/profile", "/api/tasks", "/api/consultations", "/api/me/items", "/api/queue/me"].includes(path)
     || path.startsWith("/api/tasks/") || path.startsWith("/api/task-runs") || path.startsWith("/api/consultations/")
     || (method === "POST" && /^\/api\/chats\/[^/]+\/(archive|unarchive|snooze|unsnooze)$/.test(path))
     || (method === "DELETE" && /^\/api\/chats\/[^/]+$/.test(path));

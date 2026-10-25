@@ -260,12 +260,12 @@ export class Store {
     return {
       id: job.id, task_id: job.task_id, plan_first: !!job.plan_first,
       phase: job.plan_first ? (job.phase2_message_id ? "build" : "plan") : "build",
-      title: this.displayTitle(job),
-      status: ["queued", "dispatching", "completed", "failed", "cancelled", "cancelling"].includes(job.status) ? job.status : "running",
-      created_at: job.created_at, finished_at: job.finished_at,
+      // New contract (BRIEF §7): real waiting_* statuses, plus user_input / error_code / started_at.
+      title: this.displayTitle(job), status: job.status, user_input: job.user_input ?? null, error_code: job.error_code ?? null,
+      created_at: job.created_at, started_at: job.started_at, finished_at: job.finished_at,
     };
   }
-  publicTask(t: Json) { return { id: t.id, title: t.title, description: t.description, plan_first: t.plan_first }; }
+  publicTask(t: Json) { return { id: t.id, title: t.title, description: t.description, plan_first: t.plan_first, input_hint: t.input_hint ?? null }; }
   adminTask(t: Json) {
     return {
       ...t, model: `${t.provider_id}/${t.model_id}`,
@@ -476,6 +476,7 @@ export class Store {
         id: t.id, title: t.title, description: t.description, content: t.content, agent: "build", provider_id, model_id,
         model_variant: null, queue_id: t.queue_id, is_published: t.is_published, visibility: t.visibility,
         created_by_admin_id: "u-dorlov", created_at: at(t.created_at), updated_at: at(t.updated_at), deleted_at: null, plan_first: t.plan_first,
+        input_hint: t.hint ?? null,
       });
       this.taskAudience.set(t.id, new Set(t.audience));
       this.taskNext.set(t.id, [...t.next]);

@@ -100,7 +100,7 @@ export const TASKS = [
     created_at: protoDate(9, 23), updated_at: protoDate(10, 2, "12:00") },
   { id: "t-yt", title: "Ответ на упоминание @Valeria в YouTrack",
     description: "Ответит на упоминание @Valeria в комментарии YouTrack.",
-    hint: "Ссылка на комментарий YouTrack", model: "anthropic/claude-sonnet-4-5", queue_id: "tasks",
+    hint: null as string | null, model: "anthropic/claude-sonnet-4-5", queue_id: "tasks", // the prototype has no hint for this task
     is_published: 1, visibility: "selected", audience: ["u-youtrack"], plan_first: 0, next: [],
     created_at: protoDate(9, 24), updated_at: protoDate(9, 28, "12:00") },
   { id: "t-conan", title: "Обновление зависимости Conan во всех пакетах прошивки с проверкой сборки на трёх тулчейнах",

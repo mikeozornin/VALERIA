@@ -104,10 +104,10 @@ describe("auth + CSRF", () => {
 describe("tasks_only", () => {
   test("allowlist: tasks, consultations, items, chat actions; everything else 403", async () => {
     const c = await new Client().as("tasks");
-    for (const path of ["/api/options", "/api/chats", "/api/queue/me", "/api/templates"]) {
+    for (const path of ["/api/options", "/api/chats", "/api/templates"]) {
       expect(await c.req("GET", path)).toEqual({ status: 403, body: { detail: "This account can only use tasks and consultations" } });
     }
-    for (const path of ["/api/tasks", "/api/consultations", "/api/task-runs", "/api/config/public", "/api/me/items"]) {
+    for (const path of ["/api/tasks", "/api/consultations", "/api/task-runs", "/api/config/public", "/api/me/items", "/api/queue/me"]) {
       expect((await c.req("GET", path)).status).toBe(200);
     }
     const items = (await c.req("GET", "/api/me/items")).body;
@@ -125,7 +125,8 @@ describe("idempotency", () => {
     const key = { "Idempotency-Key": "run-1" };
     const first = await c.req("POST", "/api/tasks/t-ci/runs", { user_input: "Pipeline #48211" }, key);
     expect(first.status).toBe(202);
-    expect(Object.keys(first.body).sort()).toEqual(["created_at", "finished_at", "id", "phase", "plan_first", "status", "task_id", "title"]);
+    expect(Object.keys(first.body).sort()).toEqual(["created_at", "error_code", "finished_at", "id", "phase", "plan_first", "started_at", "status", "task_id", "title", "user_input"]);
+    expect(first.body.user_input).toBe("Pipeline #48211");
     const again = await c.req("POST", "/api/tasks/t-ci/runs", { user_input: "Pipeline #48211" }, key);
     expect(again.status).toBe(202);
     expect(again.body.id).toBe(first.body.id);
@@ -138,6 +139,35 @@ describe("idempotency", () => {
     expect(extra.body.detail[0]).toMatchObject({ type: "extra_forbidden", loc: ["body", "foo"] });
     const runs = (await c.req("GET", "/api/task-runs")).body.filter((r: any) => r.id === first.body.id);
     expect(runs).toHaveLength(1);
+  });
+});
+
+describe("new contract: tasks", () => {
+  test("public_task has input_hint; duplicate data = task_id + user_input; real waiting status", async () => {
+    const c = await new Client().as("user");
+    const tasks = (await c.req("GET", "/api/tasks")).body;
+    expect(Object.keys(tasks[0]).sort()).toEqual(["description", "id", "input_hint", "plan_first", "title"]);
+    expect(tasks.find((t: any) => t.id === "t-mr").input_hint).toBe("Ссылка на merge request");
+    const runs = (await c.req("GET", "/api/task-runs")).body;
+    const dup = runs.filter((r: any) => r.task_id === "t-mr" && r.user_input === D.MR_URL && !["completed", "failed", "cancelled"].includes(r.status));
+    expect(dup.map((r: any) => r.id)).toEqual(["r-running"]);
+    expect(runs.find((r: any) => r.id === "r-failed")).toMatchObject({ error_code: "assistant_error", status: "failed" });
+
+    const stream = await collectEvents(c, (evs) => evs.some((e) => e.type === "task.updated" && e.task.status === "completed"));
+    const run = (await c.req("POST", "/api/tasks/t-dup/runs", { user_input: "FW-2401 #permission" })).body;
+    const statuses = (await stream.finished).filter((e) => e.type === "task.updated" && e.task.id === run.id).map((e) => e.task.status);
+    expect(statuses).toContain("waiting_permission");
+  });
+
+  test("admin create/PATCH accept and return input_hint (≤ 500)", async () => {
+    const c = await new Client().as("admin");
+    const created = await c.req("POST", "/api/admin/tasks", { title: "T", content: "C", agent: "build", model: D.DEFAULT_MODEL, input_hint: "Номер задачи" });
+    expect(created.status).toBe(201);
+    expect(created.body.input_hint).toBe("Номер задачи");
+    const patched = await c.req("PATCH", `/api/admin/tasks/${created.body.id}`, { input_hint: "Ссылка" });
+    expect(patched.body.input_hint).toBe("Ссылка");
+    expect((await c.req("PATCH", `/api/admin/tasks/${created.body.id}`, { input_hint: "x".repeat(501) })).status).toBe(422);
+    expect((await c.req("GET", "/api/admin/tasks")).body.find((t: any) => t.id === "t-ci").input_hint).toBe("Ссылка на пайплайн или job GitLab");
   });
 });
 
