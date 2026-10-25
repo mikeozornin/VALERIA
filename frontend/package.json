@@ -41,8 +41,10 @@
     "@koobiq/date-formatter": "^3.5.1",
     "@koobiq/design-tokens": "^3.19.0",
     "@koobiq/icons": "^12.2.0",
+    "highlight.js": "^11",
     "luxon": "^3.7.2",
     "marked": "^17.0.3",
+    "overlayscrollbars": "2.7.3",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.15.0"
