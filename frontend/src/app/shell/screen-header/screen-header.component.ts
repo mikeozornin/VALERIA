@@ -41,7 +41,7 @@ export interface Crumb {
                 }
                 <ng-content select="[vHeaderLead]" />
                 <h1 class="kbq-title v-screen-header__title">{{ title() }}</h1>
-                <ng-content select="[vHeaderAfterTitle]" />
+                <span class="v-screen-header__after"><ng-content select="[vHeaderAfterTitle]" /></span>
             </div>
             <div kbqTopBarSpacer></div>
             <div kbqTopBarContainer placement="end">
@@ -84,6 +84,9 @@ export interface Crumb {
             white-space: nowrap;
         }
         .v-screen-header__crumb:hover { color: var(--kbq-foreground-contrast); }
+        /* Prototype .v-titlerow: 12px between the title and what follows it (badge, tag, note). */
+        .v-screen-header__after { display: inline-flex; flex: none; align-items: center; gap: var(--kbq-size-m); margin-left: var(--kbq-size-m); }
+        .v-screen-header__after:empty { display: none; }
     `,
 })
 export class ScreenHeaderComponent {

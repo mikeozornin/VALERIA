@@ -196,7 +196,7 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
         .v-clarified__icon { flex: none; margin-top: 2px; color: var(--kbq-icon-contrast-fade); }
         .v-plain-status { padding: var(--kbq-size-s) 0; }
         .v-failure { margin-top: var(--kbq-size-xxs); }
-        .v-ro-tag { margin-left: var(--kbq-size-m); cursor: default; }
+        .v-ro-tag { cursor: default; }
     `,
 })
 export class QuestionComponent {

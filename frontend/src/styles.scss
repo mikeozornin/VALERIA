@@ -1,5 +1,7 @@
 // Global styles. Colours come only from Koobiq tokens (`--kbq-*`); fonts are self-hosted (angular.json).
 
+@use 'styles/buttons';
+
 html,
 body {
     height: 100%;
@@ -35,4 +37,12 @@ v-root {
     font-weight: var(--kbq-typography-text-compact-font-weight);
     line-height: var(--kbq-typography-text-compact-line-height);
     letter-spacing: var(--kbq-typography-text-compact-letter-spacing);
+}
+
+// Compact alert title (prototype `.k-alert__title`: 14/20, medium). Koobiq's compact alert uses a 16px heading.
+.kbq-alert.kbq-alert_compact .kbq-alert__title {
+    font-family: var(--kbq-typography-text-normal-font-family);
+    font-size: var(--kbq-typography-text-normal-font-size);
+    line-height: var(--kbq-typography-text-normal-line-height);
+    font-weight: 500;
 }

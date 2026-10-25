@@ -3,7 +3,7 @@
 } @else {
     <v-screen-header [title]="run()?.title ?? ''" [chat]="item()" [asideToggle]="!!run()">
         @if (run()) {
-            <kbq-badge vHeaderAfterTitle class="v-task-run__badge" [badgeColor]="statusColor()">{{ statusText() }}</kbq-badge>
+            <kbq-badge vHeaderAfterTitle [badgeColor]="statusColor()">{{ statusText() }}</kbq-badge>
         }
         <ng-container vHeaderActions>
             @if (cancellable()) {

@@ -57,7 +57,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
         <v-screen-header [title]="headerTitle()">
             <ng-container vHeaderAfterTitle>
                 @if (form()) {
-                    <kbq-badge class="v-count" [badgeColor]="published() ? badgeColors.FadeSuccess : badgeColors.FadeContrast">
+                    <kbq-badge [badgeColor]="published() ? badgeColors.FadeSuccess : badgeColors.FadeContrast">
                         {{ published() ? 'Опубликована' : 'Черновик' }}
                     </kbq-badge>
                 }
@@ -228,7 +228,6 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
     `,
     styles: `
         :host { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-        .v-count { margin-left: var(--kbq-size-xs); }
         .v-w320 { width: 320px; }
         .v-tags { max-width: 560px; }
         .v-mono { font-family: var(--kbq-typography-mono-normal-font-family); }

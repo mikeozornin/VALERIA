@@ -24,7 +24,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
         <v-screen-header title="Настройка задач">
             <ng-container vHeaderAfterTitle>
                 @if (rows()) {
-                    <kbq-badge class="v-count" [badgeColor]="badgeColors.FadeContrast">{{ rows()!.length }}</kbq-badge>
+                    <kbq-badge [badgeColor]="badgeColors.FadeContrast">{{ rows()!.length }}</kbq-badge>
                 }
             </ng-container>
             <ng-container vHeaderActions>
@@ -73,7 +73,6 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
     `,
     styles: `
         :host { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-        .v-count { margin-left: var(--kbq-size-xs); }
         .v-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: var(--kbq-size-l) var(--kbq-size-xxl) var(--kbq-size-xxl); }
         .v-table { width: 100%; }
         .v-table td { vertical-align: middle; }

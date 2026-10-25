@@ -31,10 +31,6 @@ kbq-dd.v-task-run__input {
     word-break: break-all;
 }
 
-.v-task-run__badge {
-    margin-left: var(--kbq-size-m);
-}
-
 .v-runcard__icon {
     flex: none;
     color: var(--kbq-icon-contrast-fade);
@@ -182,13 +178,6 @@ kbq-dd.v-task-run__input {
     font-size: 12px;
     line-height: 16px;
     color: var(--kbq-foreground-contrast-tertiary);
-}
-
-/* Prototype `.k-alert__title`: body size, medium weight (Koobiq compact uses a 16px heading). */
-.kbq-alert.kbq-alert_compact .kbq-alert__title {
-    font-size: 14px;
-    line-height: 20px;
-    font-weight: 500;
 }
 
 .v-runcard__title_sub {
