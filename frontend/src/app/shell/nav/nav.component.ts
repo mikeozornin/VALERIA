@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import {
     afterNextRender,
+    afterRenderEffect,
     ChangeDetectionStrategy,
     Component,
     computed,
@@ -9,6 +10,8 @@ import {
     ElementRef,
     inject,
     Injector,
+    signal,
+    viewChild,
     ViewEncapsulation,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -20,6 +23,7 @@ import { KbqDropdownModule } from '@koobiq/components/dropdown';
 import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqNavbarModule } from '@koobiq/components/navbar';
 import { KbqProgressSpinnerModule } from '@koobiq/components/progress-spinner';
+import { KbqTitleDirective } from '@koobiq/components/title';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
 import { filter, map } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
@@ -65,6 +69,7 @@ export function initialsOf(login: string): string {
         KbqIconModule,
         KbqDropdownModule,
         KbqDividerModule,
+        KbqTitleDirective,
         KbqToolTipModule,
         KbqProgressSpinnerModule,
         ChatMenuComponent,
@@ -94,6 +99,10 @@ export class NavComponent {
     protected readonly archiveOpen = this.ui.state(UI_KEYS.navArchiveOpen);
     protected readonly toggle = (open: boolean) => !open;
 
+    /** The chat list scrolls between the pinned blocks; a line above the bottom block shows while it overflows. */
+    private readonly list = viewChild.required<string, ElementRef<HTMLElement>>('list', { read: ElementRef });
+    protected readonly listOverflows = signal(false);
+
     private readonly url = toSignal(
         this.router.events.pipe(
             filter((e): e is NavigationEnd => e instanceof NavigationEnd),
@@ -117,12 +126,24 @@ export class NavComponent {
     });
 
     constructor() {
+        const destroyRef = inject(DestroyRef);
         effect(() => {
             this.previousKeys = this.visibleKeys;
             this.visibleKeys = this.orderedKeys();
         });
+        // Rows and folds change the list height; window and layout changes resize the list itself.
+        afterRenderEffect(() => {
+            this.orderedKeys();
+            this.measureList();
+        });
+        afterNextRender(() => {
+            if (typeof ResizeObserver === 'undefined') return;
+            const observer = new ResizeObserver(() => this.measureList());
+            observer.observe(this.list().nativeElement);
+            destroyRef.onDestroy(() => observer.disconnect());
+        });
         inject(ChatActionsService)
-            .removed$.pipe(takeUntilDestroyed(inject(DestroyRef)))
+            .removed$.pipe(takeUntilDestroyed(destroyRef))
             .subscribe((item) => this.focusNeighbourOf(itemKey(item)));
     }
 
@@ -136,6 +157,11 @@ export class NavComponent {
 
     protected logout(): void {
         void this.auth.logout();
+    }
+
+    private measureList(): void {
+        const el = this.list().nativeElement;
+        this.listOverflows.set(el.scrollHeight > el.clientHeight + 1);
     }
 
     /** After a delete the focus goes to the next row (or the previous one), else to «Новый запрос». */
