@@ -102,6 +102,8 @@ token or session data in storage (the session is an HttpOnly cookie, CSRF lives 
 - The navbar is one tab stop with arrow-key roving focus; nested focusable things in a row are
   `tabindex="-1"` and opened from the row (Shift+F10 / context-menu key for the chat menu).
 - `kbq-navbar-brand` is focusable; the brand here is a plain `div`.
+- A `kbq-navbar-title` in a dropdown-trigger row adds a submenu chevron and is projected right after
+  `[kbq-icon]`, ahead of any other content. The user row (avatar first, no chevron) therefore uses a plain span with `kbq-title`.
 - The flex rule for `kbq-navbar-container` ships with the horizontal navbar only; vertical containers
   get `display: flex; flex-direction: column` in `nav.component.scss`.
 - The navbar item's `::after` state layer sits over its content; interactive children need

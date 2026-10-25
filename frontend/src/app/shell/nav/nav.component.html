@@ -28,7 +28,7 @@
     </kbq-navbar-container>
 
     <!-- The only scrolling part: the brand block above and «Система» / user below stay in place. -->
-    <kbq-navbar-container class="v-nav__list">
+    <kbq-navbar-container #list class="v-nav__list">
         @if (groups().active.length) {
             <div class="v-nav__section kbq-caps-compact-strong">Активные</div>
             @for (item of groups().active; track key(item)) {
@@ -85,7 +85,7 @@
         }
     </kbq-navbar-container>
 
-    <kbq-navbar-container class="v-nav__bottom">
+    <kbq-navbar-container class="v-nav__bottom" [class.v-nav__bottom_divided]="listOverflows()">
         @if (auth.isAdmin()) {
             <button
                 kbq-navbar-item
@@ -108,7 +108,11 @@
                 [attr.aria-label]="user.login + ' · ' + auth.roleLabel()"
             >
                 <span class="v-nav__avatar" aria-hidden="true">{{ initials() }}</span>
-                <span class="v-nav__user-name">{{ user.login }}</span>
+                <!-- SPEC §6.1: «login · роль». A plain span, not kbq-navbar-title: the title slot would move the avatar
+                     after the text and add a submenu chevron. kbq-title shows the full text only when it is cropped. -->
+                <span class="v-nav__user-name" kbq-title
+                    >{{ user.login }}<span class="v-nav__user-role"> · {{ auth.roleLabel() }}</span></span
+                >
             </button>
         }
     </kbq-navbar-container>
@@ -137,6 +141,7 @@
                         [kbqTooltip]="label"
                         [kbqPlacement]="placements.Right"
                     >
+                        <!-- Only Активные is coloured (prototype): finished chats get neutral icons, the label tells the outcome. -->
                         @switch (statusMark(item)) {
                             @case ('waiting') {
                                 <i kbq-icon="kbq-circle-exclamation_16" [color]="colors.Warning"></i>
@@ -145,10 +150,10 @@
                                 <kbq-progress-spinner mode="indeterminate" />
                             }
                             @case ('success') {
-                                <i kbq-icon="kbq-check-circle_16" [color]="colors.Success"></i>
+                                <i kbq-icon="kbq-check-circle_16" [color]="colors.ContrastFade"></i>
                             }
                             @case ('failed') {
-                                <i kbq-icon="kbq-circle-exclamation_16" [color]="colors.Error"></i>
+                                <i kbq-icon="kbq-circle-exclamation_16" [color]="colors.ContrastFade"></i>
                             }
                             @case ('cancelled') {
                                 <i kbq-icon="kbq-xmark-circle_16" [color]="colors.ContrastFade"></i>
