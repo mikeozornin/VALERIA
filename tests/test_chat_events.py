@@ -260,8 +260,62 @@ async def test_folder_chat_that_needs_the_user_ends_its_snooze(ui_app, monkeypat
     assert t.db.get_chat(chat_id)["snoozed_until"] is None
     [event] = recorder.of("chat.updated")
     assert views(t, event)["worker"]["snoozed_until"] is None
-    expected = "waiting_permission" if reason == "permission" else "running"
-    assert t.db.get_job(job["id"])["status"] == expected
+    assert t.db.get_job(job["id"])["status"] == f"waiting_{reason}"
+
+
+async def my_item_status(t, chat_id):
+    response = await t.client.get("/api/me/items")
+    assert response.status_code == 200, response.text
+    [item] = [item for item in response.json() if item["chat_id"] == chat_id]
+    return item["status"]
+
+
+@pytest.mark.parametrize("reason", ["permission", "question"])
+async def test_folder_chat_status_shows_when_it_waits_for_the_user(ui_app, monkeypatch, reason):
+    t = ui_app
+    original_sleep = asyncio.sleep
+
+    async def fast_sleep(delay):
+        await original_sleep(0)
+
+    monkeypatch.setattr("opencode_web.dispatcher.asyncio.sleep", fast_sleep)
+    folder = await make_folder(t, "worker")
+    chat_id = folder["chat_id"]
+    job = t.db.unfinished_chat_jobs(chat_id)[0]
+    assert t.db.claim_next_job(5)["id"] == job["id"]
+    attach_session(t, chat_id, "folder-monitor", "Новый диалог")
+    t.db.set_job_status(job["id"], "running")
+    request = {"id": "r1", "sessionID": "folder-monitor"}
+    client = folder_monitor_client(
+        "folder-monitor",
+        questions=[{**request, "questions": [{"question": "?"}]}] if reason == "question" else (),
+        permissions=[request] if reason == "permission" else (),
+    )
+    recorder = record(t, monkeypatch)
+
+    async def chat_updates(count):
+        while len(recorder.of("chat.updated")) < count:
+            await original_sleep(0)
+        return recorder.of("chat.updated")
+
+    dispatcher = QueueDispatcher(t.db, t.manager, t.app.state.events, 1)
+    worker = asyncio.create_task(dispatcher._monitor(t.db.get_job(job["id"]), client))
+    try:
+        [waiting] = await asyncio.wait_for(chat_updates(1), 2)
+        assert views(t, waiting)["worker"]["status"] == f"waiting_{reason}"
+        assert await my_item_status(t, chat_id) == f"waiting_{reason}"
+
+        # The user answers; the agent carries on.
+        client.questions.return_value = []
+        client.permissions.return_value = []
+        [_, resumed] = await asyncio.wait_for(chat_updates(2), 2)
+        assert views(t, resumed)["worker"]["status"] == "running"
+        assert await my_item_status(t, chat_id) == "running"
+    finally:
+        worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await worker
+    assert len(recorder.of("chat.updated")) == 2
 
 
 async def test_consultation_question_ends_snooze_live_and_after_restart(dispatcher_case):

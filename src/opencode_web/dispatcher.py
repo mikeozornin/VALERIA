@@ -621,6 +621,8 @@ class QueueDispatcher:
             )
             busy = self._busy(statuses.get(job["session_id"]))
             pending_question = False
+            next_status: str | None = None
+            chat_changed = False
             if is_task:
                 async with self._job_lock(job_id):
                     pending_question = await self._answer_task_questions(
@@ -655,10 +657,14 @@ class QueueDispatcher:
                     await self.events.publish(
                         question_event(job["workspace_snapshot"], job["session_id"])
                     )
-                    # A folder chat keeps "running" while its agent asks; it still
-                    # needs the user, so a snooze ends here too.
+                    # Every new question needs the user, so a snooze ends here too.
                     if question_ids and self.database.clear_chat_snooze(job["chat_id"]):
-                        await self._publish_chat_update(job["chat_id"])
+                        chat_changed = True
+                if pending_question:
+                    next_status = "waiting_question"
+                elif live_status == "waiting_question" and not busy:
+                    # Answered; the agent finishes or goes idle on the next polls.
+                    next_status = "running"
             idle_polls = 0 if busy or pending_question else idle_polls + 1
             if busy or is_task or is_consultation:
                 permissions = await self._poll_opencode(
@@ -669,7 +675,8 @@ class QueueDispatcher:
                 )
                 if (is_task or is_consultation) and waiting:
                     raise TaskExecutionError("permission_required")
-                next_status = "waiting_permission" if waiting else "running"
+                next_status = next_status or ("waiting_permission" if waiting else "running")
+            if next_status:
                 current = self.database.get_job(job_id)
                 if not current or current["status"] in {
                     "completed",
@@ -684,8 +691,11 @@ class QueueDispatcher:
                     await self.events.publish(
                         {"type": "job.updated", "job": self.database.get_job(job_id)}
                     )
-                    if cleared:
-                        await self._publish_chat_update(job["chat_id"])
+                    # The side menu reads a folder chat's waiting state from chat.updated.
+                    folder = not is_task and not is_consultation
+                    chat_changed = chat_changed or cleared or folder
+            if chat_changed:
+                await self._publish_chat_update(job["chat_id"])
             # prompt_async can return before its busy transition is visible.
             # Consecutive idle polls also cover very fast completed prompts.
             if idle_polls >= 3:

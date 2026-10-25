@@ -73,6 +73,9 @@ class TaskQueue:
     def clear_chat_snooze(self, chat_id: str) -> bool:
         return False
 
+    def list_items(self, **_: Any) -> list[dict[str, Any]]:
+        return []  # no chat rows, so a chat.updated is skipped
+
     def complete_task_run(self, job_id: str, answer: dict[str, Any] | None) -> None:
         self.set_job_status(job_id, "completed")
         self.job["result"] = answer
@@ -393,7 +396,7 @@ async def test_ordinary_chat_keeps_interactive_questions(runner: Any) -> None:
     worker = asyncio.create_task(dispatcher._execute(dict(queue.job)))
     while client.question_calls < 5:
         await asyncio.sleep(0)
-    assert queue.job["status"] == "running"
+    assert queue.job["status"] == "waiting_question"
     assert client.replies == []
     client.pending_questions.clear()  # The user answers through the chat endpoint.
     await worker
