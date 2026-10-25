@@ -48,7 +48,7 @@ export const POLL_MS = 5000;
                         </div>
                     </div>
                 }
-                <table kbq-table class="v-jobs">
+                <table kbq-table [border]="true" class="v-jobs">
                     <thead>
                         <tr>
                             <th>№</th>
@@ -119,6 +119,7 @@ export const POLL_MS = 5000;
         }
         .v-stat__s { color: var(--kbq-foreground-contrast-tertiary); }
         .v-jobs { width: 100%; margin-top: var(--kbq-size-l); }
+        .v-jobs td { vertical-align: middle; }
         .v-sub {
             display: block;
             font-size: var(--kbq-typography-text-compact-font-size);

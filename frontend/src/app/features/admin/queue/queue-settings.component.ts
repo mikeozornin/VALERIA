@@ -50,7 +50,7 @@ import { QueueTabsComponent } from './queue-tabs.component';
                         <section class="v-rosec" aria-labelledby="q-queues">
                             <h2 class="v-rosec__title" id="q-queues">Очереди</h2>
                             <div class="v-hint">Свободный слот получает очередь с наибольшим приоритетом.</div>
-                            <table kbq-table class="v-table">
+                            <table kbq-table [border]="true" class="v-table">
                                 <thead>
                                     <tr>
                                         <th>Название</th>
@@ -105,10 +105,10 @@ import { QueueTabsComponent } from './queue-tabs.component';
         .v-rosec { display: flex; flex-direction: column; gap: var(--kbq-size-s); }
         .v-rosec__title {
             margin: 0;
-            font-family: var(--kbq-typography-subheading-font-family);
-            font-size: var(--kbq-typography-subheading-font-size);
-            line-height: var(--kbq-typography-subheading-line-height);
-            font-weight: var(--kbq-typography-subheading-font-weight);
+            font-family: var(--kbq-typography-text-big-strong-font-family);
+            font-size: var(--kbq-typography-text-big-strong-font-size);
+            line-height: var(--kbq-typography-text-big-strong-line-height);
+            font-weight: var(--kbq-typography-text-big-strong-font-weight);
         }
         .v-hint {
             color: var(--kbq-foreground-contrast-secondary);
@@ -116,6 +116,7 @@ import { QueueTabsComponent } from './queue-tabs.component';
             line-height: var(--kbq-typography-text-compact-line-height);
         }
         .v-table { width: 100%; }
+        .v-table td { vertical-align: middle; }
         .v-num { text-align: right; }
         .v-secondary { color: var(--kbq-foreground-contrast-secondary); }
         .v-nowrap { white-space: nowrap; }

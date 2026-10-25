@@ -78,7 +78,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
                                 </kbq-form-field>
                                 <span>сессий</span>
                                 @if (!v.useEnv) {
-                                    <button type="button" kbq-button class="v-compact" [color]="colors.ContrastFade" (click)="useEnv()">
+                                    <button type="button" kbq-button class="v-compact" [color]="colors.Contrast" kbqStyle="transparent" (click)="useEnv()">
                                         <i kbq-icon="kbq-arrow-rotate-left_16"></i>
                                         Вернуть {{ envLimit() }} из конфигурации
                                     </button>
@@ -95,7 +95,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
                         <kbq-hint class="v-qhint">
                             Свободный слот получает очередь с наибольшим приоритетом. Лимит очереди не отменяет общий лимит и лимиты пользователей.
                         </kbq-hint>
-                        <table kbq-table class="v-table">
+                        <table kbq-table [border]="true" class="v-table">
                             <thead>
                                 <tr>
                                     <th>Название</th>
@@ -218,7 +218,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
                                         <td></td>
                                         <td class="v-actions">
                                             <span kbqTooltip="Укажите название" kbqPlacement="left" [kbqTooltipDisabled]="!!d.name.trim()">
-                                                <button type="button" kbq-button class="v-compact" [color]="colors.Theme" [disabled]="!d.name.trim()" (click)="addQueue()">
+                                                <button type="button" kbq-button class="v-compact" [color]="colors.Contrast" [disabled]="!d.name.trim()" (click)="addQueue()">
                                                     Добавить
                                                 </button>
                                             </span>
@@ -230,7 +230,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
                         </table>
                         @if (!draft()) {
                             <div>
-                                <button type="button" kbq-button class="v-compact" [color]="colors.ContrastFade" (click)="startAdd()">
+                                <button type="button" kbq-button class="v-compact" [color]="colors.Contrast" kbqStyle="transparent" (click)="startAdd()">
                                     <i kbq-icon="kbq-plus_16"></i>
                                     Добавить очередь
                                 </button>
@@ -294,6 +294,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
         .v-select { width: 260px; }
         .v-table { width: 100%; }
         .v-table td { vertical-align: middle; }
+        .v-table td { vertical-align: middle; }
         kbq-hint {
             display: block;
             color: var(--kbq-foreground-contrast-secondary);
@@ -302,7 +303,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
         }
         kbq-hint[color='error'] { color: var(--kbq-foreground-error); }
         .v-qname { display: inline-flex; align-items: center; gap: var(--kbq-size-xs); }
-        .v-qhint { margin-top: calc(-1 * var(--kbq-size-s)); }
+        .v-qhint { margin-top: calc(-1 * var(--kbq-size-xxs)); }
         .v-secondary { color: var(--kbq-foreground-contrast-secondary); }
         .v-nowrap { white-space: nowrap; }
         .v-actions { text-align: right; white-space: nowrap; }

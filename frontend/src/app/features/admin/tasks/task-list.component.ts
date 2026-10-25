@@ -36,7 +36,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
         </v-screen-header>
         <v-page-state [loading]="loading()" [error]="error()" (retry)="load()">
             <div class="v-content">
-                <table kbq-table class="v-table">
+                <table kbq-table [border]="true" class="v-table">
                     <thead>
                         <tr>
                             <th>Название</th>
@@ -76,6 +76,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
         .v-count { margin-left: var(--kbq-size-xs); }
         .v-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: var(--kbq-size-l) var(--kbq-size-xxl) var(--kbq-size-xxl); }
         .v-table { width: 100%; }
+        .v-table td { vertical-align: middle; }
         .v-table th { white-space: nowrap; }
         .v-row { cursor: pointer; }
         .v-title.kbq-link { color: var(--kbq-foreground-contrast); text-decoration: none; }

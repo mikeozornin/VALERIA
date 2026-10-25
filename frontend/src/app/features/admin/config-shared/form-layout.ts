@@ -74,11 +74,11 @@ export class FormPageComponent {}
         .v-fsec__title {
             padding: 0;
             margin-bottom: var(--kbq-size-xxs);
-            font-family: var(--kbq-typography-subheading-font-family);
-            font-size: var(--kbq-typography-subheading-font-size);
-            line-height: var(--kbq-typography-subheading-line-height);
-            font-weight: var(--kbq-typography-subheading-font-weight);
-            letter-spacing: var(--kbq-typography-subheading-letter-spacing);
+            font-family: var(--kbq-typography-text-big-strong-font-family);
+            font-size: var(--kbq-typography-text-big-strong-font-size);
+            line-height: var(--kbq-typography-text-big-strong-line-height);
+            font-weight: var(--kbq-typography-text-big-strong-font-weight);
+            letter-spacing: var(--kbq-typography-text-big-strong-letter-spacing);
         }
     `,
 })
