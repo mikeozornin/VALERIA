@@ -1262,16 +1262,38 @@ class Database:
         query += " ORDER BY c.updated_at DESC"
         return self._all(query, tuple(params))
 
-    def archive_chats_outside_workspace(self, owner_id: str, workspace: str) -> None:
+    def archive_chats_outside_workspace(self, owner_id: str, workspace: str) -> list[str]:
         now = utcnow()
+        condition = """owner_user_id = ? AND workspace_snapshot != ?
+                       AND archived_reason IS NULL"""
         with self.transaction() as connection:
+            chat_ids = [
+                row["id"] for row in connection.execute(
+                    f"SELECT id FROM chats WHERE {condition}", (owner_id, workspace)
+                )
+            ]
             connection.execute(
-                """UPDATE chats SET archived_reason = 'workspace_changed', updated_at = ?,
-                          archived_at = COALESCE(archived_at, ?), snoozed_until = NULL
-                   WHERE owner_user_id = ? AND workspace_snapshot != ?
-                     AND archived_reason IS NULL""",
+                f"""UPDATE chats SET archived_reason = 'workspace_changed', updated_at = ?,
+                           archived_at = COALESCE(archived_at, ?), snoozed_until = NULL
+                    WHERE {condition}""",
                 (now, now, owner_id, workspace),
             )
+        return chat_ids
+
+    def clear_chat_snooze(self, chat_id: str) -> bool:
+        with self.transaction() as connection:
+            return connection.execute(
+                "UPDATE chats SET snoozed_until = NULL WHERE id = ? AND snoozed_until IS NOT NULL",
+                (chat_id,),
+            ).rowcount > 0
+
+    def chat_for_session(self, workspace: str | None, session_id: str) -> dict[str, Any] | None:
+        """The folder or task chat behind an OpenCode session (consultations keep their title)."""
+        return self._one(
+            """SELECT * FROM chats WHERE workspace_snapshot = ? AND opencode_session_id = ?
+               AND consultation = 0 LIMIT 1""",
+            (workspace, session_id),
+        )
 
     def list_items(
         self,

@@ -42,6 +42,7 @@ class TaskQueue:
     def __init__(self) -> None:
         self.job: dict[str, Any] = {
             "id": "job-task",
+            "chat_id": "chat-task",
             "task_id": "task-definition",
             "session_id": "session-task",
             "workspace_snapshot": "/workspace",
@@ -68,6 +69,9 @@ class TaskQueue:
 
     def requeue_interrupted_job(self, job_id: str) -> None:
         self.set_job_status(job_id, "queued")
+
+    def clear_chat_snooze(self, chat_id: str) -> bool:
+        return False
 
     def complete_task_run(self, job_id: str, answer: dict[str, Any] | None) -> None:
         self.set_job_status(job_id, "completed")

@@ -24,7 +24,16 @@ from .database import (
 )
 from .dispatcher import QueueDispatcher
 from .events import EventBroker
-from .items import allowed_item_kinds, public_item, task_phase, task_run_display_title
+from .items import (
+    CHAT_EVENT_TYPES,
+    allowed_item_kinds,
+    chat_event_for_user,
+    public_item,
+    publish_chat_deleted,
+    publish_chat_updated,
+    task_phase,
+    task_run_display_title,
+)
 from .notifications import (
     MattermostNotificationError,
     NotificationDispatcher,
@@ -352,6 +361,18 @@ def safe_opencode_event(event: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def session_title_update(envelope: Any) -> tuple[str, str] | None:
+    """(session id, title) from an OpenCode `session.updated` event."""
+    payload = envelope.get("payload", envelope) if isinstance(envelope, dict) else None
+    if not isinstance(payload, dict) or payload.get("type") != "session.updated":
+        return None
+    info = (payload.get("properties") or {}).get("info") or {}
+    session_id, title = info.get("id"), info.get("title")
+    if isinstance(session_id, str) and isinstance(title, str) and title.strip():
+        return session_id, title
+    return None
+
+
 def safe_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return messages
 
@@ -406,6 +427,8 @@ def can_receive_event(database: Database, user: dict[str, Any], event: dict[str,
 def event_for_user(
     database: Database, user: dict[str, Any], event: dict[str, Any]
 ) -> dict[str, Any] | None:
+    if event.get("type") in CHAT_EVENT_TYPES:
+        return chat_event_for_user(user, event)
     job = event.get("job") or {}
     if event.get("type") == "job.updated" and job.get("chat_id"):
         chat = database.get_chat(job["chat_id"])
@@ -456,11 +479,26 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         bootstrap_admin(database, settings)
         events = EventBroker()
 
+        async def publish_live_title(event: dict[str, Any]) -> None:
+            update = session_title_update(event.get("event"))
+            if not update:
+                return
+            try:
+                chat = database.chat_for_session(event.get("workspace"), update[0])
+                if not chat or update[1].strip() == chat["title"]:
+                    return
+                database.set_chat_title(chat["id"], update[1])
+                await publish_chat_updated(database, events, chat["id"], title_changed=True)
+            except Exception:
+                # Title sync is cosmetic; it must never break the event relay.
+                logger.exception("Live chat title update failed")
+
         async def publish_opencode(event: dict[str, Any]) -> None:
             if event.get("type") == "opencode.disconnected":
                 await events.publish(event)
             else:
                 await events.publish(safe_opencode_event(event))
+                await publish_live_title(event)
 
         manager = OpenCodeManager(settings, publish_opencode)
         dispatcher = QueueDispatcher(
@@ -612,7 +650,12 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             session = await client.session(chat["opencode_session_id"])
         except OpenCodeError:
             return chat
-        return apply_opencode_title(db, chat, session)
+        updated = apply_opencode_title(db, chat, session)
+        if updated["title"] != chat["title"]:
+            await publish_chat_updated(
+                db, request.app.state.events, chat["id"], title_changed=True
+            )
+        return updated
 
     async def sync_chat_titles(
         request: Request, db: Database, chats: list[dict[str, Any]]
@@ -650,7 +693,12 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         groups = await asyncio.gather(
             *(refresh_workspace(workspace, items) for workspace, items in by_workspace.items())
         )
-        return [change for group in groups for change in group]
+        changes = [change for group in groups for change in group]
+        for change in changes:
+            await publish_chat_updated(
+                db, request.app.state.events, change["id"], title_changed=True
+            )
+        return changes
 
     async def sync_task_titles(
         request: Request, db: Database, jobs: list[dict[str, Any]]
@@ -1478,6 +1526,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
     @app.post("/api/chats/{chat_id}/archive")
     async def archive_chat(
         chat_id: str,
+        request: Request,
         principal: Annotated[dict[str, Any], Depends(csrf_principal)],
         db: Annotated[Database, Depends(database)],
     ) -> dict[str, Any]:
@@ -1489,12 +1538,14 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
                 db, user, "chat.archive", item,
                 {"snoozed_until": item["snoozed_until"]} if item["snoozed_until"] else None,
             )
+            await publish_chat_updated(db, request.app.state.events, chat_id)
             item = visible_item(db, user, chat_id)
         return public_item(item)
 
     @app.post("/api/chats/{chat_id}/unarchive")
     async def unarchive_chat(
         chat_id: str,
+        request: Request,
         principal: Annotated[dict[str, Any], Depends(csrf_principal)],
         db: Annotated[Database, Depends(database)],
     ) -> dict[str, Any]:
@@ -1504,6 +1555,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             raise HTTPException(409, "Chat was archived after a workspace change")
         if db.unarchive_chat(chat_id):
             chat_action_audit(db, user, "chat.unarchive", item)
+            await publish_chat_updated(db, request.app.state.events, chat_id)
             item = visible_item(db, user, chat_id)
         return public_item(item)
 
@@ -1511,6 +1563,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
     async def snooze_chat(
         chat_id: str,
         body: SnoozeBody,
+        request: Request,
         principal: Annotated[dict[str, Any], Depends(csrf_principal)],
         db: Annotated[Database, Depends(database)],
     ) -> dict[str, Any]:
@@ -1524,11 +1577,13 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         if not db.snooze_chat(chat_id, until):
             raise HTTPException(409, "Archived chat cannot be snoozed")
         chat_action_audit(db, user, "chat.snooze", item, {"until": until})
+        await publish_chat_updated(db, request.app.state.events, chat_id)
         return public_item(visible_item(db, user, chat_id))
 
     @app.post("/api/chats/{chat_id}/unsnooze")
     async def unsnooze_chat(
         chat_id: str,
+        request: Request,
         principal: Annotated[dict[str, Any], Depends(csrf_principal)],
         db: Annotated[Database, Depends(database)],
     ) -> dict[str, Any]:
@@ -1536,6 +1591,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         item = visible_item(db, user, chat_id)
         if db.unsnooze_chat(chat_id):
             chat_action_audit(db, user, "chat.unsnooze", item)
+            await publish_chat_updated(db, request.app.state.events, chat_id)
             item = visible_item(db, user, chat_id)
         return public_item(item)
 
@@ -1555,6 +1611,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             stopped.append(job["id"])
         if db.delete_chat(chat_id):
             chat_action_audit(db, user, "chat.delete", item, {"stopped_job_ids": stopped})
+            await publish_chat_deleted(db, request.app.state.events, chat_id)
         return Response(status_code=204)
 
     @app.post("/api/chats/{chat_id}/permissions/{permission_id}")
@@ -1631,6 +1688,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
     async def admin_update_user(
         user_id: str,
         body: UserUpdateBody,
+        request: Request,
         principal: Annotated[dict[str, Any], Depends(admin_principal)],
         db: Annotated[Database, Depends(database)],
         config: Annotated[Settings, Depends(settings_dep)],
@@ -1680,9 +1738,13 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
             raise HTTPException(409, "Mattermost user is already assigned") from exc
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
-        if workspace_changed and workspace:
+        archived_chat_ids = (
             db.archive_chats_outside_workspace(user_id, workspace)
+            if workspace_changed and workspace else []
+        )
         db.audit(principal["user"]["id"], "user.update", object_type="user", object_id=user_id)
+        for chat_id in archived_chat_ids:
+            await publish_chat_updated(db, request.app.state.events, chat_id)
         return public_user(updated)  # type: ignore[arg-type]
 
     @app.post("/api/admin/users/{user_id}/reset-password", status_code=204)

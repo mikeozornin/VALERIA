@@ -36,6 +36,7 @@ class UiManager:
 async def ui_app(settings, workspace):
     app = create_app(settings, start_dispatcher=False)
     async with app.router.lifespan_context(app):
+        publish_opencode = app.state.manager.event_sink
         manager = UiManager()
         app.state.manager = manager
         db = app.state.database
@@ -50,7 +51,10 @@ async def ui_app(settings, workspace):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
-            t = SimpleNamespace(app=app, client=client, db=db, users=users, manager=manager)
+            t = SimpleNamespace(
+                app=app, client=client, db=db, users=users, manager=manager,
+                publish_opencode=publish_opencode,
+            )
             await login(client)
             response = await client.put(
                 "/api/admin/settings/consultations", json={"model": "test/coder"}
