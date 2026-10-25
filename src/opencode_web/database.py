@@ -1377,10 +1377,11 @@ class Database:
     def apply_workspace_change(self, owner_id: str, workspace: str) -> list[str]:
         """Archive the owner's folder chats and questions from other workspaces and
         bring back the ones archived earlier for leaving `workspace`. Task runs follow
-        the user across workspaces and stay as they are. Returns the changed chat ids."""
+        the user across workspaces and stay as they are. Chats the user archived by hand
+        stay archived either way. Returns the changed chat ids."""
         now = utcnow()
         outside = """owner_user_id = ? AND workspace_snapshot != ? AND kind != 'task'
-                     AND archived_reason IS NULL"""
+                     AND archived_at IS NULL AND archived_reason IS NULL"""
         back = """owner_user_id = ? AND workspace_snapshot = ?
                   AND archived_reason = 'workspace_changed'"""
         with self.transaction() as connection:
@@ -1392,7 +1393,7 @@ class Database:
             ]
             connection.execute(
                 f"""UPDATE chats SET archived_reason = 'workspace_changed', updated_at = ?,
-                           archived_at = COALESCE(archived_at, ?), snoozed_until = NULL
+                           archived_at = ?, snoozed_until = NULL
                     WHERE {outside}""",
                 (now, now, owner_id, workspace),
             )

@@ -411,3 +411,44 @@ def test_existing_database_gets_chat_state_columns(tmp_path):
     indexes = {row["name"] for row in db._all("PRAGMA index_list(queue_jobs)")}
     assert "idx_queue_chat" in indexes
     db.close()
+
+
+async def test_workspace_change_keeps_hand_archived_chat_archived(ui_app, workspace):
+    t = ui_app
+    worker = t.users["worker"]
+    kept = await make_folder(t, "worker", "Первый")
+    hand = await make_folder(t, "worker", "Второй")
+    run = await make_run(t, "worker")
+    for item in (kept, hand, run):
+        for job in t.db.unfinished_chat_jobs(item["chat_id"]):
+            t.db.set_job_status(job["id"], "cancelled")
+    await login(t.client, "worker")
+    response = await t.client.post(f"/api/chats/{hand['chat_id']}/archive")
+    assert response.status_code == 200, response.text
+    hand_archived_at = response.json()["archived_at"]
+    moved = workspace / "moved"
+    moved.mkdir()
+
+    async def move_to(path):
+        await login(t.client)
+        response = await t.client.patch(
+            f"/api/admin/users/{worker['id']}", json={"workspace_path": str(path)}
+        )
+        assert response.status_code == 200, response.text
+
+    await move_to(moved)
+    chat = t.db.get_chat(hand["chat_id"])
+    assert chat["archived_reason"] is None and chat["archived_at"] == hand_archived_at
+    assert t.db.get_chat(kept["chat_id"])["archived_reason"] == "workspace_changed"
+
+    await move_to(worker["workspace_path"])
+    chat = t.db.get_chat(hand["chat_id"])
+    assert chat["archived_reason"] is None and chat["archived_at"] == hand_archived_at
+    chat = t.db.get_chat(kept["chat_id"])
+    assert chat["archived_reason"] is None and chat["archived_at"] is None
+    task_chat = t.db.get_chat(run["chat_id"])
+    assert task_chat["archived_reason"] is None and task_chat["archived_at"] is None
+    await login(t.client, "worker")
+    items = {item["chat_id"]: item for item in (await t.client.get("/api/me/items")).json()}
+    assert items[hand["chat_id"]]["archived_at"] == hand_archived_at
+    assert items[kept["chat_id"]]["archived_at"] is None
