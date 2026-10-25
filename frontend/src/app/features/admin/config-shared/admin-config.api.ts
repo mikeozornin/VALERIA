@@ -120,6 +120,8 @@ export interface StatRun {
     started_at: string | null;
     finished_at: string | null;
     outcome: RunOutcome;
+    /** Login of the user who started the run. Not in the mock yet (it strips `_who`); shown in notes and tooltips when present. */
+    login?: string | null;
 }
 
 export interface StatRunsResponse {

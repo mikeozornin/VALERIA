@@ -39,6 +39,7 @@ const cr = (wait: number, work: number, st: ChartRun['st'] = 'done', t = NOW): C
     kind: 'task',
     title: 'Ревью merge request',
     shapeKey: 't-mr',
+    who: null,
     t,
     wait,
     work,
@@ -152,11 +153,19 @@ describe('texts', () => {
         expect(runTooltip(r, NOW)).toBe('Разбор упавшего CI-пайплайна\nСегодня, 11:00 · успешно\nждал 2 мин, работал 10 мин');
         const live = toChartRun(run({ started_at: iso('11:20'), created_at: iso('11:20'), finished_at: null, outcome: null }), NOW);
         expect(runTooltip(live, NOW)).toContain('и продолжает');
+        expect(runTooltip(toChartRun(run({ login: 'm.belov' }), NOW), NOW).split('\n')[0]).toBe('Разбор упавшего CI-пайплайна · m.belov');
     });
 
     it('notes the longest run and the longest wait', () => {
         const notes = chartNotes([cr(1.5, 30), cr(6, 2), cr(9, 0, 'queued')]);
         expect(notes.map((n) => n.text)).toEqual(['Ревью merge request · 32 мин, из них ждал 2 мин', 'Ждал в очереди 6 мин · Ревью merge request']);
+    });
+
+    it('puts the login into the longest-run note and skips a short or same-run wait', () => {
+        const long = { ...cr(3, 40), who: 'm.belov' };
+        expect(chartNotes([long, cr(1.5, 2), cr(30, 0, 'cancelled')]).map((n) => n.text)).toEqual([
+            'Ревью merge request · m.belov · 43 мин, из них ждал 3 мин',
+        ]);
     });
 });
 

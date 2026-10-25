@@ -14,6 +14,8 @@ export interface ChartRun {
     title: string;
     /** Shape key: `q` for questions, otherwise the task id. */
     shapeKey: string;
+    /** Login of the user who started the run; null when the API does not send it. */
+    who: string | null;
     t: number;
     wait: number;
     work: number;
@@ -44,6 +46,7 @@ export function toChartRun(r: StatRun, nowMs: number): ChartRun {
         kind: r.kind,
         title: r.kind === 'question' ? 'Вопрос' : r.task_title || 'Задача',
         shapeKey: r.kind === 'question' ? 'q' : r.task_id || 'task',
+        who: r.login || null,
         t: created,
         wait,
         work,
@@ -210,11 +213,14 @@ export function whenLabel(ms: number, nowMs: number, timeZone = STATS_TZ): strin
     return `${day}, ${hm(ms, timeZone)}`;
 }
 
-/** Point tooltip. The runs API has no user login, so the «· who» part of the prototype is omitted. */
+/** «Задача · login», or just the title while the runs API does not send the login. */
+const titleWho = (r: ChartRun) => (r.who ? `${r.title} · ${r.who}` : r.title);
+
+/** Point tooltip (prototype: `${task} · ${who}\n${when} · ${st}\n…`). */
 export function runTooltip(r: ChartRun, nowMs: number, timeZone = STATS_TZ): string {
     const tail =
         r.st === 'queued' ? `ждёт ${dur(r.wait)}` : `ждал ${dur(r.wait)}, работал ${dur(r.work)}${r.st === 'running' ? ' и продолжает' : ''}`;
-    return `${r.title}\n${whenLabel(r.t, nowMs, timeZone)} · ${ST_TEXT[r.st]}\n${tail}`;
+    return `${titleWho(r)}\n${whenLabel(r.t, nowMs, timeZone)} · ${ST_TEXT[r.st]}\n${tail}`;
 }
 
 /** Labels written on the chart: the longest closed run and the longest wait (≥ 2 min). */
@@ -231,7 +237,7 @@ export function chartNotes(runs: readonly ChartRun[]): { run: ChartRun; text: st
         const total = longest.wait + longest.work;
         notes.push({
             run: longest,
-            text: `${longest.title} · ${durShort(total)}${longest.wait >= 1 ? `, из них ждал ${durShort(longest.wait)}` : ''}`,
+            text: `${titleWho(longest)} · ${durShort(total)}${longest.wait >= 1 ? `, из них ждал ${durShort(longest.wait)}` : ''}`,
         });
     }
     if (waited && waited !== longest && waited.wait >= 2) {

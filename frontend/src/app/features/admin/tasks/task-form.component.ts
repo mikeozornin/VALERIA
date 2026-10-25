@@ -83,6 +83,14 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
                             </kbq-form-field>
                             <kbq-hint>Пользователь видит название, описание и статусы запуска. Инструкцию и ход работы он не видит.</kbq-hint>
                         </v-frow>
+                        <v-frow label="Подсказка к дополнению" for="t-hint">
+                            <kbq-form-field>
+                                <input id="t-hint" kbqInput [ngModel]="v.input_hint" (ngModelChange)="patch({ input_hint: $event })" />
+                            </kbq-form-field>
+                            @if (shown().input_hint; as e) {
+                                <kbq-hint color="error">{{ e }}</kbq-hint>
+                            }
+                        </v-frow>
                     </fieldset>
 
                     <fieldset vFsec="Инструкция агенту">
@@ -107,7 +115,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
 
                     <fieldset vFsec="Исполнение">
                         <v-frow label="Режим">
-                            <kbq-button-toggle-group aria-label="Режим" [ngModel]="v.agent" (ngModelChange)="patch({ agent: $event })">
+                            <kbq-button-toggle-group aria-label="Режим" [stretched]="true" [ngModel]="v.agent" (ngModelChange)="patch({ agent: $event })">
                                 @for (a of agents(); track a) {
                                     <kbq-button-toggle [value]="a">{{ agentLabel(a) }}</kbq-button-toggle>
                                 }
@@ -222,7 +230,6 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
         :host { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
         .v-count { margin-left: var(--kbq-size-xs); }
         .v-w320 { width: 320px; }
-        kbq-button-toggle-group { align-self: flex-start; }
         .v-tags { max-width: 560px; }
         .v-mono { font-family: var(--kbq-typography-mono-normal-font-family); }
         .v-radios { flex-direction: row; gap: var(--kbq-size-l); padding-top: 6px; }

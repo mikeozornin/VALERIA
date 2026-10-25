@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, TemplateRef, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { LuxonDateAdapter } from '@koobiq/angular-luxon-adapter/adapter';
@@ -20,6 +20,8 @@ const TYPE_PIPE = 'Тип';
 interface TypeOption {
     name: string;
     value: string;
+    /** Mark shape shown before the name in the dropdown; none for «Все типы» / «Все задачи». */
+    shape: ShapeName | null;
 }
 
 /**
@@ -81,9 +83,9 @@ interface TypeOption {
                     <h2 class="v-chart__title">Сколько длится каждый запуск</h2>
                     <p class="v-chart__sub">
                         Метка — один запуск: по горизонтали время, когда он встал в очередь, по вертикали сколько работал агент. Черта над
-                        меткой — ожидание в очереди. Цвет — итог: <svg [vShape]="keyShape()" st="done"></svg> успешно,
-                        <svg [vShape]="keyShape()" st="failed"></svg> с ошибкой, <svg [vShape]="keyShape()" st="cancelled"></svg> отменён,
-                        <svg [vShape]="keyShape()" st="running"></svg> ещё идёт.
+                        меткой — ожидание в очереди. Цвет — итог: <svg vShape="circle" st="done"></svg> успешно,
+                        <svg vShape="circle" st="failed"></svg> с ошибкой, <svg vShape="circle" st="cancelled"></svg> отменён,
+                        <svg vShape="circle" st="running"></svg> ещё идёт.
                     </p>
                     <div class="v-keys">
                         @for (key of keys(); track key.shapeKey) {
@@ -106,6 +108,16 @@ interface TypeOption {
                 </p>
             </div>
         </v-page-state>
+        <ng-template #typeOption let-option="option">
+            <span class="v-type-opt">
+                @if (option.shape) {
+                    <svg [vShape]="option.shape" st="key"></svg>
+                } @else {
+                    <span class="v-type-opt__gap"></span>
+                }
+                {{ option.name }}
+            </span>
+        </ng-template>
     `,
     styles: `
         :host { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
@@ -138,6 +150,17 @@ interface TypeOption {
             color: var(--kbq-foreground-contrast-secondary);
         }
         .v-key { display: inline-flex; align-items: center; gap: 6px; }
+        .v-type-opt { display: inline-flex; align-items: center; gap: var(--kbq-size-s); }
+        .v-type-opt__gap { width: 12px; flex: none; }
+        /* Koobiq's select pipe has no chevron; the prototype shows one while the optional «Тип» is empty. */
+        :host ::ng-deep kbq-pipe-select.kbq-pipe_empty .kbq-pipe__value_empty::after {
+            content: '\\f5cb'; /* kbq-chevron-down_16 */
+            font-family: 'Koobiq Icons';
+            font-size: 16px;
+            line-height: 1;
+            vertical-align: -3px;
+            color: var(--kbq-icon-contrast-fade);
+        }
         .v-chart__empty { padding: var(--kbq-size-3xl) 0; }
         .v-source {
             margin: var(--kbq-size-3xl) 0 0;
@@ -186,11 +209,7 @@ export class StatisticsComponent {
         return out;
     });
     private readonly sortedTasks = computed(() => sortByName(this.tasks(), (t) => t.title));
-    protected readonly keyShape = computed<ShapeName>(() => {
-        const type = this.type();
-        if (type && type !== 'question' && type !== 'task') return this.shapes()[type] ?? 'circle';
-        return this.shapes()[this.sortedTasks()[0]?.id] ?? 'triangle';
-    });
+    private readonly typeOptionTpl = viewChild<TemplateRef<unknown>>('typeOption');
     protected readonly keys = computed(() => {
         const type = this.type();
         const shapes = this.shapes();
@@ -203,10 +222,10 @@ export class StatisticsComponent {
     });
 
     private readonly typeOptions = computed<TypeOption[]>(() => [
-        { name: 'Все типы', value: '' },
-        { name: 'Вопросы', value: 'question' },
-        { name: 'Все задачи', value: 'task' },
-        ...this.sortedTasks().map((t) => ({ name: t.title, value: t.id })),
+        { name: 'Все типы', value: '', shape: null },
+        { name: 'Вопросы', value: 'question', shape: 'question' },
+        { name: 'Все задачи', value: 'task', shape: null },
+        ...this.sortedTasks().map((t) => ({ name: t.title, value: t.id, shape: this.shapes()[t.id] })),
     ]);
 
     protected readonly templates = computed<KbqPipeTemplate[]>(() => [
@@ -222,6 +241,7 @@ export class StatisticsComponent {
             name: TYPE_PIPE,
             type: KbqPipeTypes.Select,
             values: this.typeOptions(),
+            valueTemplate: this.typeOptionTpl(),
             compareWith: (a, b) => !!a && !!b && a.value === b.value,
             cleanable: false,
             removable: false,
@@ -250,7 +270,7 @@ export class StatisticsComponent {
                 {
                     name: TYPE_PIPE,
                     type: KbqPipeTypes.Select,
-                    value: type ? (this.typeOptions().find((o) => o.value === type) ?? { name: type, value: type }) : null,
+                    value: type ? (this.typeOptions().find((o) => o.value === type) ?? { name: type, value: type, shape: null }) : null,
                     cleanable: false,
                     removable: false,
                     disabled: false,
