@@ -5,7 +5,7 @@ import sqlite3
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
@@ -83,6 +83,11 @@ class UserUpdateBody(BaseModel):
 class UserProfileUpdateBody(BaseModel):
     model_config = {"extra": "forbid"}
     mattermost_username: str | None = Field(default=None, max_length=23)
+
+
+class UserBatchBody(BaseModel):
+    ids: list[str] = Field(min_length=1, max_length=500)
+    status: Literal["active", "blocked"]
 
 
 class PasswordResetBody(BaseModel):
@@ -1810,6 +1815,42 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         for chat_id in archived_chat_ids:
             await publish_chat_updated(db, request.app.state.events, chat_id)
         return public_user(updated)  # type: ignore[arg-type]
+
+    @app.post("/api/admin/users/batch")
+    async def admin_batch_users(
+        body: UserBatchBody,
+        principal: Annotated[dict[str, Any], Depends(admin_principal)],
+        db: Annotated[Database, Depends(database)],
+    ) -> dict[str, Any]:
+        """Block or unblock several users; each one succeeds or fails on its own."""
+        admin_id = principal["user"]["id"]
+        target = "disabled" if body.status == "blocked" else "active"
+        results: list[dict[str, Any]] = []
+        for user_id in dict.fromkeys(body.ids):
+            user = db.get_user(user_id)
+            result = {
+                "id": user_id, "login": user["login"] if user else None,
+                "ok": False, "skipped": False, "reason": None,
+            }
+            results.append(result)
+            if not user:
+                result["reason"] = "not_found"
+            elif user_id == admin_id:
+                result.update(skipped=True, reason="self")
+            elif user["status"] == target:
+                result.update(ok=True, skipped=True, reason="already")
+            else:
+                try:
+                    db.update_user(user_id, status=target)
+                except ValueError:
+                    result["reason"] = "invalid"
+                    continue
+                db.audit(
+                    admin_id, "user.update", object_type="user", object_id=user_id,
+                    metadata={"status": target, "batch": True},
+                )
+                result["ok"] = True
+        return {"results": results}
 
     @app.post("/api/admin/users/{user_id}/reset-password", status_code=204)
     async def admin_reset_password(
