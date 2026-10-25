@@ -38,9 +38,16 @@ const shellRoutes: Route[] = withDirtyGuard([
     screen('', 'Новый запрос'),
     screen('new/:taskId', 'Новый запрос'),
     screen('search', 'Поиск и команды'),
-    screen('questions/:id', 'Вопрос'),
+    {
+        ...screen('questions/:id', 'Вопрос'),
+        loadComponent: () => import('./features/question/question.component').then((m) => m.QuestionComponent),
+    },
     screen('tasks/runs/:id', 'Запуск задачи'),
-    { ...screen('folder/:id', FOLDER_SECTION), canMatch: [notTasksOnlyMatch] },
+    {
+        ...screen('folder/:id', FOLDER_SECTION),
+        loadComponent: () => import('./features/folder/folder.component').then((m) => m.FolderComponent),
+        canMatch: [notTasksOnlyMatch],
+    },
     denied('folder/:id', FOLDER_SECTION, 'tasks-only'),
 
     ...admin('admin/statistics', 'Статистика'),
