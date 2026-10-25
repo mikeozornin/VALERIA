@@ -6,7 +6,7 @@ from typing import Annotated, Any
 from fastapi import Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from .database import Database
+from .database import ChatDeleted, Database
 from .opencode_client import OpenCodeError
 from .questions import public_questions, session_questions, validate_answers
 from .submissions import submission
@@ -205,6 +205,8 @@ def register_consultations(
                 max_queued=settings.max_queued_messages,
                 queue_id=db.consultation_queue_id(),
             )
+        except ChatDeleted as exc:
+            raise HTTPException(404, "Диалог не найден") from exc
         except ValueError as exc:
             raise HTTPException(429, "Очередь заполнена") from exc
         return job

@@ -19,6 +19,7 @@ from .consultations import public_job as public_consultation_job
 from .consultations import register_consultations
 from .database import (
     DEFAULT_QUEUE_ID,
+    ChatDeleted,
     Database,
     normalize_mattermost_user_id,
     normalize_mattermost_username,
@@ -864,16 +865,19 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         model_variant = body.model_variant
         if not model_variant and requested_model == pinned_model:
             model_variant = chat.get("preferred_model_variant")
-        job = db.create_job(
-            chat=chat,
-            effective_user_id=chat["owner_user_id"],
-            actor_user_id=actor_id,
-            content=content,
-            agent=agent,
-            provider_id=provider_id,
-            model_id=model_id,
-            model_variant=model_variant,
-        )
+        try:
+            job = db.create_job(
+                chat=chat,
+                effective_user_id=chat["owner_user_id"],
+                actor_user_id=actor_id,
+                content=content,
+                agent=agent,
+                provider_id=provider_id,
+                model_id=model_id,
+                model_variant=model_variant,
+            )
+        except ChatDeleted as exc:
+            raise HTTPException(404, "Chat not found") from exc
         app.state.dispatcher.wake()
         return job
 

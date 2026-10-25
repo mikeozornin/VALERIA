@@ -69,6 +69,10 @@ class StaleWrite(Exception):
     """The row changed or disappeared after the caller read it."""
 
 
+class ChatDeleted(LookupError):
+    """The chat was deleted before the message could be queued."""
+
+
 AUDIT_QUERY = """SELECT a.*, actor.login AS actor_login, effective.login AS effective_login
 FROM audit_log a
 LEFT JOIN users actor ON actor.id = a.actor_user_id
@@ -1536,8 +1540,11 @@ class Database:
         queue_id = queue_id or self.default_chat_queue_id()
         self._active_queue(queue_id)
         with self.transaction() as connection:
-            # The caller's chat may predate session attachment by the dispatcher.
+            # The caller's chat may predate session attachment by the dispatcher,
+            # or a delete that raced this message.
             chat = self.get_chat(chat["id"])
+            if not chat or chat["deleted_at"]:
+                raise ChatDeleted
             if max_queued is not None and connection.execute(
                 "SELECT COUNT(*) FROM queue_jobs WHERE status = 'queued'"
             ).fetchone()[0] >= max_queued:
@@ -1908,6 +1915,12 @@ class Database:
         self, limit: int, per_user_default: int | None = None
     ) -> dict[str, Any] | None:
         with self.transaction() as connection:
+            # A message can slip in while its chat is being deleted; never run it.
+            for orphan in connection.execute(
+                """SELECT q.id FROM queue_jobs q JOIN chats c ON c.id = q.chat_id
+                   WHERE q.status = 'queued' AND c.deleted_at IS NOT NULL"""
+            ).fetchall():
+                self.cancel_queued_job(orphan["id"])
             active = connection.execute(
                 """SELECT COUNT(DISTINCT session_id) FROM queue_jobs WHERE status IN
                    ('dispatching', 'running', 'waiting_permission', 'cancelling')"""
