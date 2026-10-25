@@ -2,7 +2,7 @@ import { Item } from '../../core/items/item.model';
 import { groupItems, lastActivity } from '../../core/items/items-grouping';
 import { matches, tokenize } from '../../core/search/search';
 import { ItemKind, KIND_ICON } from '../../core/status/status';
-import { TaskDef } from '../../shared/tasks/task.model';
+import { shortDate, TaskDef } from '../../shared/tasks/task.model';
 
 export type PaletteCommandId = 'ask' | 'do';
 
@@ -92,7 +92,7 @@ export function buildPalette(input: PaletteInput): PaletteResult {
     };
 }
 
-/** Time in a chat row: `HH:mm` today, «Вчера», otherwise `12 окт.`. */
+/** Time in a chat row: `HH:mm` today, «Вчера», otherwise `12 окт`. */
 export function rowTime(iso: string | null | undefined, now: number): string {
     if (!iso) return '';
     const d = new Date(iso);
@@ -102,5 +102,5 @@ export function rowTime(iso: string | null | undefined, now: number): string {
     const days = Math.round((startOfDay(today) - startOfDay(d)) / 86_400_000);
     if (days <= 0) return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     if (days === 1) return 'Вчера';
-    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+    return shortDate(d);
 }

@@ -1,4 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, input, signal, untracked } from '@angular/core';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    computed,
+    DestroyRef,
+    effect,
+    inject,
+    input,
+    signal,
+    TemplateRef,
+    untracked,
+    viewChild,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { KbqAlertModule } from '@koobiq/components/alert';
@@ -61,7 +73,7 @@ const FAILED_HINT =
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { class: 'v-task-run' },
     templateUrl: './task-run.component.html',
-    styleUrl: './task-run.component.scss',
+    styleUrls: ['./task-run.component.scss', '../../shared/primary-button/primary-button.scss'],
 })
 export class TaskRunComponent {
     readonly id = input.required<string>();
@@ -90,6 +102,8 @@ export class TaskRunComponent {
     protected readonly position = signal<number | null>(null);
     protected readonly stopping = signal(false);
     private readonly now = signal(Date.now());
+    private readonly cancelFooter = viewChild.required<TemplateRef<object>>('cancelFooter');
+    private cancelRef: KbqModalRef | null = null;
 
     protected readonly item = computed(() => {
         const id = this.id();
@@ -198,24 +212,27 @@ export class TaskRunComponent {
     protected confirmCancel(): void {
         const run = this.run();
         if (!run || this.stopping()) return;
-        const ref: KbqModalRef = this.modal.create({
+        this.cancelRef = this.modal.create({
             kbqTitle: 'Отменить запуск?',
             kbqContent: `Валерия прервёт задачу «${escapeHtml(this.taskTitle())}». Итога не будет, запуск останется в списке со статусом «Отменена».`,
             kbqSize: ModalSize.Small,
             kbqClosable: true,
-            kbqFooter: [
-                {
-                    label: 'Отменить запуск',
-                    type: 'error',
-                    autoLoading: true,
-                    onClick: async (): Promise<void> => {
-                        await this.stop(run);
-                        ref.close();
-                    },
-                },
-                { label: 'Не отменять', autoFocus: true, onClick: (): void => ref.close() },
-            ],
+            // A template (not button options) so the filled error button gets this component's styles.
+            kbqFooter: this.cancelFooter(),
         });
+        // The safe choice gets focus, as in the prototype.
+        this.cancelRef.afterOpen.subscribe(() => document.querySelector<HTMLElement>('.v-task-run__keep')?.focus());
+        this.cancelRef.afterClose.subscribe(() => (this.cancelRef = null));
+    }
+
+    protected async confirmStop(): Promise<void> {
+        const run = this.run();
+        if (run) await this.stop(run);
+        this.cancelRef?.close();
+    }
+
+    protected closeCancel(): void {
+        this.cancelRef?.close();
     }
 
     protected rerun(): void {

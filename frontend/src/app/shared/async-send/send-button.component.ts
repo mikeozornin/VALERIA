@@ -41,6 +41,7 @@ import { sendShortcutHint } from './async-send';
             <div class="v-send-button__hint">{{ hint }}</div>
         </ng-template>
     `,
+    styleUrls: ['../primary-button/primary-button.scss'],
     styles: `
         :host { display: inline-flex; }
         .v-send-button { display: inline-flex; }

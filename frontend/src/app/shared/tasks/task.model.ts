@@ -71,3 +71,10 @@ export function clockTime(iso: string | null | undefined): string {
     if (Number.isNaN(d.getTime())) return '';
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
+
+const MONTHS_SHORT = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+
+/** «17 окт», as the prototype writes dates (no trailing dot). */
+export function shortDate(d: Date): string {
+    return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
+}

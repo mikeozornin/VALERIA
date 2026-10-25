@@ -3,7 +3,7 @@
 } @else {
     <v-screen-header [title]="run()?.title ?? ''" [chat]="item()" [asideToggle]="!!run()">
         @if (run()) {
-            <kbq-badge vHeaderAfterTitle [badgeColor]="statusColor()">{{ statusText() }}</kbq-badge>
+            <kbq-badge vHeaderAfterTitle class="v-task-run__badge" [badgeColor]="statusColor()">{{ statusText() }}</kbq-badge>
         }
         <ng-container vHeaderActions>
             @if (cancellable()) {
@@ -51,7 +51,7 @@
                         @case ('queued') {
                             <div class="v-runcard">
                                 <div class="v-runcard__status">
-                                    <i kbq-icon-item="kbq-clock_16" [fade]="true" [color]="colors.Contrast" aria-hidden="true"></i>
+                                    <i kbq-icon="kbq-clock_24" class="v-runcard__icon" aria-hidden="true"></i>
                                     <div>
                                         <div class="v-runcard__title">
                                             {{ status() === 'dispatching' ? statusText() : aheadText() }}
@@ -64,7 +64,7 @@
                         @case ('running') {
                             <div class="v-runcard">
                                 <div class="v-runcard__status">
-                                    <kbq-progress-spinner mode="indeterminate" size="big" />
+                                    <kbq-progress-spinner class="v-runcard__spinner" mode="indeterminate" size="big" />
                                     <div>
                                         <div class="v-runcard__title">{{ workingText() }}</div>
                                         <div class="v-runcard__sub">
@@ -78,7 +78,7 @@
                             <div class="v-runcard">
                                 <div class="v-runcard__head">
                                     <i kbq-icon="kbq-circle-check_16" [color]="colors.Success" aria-hidden="true"></i>
-                                    <span class="v-runcard__title">Итог</span>
+                                    <span class="v-runcard__title v-runcard__title_sub">Итог</span>
                                     <span class="v-runcard__spacer"></span>
                                     @if (result()?.text) {
                                         <button
@@ -103,8 +103,8 @@
                             </div>
                         }
                         @case ('failed') {
-                            <kbq-alert alertColor="error">
-                                <i kbq-icon-item="kbq-circle-exclamation_16"></i>
+                            <kbq-alert alertColor="error" alertStyle="colored" [compact]="true">
+                                <i kbq-icon="kbq-circle-exclamation_16" [color]="colors.Error"></i>
                                 <div kbq-alert-title>Задача завершилась с ошибкой</div>
                                 {{ errorText().text }} {{ failedHint }}
                                 @if (errorText().code) {
@@ -113,8 +113,8 @@
                             </kbq-alert>
                         }
                         @case ('cancelled') {
-                            <kbq-alert>
-                                <i kbq-icon-item="kbq-circle-info_16"></i>
+                            <kbq-alert alertStyle="colored" [compact]="true">
+                                <i kbq-icon="kbq-circle-info_16" [color]="colors.Contrast"></i>
                                 <div kbq-alert-title>Запуск отменён в {{ finishedAt() }}</div>
                                 Итога нет. Чтобы начать заново, запустите задачу ещё раз.
                                 <button kbq-alert-control kbq-button [color]="colors.ContrastFade" (click)="rerun()">
@@ -145,3 +145,16 @@
         }
     </div>
 }
+
+<ng-template #cancelFooter>
+    <button
+        kbq-button
+        [color]="colors.Error"
+        [disabled]="stopping()"
+        [class.kbq-progress]="stopping()"
+        (click)="confirmStop()"
+    >
+        Отменить запуск
+    </button>
+    <button kbq-button class="v-task-run__keep" [color]="colors.ContrastFade" (click)="closeCancel()">Не отменять</button>
+</ng-template>

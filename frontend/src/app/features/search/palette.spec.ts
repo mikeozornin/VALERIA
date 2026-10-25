@@ -107,7 +107,7 @@ describe('rowTime', () => {
         const yesterday = new Date(local.getFullYear(), local.getMonth(), local.getDate() - 1, 9, 5).toISOString();
         expect(rowTime(today, NOW)).toBe('09:05');
         expect(rowTime(yesterday, NOW)).toBe('Вчера');
-        expect(rowTime('2026-10-12T10:00:00', NOW)).toMatch(/^12 окт/);
+        expect(rowTime('2026-10-12T10:00:00', NOW)).toBe('12 окт');
         expect(rowTime(null, NOW)).toBe('');
     });
 });

@@ -1,5 +1,5 @@
 import { isWaiting } from '../../core/status/status';
-import { clockTime, TaskRun } from '../../shared/tasks/task.model';
+import { clockTime, shortDate, TaskRun } from '../../shared/tasks/task.model';
 
 export type StageState = 'done' | 'active' | 'error' | 'off' | 'future';
 
@@ -81,7 +81,7 @@ export function durationText(run: TaskRun): string {
     return `${total}, из них ${minutesText(started - created)} в очереди`;
 }
 
-/** «Сегодня, 14:15», «Вчера, 09:02» or «12 окт., 09:02». */
+/** «Сегодня, 14:15», «Вчера, 09:02» or «12 окт, 09:02». */
 export function startedText(iso: string | null | undefined, now: number): string {
     if (!iso) return '—';
     const d = new Date(iso);
@@ -91,7 +91,7 @@ export function startedText(iso: string | null | undefined, now: number): string
     const time = clockTime(iso);
     if (days <= 0) return `Сегодня, ${time}`;
     if (days === 1) return `Вчера, ${time}`;
-    return `${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}, ${time}`;
+    return `${shortDate(d)}, ${time}`;
 }
 
 /** Statuses where «Отменить» is offered. */

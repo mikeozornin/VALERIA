@@ -23,9 +23,21 @@
     padding: var(--kbq-size-l) var(--kbq-size-xxl) var(--kbq-size-xxl);
 }
 
-.v-task-run__input {
-    font-family: var(--kbq-font-family-mono, monospace);
+.kbq-dd.v-task-run__input,
+kbq-dd.v-task-run__input {
+    font-family: var(--kbq-typography-mono-normal-font-family);
+    font-size: var(--kbq-typography-mono-normal-font-size);
+    line-height: var(--kbq-typography-mono-normal-line-height);
     word-break: break-all;
+}
+
+.v-task-run__badge {
+    margin-left: var(--kbq-size-m);
+}
+
+.v-runcard__icon {
+    flex: none;
+    color: var(--kbq-icon-contrast-fade);
 }
 
 .v-task-run__code {
@@ -170,4 +182,61 @@
     font-size: 12px;
     line-height: 16px;
     color: var(--kbq-foreground-contrast-tertiary);
+}
+
+/* Prototype `.k-alert__title`: body size, medium weight (Koobiq compact uses a 16px heading). */
+.kbq-alert.kbq-alert_compact .kbq-alert__title {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 500;
+}
+
+.v-runcard__title_sub {
+    font-size: 18px;
+    line-height: 26px;
+}
+
+/* Prototype `.v-md`: the report is set in body size, denser than the Koobiq article markdown. */
+.v-runcard__md ::ng-deep {
+    .kbq-markdown__h1,
+    .kbq-markdown__h2,
+    .kbq-markdown__h3,
+    .kbq-markdown__h4,
+    .kbq-markdown__h5,
+    .kbq-markdown__h6 {
+        margin: var(--kbq-size-l) 0 6px;
+        font-size: 14px;
+        line-height: 20px;
+        font-weight: 600;
+
+        &:first-child {
+            margin-top: 0;
+        }
+    }
+
+    .kbq-markdown__p,
+    .kbq-markdown__ul,
+    .kbq-markdown__ol {
+        margin: 0 0 var(--kbq-size-s);
+        font-size: 14px;
+        line-height: 20px;
+    }
+
+    .kbq-markdown__pre {
+        margin: 0 0 var(--kbq-size-s);
+        padding: var(--kbq-size-m);
+        font-size: 12px;
+        line-height: 16px;
+    }
+}
+
+/* Prototype `.k-spinner--big`: 32px with a 3px ring (Koobiq big is 48px). */
+.v-runcard__spinner,
+.v-runcard__spinner ::ng-deep .kbq-progress-spinner__inner {
+    width: 32px;
+    height: 32px;
+}
+
+.v-runcard__spinner ::ng-deep .kbq-progress-spinner__circle {
+    stroke-width: 9.4%;
 }

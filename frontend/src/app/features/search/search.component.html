@@ -5,6 +5,8 @@
         <div class="v-palette__head">
             <i kbq-icon="kbq-magnifying-glass_16" [color]="colors.ContrastFade" aria-hidden="true"></i>
             <input
+                id="v-palette-input"
+                name="q"
                 #input
                 class="v-palette__input"
                 type="text"
@@ -34,8 +36,8 @@
 
         <div class="v-palette__list" id="v-palette-list" role="listbox" aria-label="Результаты">
             @if (result().nothing) {
-                <kbq-empty-state class="v-palette__empty">
-                    <i kbq-empty-state-icon kbq-icon-item="kbq-magnifying-glass_16" [big]="true" [fade]="true"></i>
+                <kbq-empty-state class="v-palette__empty" size="compact">
+                    <i kbq-empty-state-icon kbq-icon="kbq-magnifying-glass_24" class="v-palette__empty-icon" aria-hidden="true"></i>
                     <div kbq-empty-state-title>Ничего не нашлось</div>
                     <div kbq-empty-state-text>
                         Поиск идёт по названиям вопросов, задач и работ в папке, в том числе в архиве. Можно
