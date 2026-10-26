@@ -10,7 +10,7 @@ import { authMatch, guestMatch, startupErrorMatch } from './auth.guard';
 @Component({ template: 'login-page' })
 class LoginStub {}
 
-@Component({ template: 'shell-page', imports: [RouterOutlet] })
+@Component({ template: 'shell-page<router-outlet />', imports: [RouterOutlet] })
 class ShellStub {}
 
 const ME = { user: { id: 1, login: 'u', role: 'user', tasks_only: false, workspace_path: null }, csrf_token: 't' };
