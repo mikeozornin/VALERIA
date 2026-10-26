@@ -549,6 +549,12 @@ export class FolderComponent {
                 if (status === 'idle') void this.load(true);
             });
         this.events
+            .on('chat.deleted')
+            .pipe(takeUntilDestroyed())
+            .subscribe((e) => {
+                if (String(e.chat_id) === this.id()) this.markGone();
+            });
+        this.events
             .on('chat.updated')
             .pipe(takeUntilDestroyed())
             .subscribe((e) => {
@@ -601,55 +607,76 @@ export class FolderComponent {
         return `/api/chats/${encodeURIComponent(this.id())}`;
     }
 
+    /** The chat was deleted (here or in another tab): show «not found» and drop loads in flight. */
+    private markGone(): void {
+        this.loadSeq++;
+        this.loading.set(false);
+        this.error.set(null);
+        this.notFound.set(true);
+    }
+
+    /** Follow-up loads drop their result when the user has switched to another chat meanwhile. */
     private async loadQuestions(): Promise<void> {
+        const id = this.id();
         try {
             const list = await this.api.get<QuestionRequest[]>(`${this.base}/questions`);
+            if (id !== this.id()) return;
             this.questions.set(Array.isArray(list) ? list.filter((q) => q.questions?.length) : []);
         } catch (err) {
+            if (id !== this.id()) return;
             this.notify.error('Не удалось загрузить вопрос агента', describeError(err).text);
         }
     }
 
     private async loadPermissions(): Promise<void> {
+        const id = this.id();
         try {
             const list = await this.api.get<PermissionRequest[]>(`${this.base}/permissions`);
+            if (id !== this.id()) return;
             this.permissions.set(Array.isArray(list) ? list : []);
         } catch (err) {
+            if (id !== this.id()) return;
             this.notify.error('Не удалось загрузить запрос разрешения', describeError(err).text);
         }
     }
 
     private async loadMcp(): Promise<void> {
+        const id = this.id();
         try {
             const res = await this.api.get<{ servers?: McpServer[] }>(`${this.base}/mcp`);
-            this.mcp.set(res?.servers ?? []);
+            if (id === this.id()) this.mcp.set(res?.servers ?? []);
         } catch {
-            this.mcp.set([]);
+            if (id === this.id()) this.mcp.set([]);
         }
     }
 
     private async loadOptions(): Promise<void> {
+        const id = this.id();
         try {
-            const o = await this.api.get<FolderOptions>(`/api/options?chat_id=${encodeURIComponent(this.id())}`);
+            const o = await this.api.get<FolderOptions>(`/api/options?chat_id=${encodeURIComponent(id)}`);
+            if (id !== this.id()) return;
             this.options.set(o);
             const agents = o.agents ?? [];
             const agent = o.selected_agent ?? o.default_agent ?? 'build';
             this.agent.set(agents.includes(agent) ? agent : (agents[0] ?? 'build'));
             this.model.set(o.selected_model ?? o.default_model ?? '');
         } catch (err) {
+            if (id !== this.id()) return;
             this.notify.error('Не удалось загрузить список моделей', describeError(err).text);
         }
     }
 
     private async loadJob(): Promise<void> {
+        const id = this.id();
         try {
             const jobs = await this.api.get<QueueJob[]>('/api/queue/me');
+            if (id !== this.id()) return;
             const mine = (jobs ?? [])
-                .filter((j) => String(j.chat_id) === this.id())
+                .filter((j) => String(j.chat_id) === id)
                 .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
             this.job.set(mine[0] ?? null);
         } catch {
-            this.job.set(null);
+            if (id === this.id()) this.job.set(null);
         }
     }
 
@@ -724,7 +751,8 @@ export class FolderComponent {
 
     private async postMessage(body: { message: string; agent: string; model?: string }, action: IdempotentAction): Promise<boolean> {
         try {
-            await this.api.post(`${this.base}/messages`, body, { idempotencyKey: action.keyFor(body) });
+            // The chat id is part of the key: the same text in another chat is another action.
+            await this.api.post(`${this.base}/messages`, body, { idempotencyKey: action.keyFor({ chat: this.id(), ...body }) });
             action.done();
             this.userCountAtSend = this.userCount(this.messages());
             this.pendingText.set(body.message);
@@ -765,7 +793,7 @@ export class FolderComponent {
         if (!request) return false;
         try {
             await this.api.post(`${this.base}/questions/${encodeURIComponent(request.id)}/reply`, payload, {
-                idempotencyKey: this.replyAction.keyFor({ request: request.id, payload }),
+                idempotencyKey: this.replyAction.keyFor({ chat: this.id(), request: request.id, payload }),
             });
             this.replyAction.done();
             this.questions.update((list) => list.filter((q) => q.id !== request.id));

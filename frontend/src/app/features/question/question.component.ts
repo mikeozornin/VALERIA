@@ -288,6 +288,12 @@ export class QuestionComponent {
             .subscribe(() => {
                 if (this.status() === 'queued') void this.loadJob();
             });
+        this.events
+            .on('chat.deleted')
+            .pipe(takeUntilDestroyed())
+            .subscribe((e) => {
+                if (String(e.chat_id) === this.id()) this.markGone();
+            });
         merge(this.events.reconnected$)
             .pipe(takeUntilDestroyed())
             .subscribe(() => void this.load(true));
@@ -322,24 +328,38 @@ export class QuestionComponent {
         }
     }
 
+    /** The chat was deleted (here or in another tab): show «not found» and drop loads in flight. */
+    private markGone(): void {
+        this.loadSeq++;
+        this.loading.set(false);
+        this.error.set(null);
+        this.notFound.set(true);
+    }
+
+    /** Follow-up loads drop their result when the user has switched to another chat meanwhile. */
     private async loadQuestions(): Promise<void> {
+        const id = this.id();
         try {
-            const list = await this.api.get<QuestionRequest[]>(`/api/consultations/${encodeURIComponent(this.id())}/questions`);
+            const list = await this.api.get<QuestionRequest[]>(`/api/consultations/${encodeURIComponent(id)}/questions`);
+            if (id !== this.id()) return;
             this.questions.set(Array.isArray(list) ? list.filter((q) => q.questions?.length) : []);
         } catch (err) {
+            if (id !== this.id()) return;
             this.notify.error('Не удалось загрузить уточняющий вопрос', describeError(err).text);
         }
     }
 
     private async loadJob(): Promise<void> {
+        const id = this.id();
         try {
             const jobs = await this.api.get<QueueJob[]>('/api/queue/me');
+            if (id !== this.id()) return;
             const mine = (jobs ?? [])
-                .filter((j) => String(j.chat_id) === this.id())
+                .filter((j) => String(j.chat_id) === id)
                 .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')));
             this.job.set(mine[0] ?? null);
         } catch {
-            this.job.set(null);
+            if (id === this.id()) this.job.set(null);
         }
     }
 
@@ -379,7 +399,7 @@ export class QuestionComponent {
             await this.api.post(
                 `/api/consultations/${encodeURIComponent(id)}/questions/${encodeURIComponent(request.id)}/reply`,
                 payload,
-                { idempotencyKey: this.replyAction.keyFor({ request: request.id, payload }) },
+                { idempotencyKey: this.replyAction.keyFor({ chat: id, request: request.id, payload }) },
             );
             this.replyAction.done();
             const lastUser = [...(this.detail()?.messages ?? [])].reverse().find((m) => m.role === 'user');
@@ -407,7 +427,8 @@ export class QuestionComponent {
         const body = { message: text };
         try {
             await this.api.post(`/api/consultations/${encodeURIComponent(id)}/messages`, body, {
-                idempotencyKey: action.keyFor(body),
+                // The chat id is part of the key: the same text in another chat is another action.
+                idempotencyKey: action.keyFor({ chat: id, ...body }),
             });
             action.done();
             return true;
