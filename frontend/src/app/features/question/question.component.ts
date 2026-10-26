@@ -345,7 +345,7 @@ export class QuestionComponent {
             this.questions.set(Array.isArray(list) ? list.filter((q) => q.questions?.length) : []);
         } catch (err) {
             if (id !== this.id()) return;
-            this.notify.error('Не удалось загрузить уточняющий вопрос', describeError(err).text);
+            this.notify.error('Не удалось загрузить уточняющий вопрос', describeError(err).text, err);
         }
     }
 
@@ -420,7 +420,7 @@ export class QuestionComponent {
             void this.load(true);
             return true;
         } catch (err) {
-            this.notify.error('Не удалось отправить ответ', describeError(err).text);
+            this.notify.error('Не удалось отправить ответ', describeError(err).text, err);
             if (id === this.id() && err instanceof ApiError && (err.isNotFound || err.isConflict)) void this.load(true);
             return false;
         }
@@ -439,10 +439,10 @@ export class QuestionComponent {
         } catch (err) {
             if (err instanceof ApiError && err.isConflict) {
                 // «Сначала ответьте на уточняющий вопрос»: Valeria asked something meanwhile.
-                this.notify.error(failTitle, err.detail || 'Сначала ответьте на уточняющий вопрос');
+                this.notify.error(failTitle, err.detail || 'Сначала ответьте на уточняющий вопрос', err);
                 if (id === this.id()) void this.load(true);
             } else {
-                this.notify.error(failTitle, describeError(err).text);
+                this.notify.error(failTitle, describeError(err).text, err);
             }
             return false;
         }

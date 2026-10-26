@@ -2,6 +2,7 @@ import { signal, Type } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { KbqModalService } from '@koobiq/components/modal';
+import { KbqToastService } from '@koobiq/components/toast';
 import { filter, Subject } from 'rxjs';
 import { ApiError } from '../core/api/api-error';
 import { ApiService } from '../core/api/api.service';
@@ -29,10 +30,16 @@ function deferred<T>() {
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
 /** The screens' logic only: templates are replaced so child components need no setup. */
-function setup<T>(component: Type<T>, get: (url: string) => Promise<unknown>, items: { chat_id: string; kind: string; id: string }[] = []) {
+function setup<T>(
+    component: Type<T>,
+    get: (url: string) => Promise<unknown>,
+    items: { chat_id: string; kind: string; id: string }[] = [],
+    { realNotify = false } = {},
+) {
     const events = new Subject<ServerEvent>();
     const post = vi.fn().mockResolvedValue({});
     const notify = { error: vi.fn(), success: vi.fn(), warning: vi.fn() };
+    const toast = { show: vi.fn() };
     const store = {
         byChatId: (id: string) => items.find((i) => i.chat_id === id) ?? null,
         find: (p: (i: unknown) => boolean) => items.find(p) ?? null,
@@ -51,7 +58,7 @@ function setup<T>(component: Type<T>, get: (url: string) => Promise<unknown>, it
                 },
             },
             { provide: ItemsStore, useValue: store },
-            { provide: NotifyService, useValue: notify },
+            realNotify ? { provide: KbqToastService, useValue: toast } : { provide: NotifyService, useValue: notify },
             { provide: AuthService, useValue: { user: signal(null) } },
             { provide: KbqModalService, useValue: { create: vi.fn() } },
             { provide: TasksCatalog, useValue: { ensure: () => Promise.resolve(), find: () => null } },
@@ -67,7 +74,7 @@ function setup<T>(component: Type<T>, get: (url: string) => Promise<unknown>, it
         fixture.detectChanges();
         await flush();
     };
-    return { fixture, cmp, events, post, notify, open, store };
+    return { fixture, cmp, events, post, notify, toast, open, store };
 }
 
 const notFound = () => Promise.reject(new ApiError(404, null, null, null));
@@ -271,5 +278,44 @@ describe('task-run screen', () => {
         await flush();
         expect(cmp.notFound()).toBe(true);
         expect(cmp.run()).toBeNull();
+    });
+});
+
+describe('a 403 after which access changed shows no toast (SPEC §16.2)', () => {
+    const forbidden = (accessChanged: boolean) => {
+        const error = new ApiError(403, null, 'This account can only use tasks and consultations', null);
+        error.accessChanged = accessChanged;
+        return error;
+    };
+    const folderGet = (url: string) => {
+        const m = /^\/api\/chats\/([^/]+)$/.exec(url);
+        if (m) return Promise.resolve({ id: m[1], title: m[1], status: 'idle', workspace_snapshot: '/w', opencode_session_id: 's' });
+        return Promise.resolve(url.startsWith('/api/options') ? {} : []);
+    };
+    const questionGet = (url: string) =>
+        url.startsWith('/api/consultations/')
+            ? Promise.resolve({ id: 'q1', title: 'q1', status: 'completed', messages: [], created_at: '', updated_at: '' })
+            : Promise.resolve([]);
+
+    it('folder: a send rejected that way shows no error toast; a plain 403 still does', async () => {
+        const { cmp, post, open, toast } = setup(FolderComponent, folderGet, [], { realNotify: true });
+        await open('f1');
+        post.mockRejectedValueOnce(forbidden(true));
+        expect(await cmp.send('Запусти тесты')).toBe(false);
+        expect(toast.show).not.toHaveBeenCalled();
+        post.mockRejectedValueOnce(forbidden(false));
+        expect(await cmp.send('Запусти тесты')).toBe(false);
+        expect(toast.show).toHaveBeenCalledTimes(1);
+    });
+
+    it('question: an ask rejected that way shows no error toast; a plain 403 still does', async () => {
+        const { cmp, post, open, toast } = setup(QuestionComponent, questionGet, [], { realNotify: true });
+        await open('q1');
+        post.mockRejectedValueOnce(forbidden(true));
+        await cmp.ask('Вопрос');
+        expect(toast.show).not.toHaveBeenCalled();
+        post.mockRejectedValueOnce(forbidden(false));
+        await cmp.ask('Вопрос');
+        expect(toast.show).toHaveBeenCalledTimes(1);
     });
 });

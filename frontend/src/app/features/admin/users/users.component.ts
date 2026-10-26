@@ -30,6 +30,7 @@ import { KbqInputModule } from '@koobiq/components/input';
 import { KbqModalRef, KbqModalService, ModalSize } from '@koobiq/components/modal';
 import { KbqTableModule } from '@koobiq/components/table';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
+import { isAccessChanged } from '../../../core/api/api-error';
 import { ApiService } from '../../../core/api/api.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { NotifyService } from '../../../core/notify/notify.service';
@@ -703,6 +704,7 @@ export class UsersComponent {
             this.notify.error(
                 action === 'block' ? 'Не удалось заблокировать' : 'Не удалось разблокировать',
                 describeError(err).text,
+                err,
             );
         } finally {
             this.batchBusy.set(false);
@@ -744,7 +746,7 @@ export class UsersComponent {
         if (result.ok) {
             this.modalRef?.close();
             this.notify.success('Пароль сброшен', 'Открытые сессии пользователя завершены');
-        } else if ('error' in result) {
+        } else if ('error' in result && !isAccessChanged(result.error)) {
             this.resetError.set(describeError(result.error).text);
         }
     }

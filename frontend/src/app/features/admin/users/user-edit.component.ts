@@ -21,7 +21,7 @@ import { FieldErrorDirective } from '../../../shared/field-error/field-error.dir
 import { KbqInputModule } from '@koobiq/components/input';
 import { KbqRadioModule } from '@koobiq/components/radio';
 import { KbqToggleModule } from '@koobiq/components/toggle';
-import { ApiError } from '../../../core/api/api-error';
+import { ApiError, isAccessChanged } from '../../../core/api/api-error';
 import { ApiService } from '../../../core/api/api.service';
 import { DirtyAware, DirtyFormService } from '../../../core/guards/dirty.guard';
 import { NotifyService } from '../../../core/notify/notify.service';
@@ -525,7 +525,7 @@ export class UserEditComponent implements DirtyAware {
                 return;
             }
         }
-        this.saveError.set(describeError(err).text);
+        if (!isAccessChanged(err)) this.saveError.set(describeError(err).text);
     }
 
     private async loadJobs(user: AdminUser): Promise<AdminJob[]> {

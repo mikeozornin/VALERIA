@@ -8,9 +8,24 @@ import { AuthService } from '../auth/auth.service';
 import { adminMatch } from '../guards/role.guard';
 import { ApiError } from './api-error';
 import { apiInterceptor, ApiService, ON_FORBIDDEN } from './api.service';
+import { KbqToastService } from '@koobiq/components/toast';
+import { NotifyService } from '../notify/notify.service';
+import { describeError } from '../status/error-codes';
 
+/** Mirrors the admin screens' POST actions: a failure becomes an error toast with the caught error as the cause. */
 @Component({ template: 'admin-users' })
-class AdminStub {}
+class AdminStub {
+    private readonly api = inject(ApiService);
+    private readonly notify = inject(NotifyService);
+
+    async block(): Promise<void> {
+        try {
+            await this.api.post('/api/admin/users/batch', { ids: ['u2'], status: 'blocked' });
+        } catch (err) {
+            this.notify.error('Не удалось заблокировать', describeError(err).text, err);
+        }
+    }
+}
 
 @Component({ template: 'Раздел недоступен' })
 class DeniedStub {}
@@ -22,12 +37,14 @@ const me = (role: string) => ({
 
 describe('403 from the API (SPEC §16.2)', () => {
     let http: HttpTestingController;
+    const toast = { show: vi.fn() };
 
     beforeEach(() => {
         TestBed.configureTestingModule({
             providers: [
                 provideHttpClient(withInterceptors([apiInterceptor])),
                 provideHttpClientTesting(),
+                { provide: KbqToastService, useValue: toast },
                 provideRouter([
                     { path: 'admin/users', canMatch: [adminMatch], component: AdminStub },
                     { path: 'admin/users', component: DeniedStub },
@@ -42,6 +59,7 @@ describe('403 from the API (SPEC §16.2)', () => {
             ],
         });
         http = TestBed.inject(HttpTestingController);
+        toast.show.mockClear();
     });
 
     afterEach(() => http.verify());
@@ -104,5 +122,32 @@ describe('403 from the API (SPEC §16.2)', () => {
         expect((error as ApiError).status).toBe(403);
         harness.detectChanges();
         expect((harness.routeNativeElement as HTMLElement).textContent).toContain('admin-users');
+    });
+
+    it("a demoted admin's POST action shows no error toast and lands on «Раздел недоступен»", async () => {
+        const harness = await openAsAdmin();
+        const done = (harness.routeDebugElement!.componentInstance as AdminStub).block();
+
+        http.expectOne('/api/admin/users/batch').flush({ detail: 'Administrator role required' }, { status: 403, statusText: 'Forbidden' });
+        await flushMicrotasks();
+        http.expectOne('/api/auth/me').flush(me('user'));
+        await done;
+
+        harness.detectChanges();
+        expect((harness.routeNativeElement as HTMLElement).textContent).toContain('Раздел недоступен');
+        expect(toast.show).not.toHaveBeenCalled();
+    });
+
+    it('the same POST action still shows the 403 toast when access did not change', async () => {
+        const harness = await openAsAdmin();
+        const done = (harness.routeDebugElement!.componentInstance as AdminStub).block();
+
+        http.expectOne('/api/admin/users/batch').flush({ detail: 'CSRF check failed' }, { status: 403, statusText: 'Forbidden' });
+        await flushMicrotasks();
+        http.expectOne('/api/auth/me').flush(me('admin'));
+        await done;
+
+        expect(toast.show).toHaveBeenCalledTimes(1);
+        expect(toast.show.mock.calls[0][0]).toMatchObject({ title: 'Не удалось заблокировать', caption: 'CSRF check failed' });
     });
 });

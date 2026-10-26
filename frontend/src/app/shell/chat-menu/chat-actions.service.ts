@@ -119,7 +119,7 @@ export class ChatActionsService {
             await action();
         } catch (err) {
             const { text, code } = describeError(err);
-            this.notify.error(text, code ?? undefined);
+            this.notify.error(text, code ?? undefined, err);
         }
     }
 }

@@ -4,6 +4,7 @@ import { KbqComponentColors } from '@koobiq/components/core';
 import { KbqEmptyStateModule } from '@koobiq/components/empty-state';
 import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqLoaderOverlayModule } from '@koobiq/components/loader-overlay';
+import { isAccessChanged } from '../../core/api/api-error';
 import { describeError } from '../../core/status/error-codes';
 
 /** Loader shows only if loading lasts longer than this (SPEC §7: the shell must not blink). */
@@ -23,7 +24,7 @@ export const LOADER_DELAY_MS = 300;
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { class: 'v-page-state', '[attr.aria-busy]': 'loading()' },
     template: `
-        @if (error()) {
+        @if (shownError()) {
             <kbq-empty-state class="v-page-state__error" [errorColor]="true">
                 <i kbq-empty-state-icon kbq-icon-item="kbq-triangle-exclamation_16" [big]="true" [fade]="true" [color]="colors.Contrast"></i>
                 <div kbq-empty-state-title>{{ errorTitle() }}</div>
@@ -61,8 +62,10 @@ export class PageStateComponent {
 
     protected readonly colors = KbqComponentColors;
     private readonly delayed = signal(false);
-    protected readonly showLoader = computed(() => this.loading() && this.delayed() && !this.error());
-    protected readonly errorText = computed(() => (this.error() ? describeError(this.error()) : null));
+    /** A 403 that changed the user's access is never shown (SPEC §16.2): the guards already replace the screen. */
+    protected readonly shownError = computed(() => (isAccessChanged(this.error()) ? null : this.error()));
+    protected readonly showLoader = computed(() => this.loading() && this.delayed() && !this.shownError());
+    protected readonly errorText = computed(() => (this.shownError() ? describeError(this.shownError()) : null));
 
     constructor() {
         let timer: ReturnType<typeof setTimeout> | null = null;

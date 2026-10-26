@@ -59,7 +59,13 @@ export const apiInterceptor: HttpInterceptorFn = (req, next) => {
                 // The caller gets the 403 once the session is re-read; when access changed the navigation has already
                 // re-run, so the screen is «Раздел недоступен» by then. Rejecting (not hanging) lets a screen that is
                 // still reachable leave its loading state.
-                return from(onForbidden()).pipe(switchMap(() => throwError(() => apiError)));
+                return from(onForbidden()).pipe(
+                    switchMap((changed) => {
+                        // Marked so toasts and inline errors skip it: the 403 never reaches the user (SPEC §16.2).
+                        if (changed) apiError.accessChanged = true;
+                        return throwError(() => apiError);
+                    }),
+                );
             }
             return throwError(() => apiError);
         }),

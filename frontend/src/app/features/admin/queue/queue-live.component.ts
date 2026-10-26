@@ -208,7 +208,7 @@ export class QueueLiveComponent {
             await this.load();
         } catch (err) {
             const e = describeError(err);
-            this.notify.error(r.action === 'stop' ? 'Не удалось остановить' : 'Не удалось отменить', e.text);
+            this.notify.error(r.action === 'stop' ? 'Не удалось остановить' : 'Не удалось отменить', e.text, err);
         } finally {
             this.setBusy(r.id, false);
         }

@@ -10,7 +10,7 @@ import { FieldErrorDirective } from '../../../shared/field-error/field-error.dir
 import { KbqInputModule } from '@koobiq/components/input';
 import { KbqRadioModule } from '@koobiq/components/radio';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
-import { ApiError } from '../../../core/api/api-error';
+import { ApiError, isAccessChanged } from '../../../core/api/api-error';
 import { ApiService } from '../../../core/api/api.service';
 import { DirtyAware, DirtyFormService } from '../../../core/guards/dirty.guard';
 import { NotifyService } from '../../../core/notify/notify.service';
@@ -286,6 +286,6 @@ export class UserCreateComponent implements DirtyAware {
             this.serverErrors.set({ ws: 'Укажите рабочую папку' });
             return;
         }
-        this.saveError.set(describeError(err).text);
+        if (!isAccessChanged(err)) this.saveError.set(describeError(err).text);
     }
 }

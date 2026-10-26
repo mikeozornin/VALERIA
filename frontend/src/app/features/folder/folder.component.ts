@@ -624,7 +624,7 @@ export class FolderComponent {
             this.questions.set(Array.isArray(list) ? list.filter((q) => q.questions?.length) : []);
         } catch (err) {
             if (id !== this.id()) return;
-            this.notify.error('Не удалось загрузить вопрос агента', describeError(err).text);
+            this.notify.error('Не удалось загрузить вопрос агента', describeError(err).text, err);
         }
     }
 
@@ -636,7 +636,7 @@ export class FolderComponent {
             this.permissions.set(Array.isArray(list) ? list : []);
         } catch (err) {
             if (id !== this.id()) return;
-            this.notify.error('Не удалось загрузить запрос разрешения', describeError(err).text);
+            this.notify.error('Не удалось загрузить запрос разрешения', describeError(err).text, err);
         }
     }
 
@@ -662,7 +662,7 @@ export class FolderComponent {
             this.model.set(o.selected_model ?? o.default_model ?? '');
         } catch (err) {
             if (id !== this.id()) return;
-            this.notify.error('Не удалось загрузить список моделей', describeError(err).text);
+            this.notify.error('Не удалось загрузить список моделей', describeError(err).text, err);
         }
     }
 
@@ -769,10 +769,10 @@ export class FolderComponent {
             return true;
         } catch (err) {
             if (err instanceof ApiError && err.isConflict) {
-                this.notify.error('Не удалось отправить сообщение', err.detail || 'Сначала ответьте на вопрос агента');
+                this.notify.error('Не удалось отправить сообщение', err.detail || 'Сначала ответьте на вопрос агента', err);
                 if (id === this.id()) void this.load(true);
             } else {
-                this.notify.error('Не удалось отправить сообщение', describeError(err).text);
+                this.notify.error('Не удалось отправить сообщение', describeError(err).text, err);
             }
             return false;
         }
@@ -789,7 +789,7 @@ export class FolderComponent {
             this.permissions.update((list) => list.filter((p) => p.id !== request.id));
             void this.load(true);
         } catch (err) {
-            this.notify.error('Не удалось ответить на запрос разрешения', describeError(err).text);
+            this.notify.error('Не удалось ответить на запрос разрешения', describeError(err).text, err);
             if (id === this.id() && err instanceof ApiError && (err.isNotFound || err.isConflict)) void this.load(true);
         } finally {
             this.responding.set(null);
@@ -812,7 +812,7 @@ export class FolderComponent {
             void this.load(true);
             return true;
         } catch (err) {
-            this.notify.error('Не удалось отправить ответ', describeError(err).text);
+            this.notify.error('Не удалось отправить ответ', describeError(err).text, err);
             if (id === this.id() && err instanceof ApiError && (err.isNotFound || err.isConflict)) void this.load(true);
             return false;
         }
@@ -826,7 +826,7 @@ export class FolderComponent {
             await this.api.post(`${this.base}/abort`, {});
             this.setStatus('cancelling', id);
         } catch (err) {
-            if (!(err instanceof ApiError && err.isConflict)) this.notify.error('Не удалось остановить агента', describeError(err).text);
+            if (!(err instanceof ApiError && err.isConflict)) this.notify.error('Не удалось остановить агента', describeError(err).text, err);
             if (id === this.id()) void this.load(true);
         } finally {
             this.aborting.set(false);

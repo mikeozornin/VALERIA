@@ -279,7 +279,7 @@ export class TaskRunComponent {
             this.notify.info('Запуск отменён');
             void this.refresh();
         } catch (error) {
-            this.notify.error(failureText('Не удалось отменить запуск', error));
+            this.notify.error(failureText('Не удалось отменить запуск', error), undefined, error);
         } finally {
             this.stopping.set(false);
         }
