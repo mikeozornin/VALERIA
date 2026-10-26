@@ -3,7 +3,6 @@ import { KbqAlertColors, KbqAlertModule } from '@koobiq/components/alert';
 import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqComponentColors } from '@koobiq/components/core';
 import { KbqIconModule } from '@koobiq/components/icon';
-import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 /** PT UX «Синхронная форма»: after this long the form shows the slow-operation warning. */
 export const SLOW_OPERATION_MS = 30_000;
@@ -73,16 +72,16 @@ export class SyncOp {
 /** Warning alert over the form fields while `op.slow()`. */
 @Component({
     selector: 'v-sync-slow-alert',
-    imports: [KbqAlertModule, KbqButtonModule, KbqIconModule, OutlineIconComponent],
+    imports: [KbqAlertModule, KbqButtonModule, KbqIconModule],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         @if (op().slow()) {
-            <kbq-alert [alertColor]="alertColors.Warning" alertStyle="colored" role="status">
-                <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
+            <kbq-alert [compact]="true" [alertColor]="alertColors.Warning" alertStyle="colored" role="status">
+                <i kbq-icon="kbq-triangle-exclamation_16" color="warning"></i>
                 Операция занимает больше времени, чем ожидалось
                 <div kbq-alert-control>
                     <button kbq-button [color]="colors.ContrastFade" (click)="op().wait()">Подождать еще</button>
-                    <button kbq-button [color]="colors.ContrastFade" kbqStyle="transparent" (click)="op().cancel()">
+                    <button kbq-button [color]="colors.Contrast" kbqStyle="transparent" (click)="op().cancel()">
                         Отменить
                     </button>
                 </div>

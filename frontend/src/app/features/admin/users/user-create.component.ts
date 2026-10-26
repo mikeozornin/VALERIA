@@ -17,10 +17,10 @@ import { NotifyService } from '../../../core/notify/notify.service';
 import { describeError } from '../../../core/status/error-codes';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { ACCOUNT_TYPES, AccountType, accountTypeToApi, AdminUser } from '../shared/admin.models';
+import { FormPageComponent, FrowComponent, FsecComponent } from '../config-shared/form-layout';
 import { ADMIN_FORM_STYLES } from '../shared/admin-styles';
 import { SyncOp, SyncSlowAlertComponent } from '../shared/sync-op';
 import { KbqIconModule } from '@koobiq/components/icon';
-import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 const MIN_PASSWORD = 12;
 
@@ -28,6 +28,9 @@ const MIN_PASSWORD = 12;
 @Component({
     selector: 'v-admin-user-create',
     imports: [
+        FormPageComponent,
+        FsecComponent,
+        FrowComponent,
         ReactiveFormsModule,
         RouterLink,
         ScreenHeaderComponent,
@@ -40,145 +43,126 @@ const MIN_PASSWORD = 12;
         KbqRadioModule,
         KbqToolTipModule,
         KbqIconModule,
-        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <v-screen-header title="Новый пользователь" />
 
-        <form class="v-formscroll" [formGroup]="form" (ngSubmit)="create()" novalidate>
-            <div class="v-form">
+        <form class="v-formwrap" [formGroup]="form" (ngSubmit)="create()" novalidate>
+            <v-form-page>
                 <v-sync-slow-alert [op]="op" />
                 @if (saveError(); as e) {
-                    <kbq-alert [alertColor]="alertColors.Error" alertStyle="colored">
-                        <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
+                    <kbq-alert [compact]="true" [alertColor]="alertColors.Error" alertStyle="colored">
+                        <i kbq-icon="kbq-circle-exclamation_16" color="error"></i>
                         <div kbq-alert-title>Не удалось создать пользователя</div>
                         {{ e }}
                     </kbq-alert>
                 }
 
-                <fieldset class="v-fsec">
-                    <legend class="v-fsec__title">Вход</legend>
-                    <div class="v-frow">
-                        <label class="v-frow__label" for="v-login">Логин <span class="v-req">*</span></label>
-                        <div class="v-frow__ctl">
-                            <kbq-form-field class="v-w320">
-                                <input
-                                    kbqInput
-                                    id="v-login"
-                                    formControlName="login"
-                                    [vFieldError]="fieldError('login')"
-                                    autocomplete="off"
-                                    [required]="true"
-                                    [attr.aria-invalid]="!!fieldError('login')"
-                                />
-                                <kbq-error role="alert">{{ fieldError('login') }}</kbq-error>
-                            </kbq-form-field>
-                        </div>
-                    </div>
-                    <div class="v-frow">
-                        <label class="v-frow__label" for="v-pass">Временный пароль <span class="v-req">*</span></label>
-                        <div class="v-frow__ctl">
-                            <kbq-form-field class="v-w320">
-                                <input
-                                    kbqInput
-                                    type="text"
-                                    spellcheck="false"
-                                    id="v-pass"
-                                    formControlName="password"
-                                    [vFieldError]="fieldError('password')"
-                                    placeholder="Не менее 12 символов"
-                                    autocomplete="new-password"
-                                    [required]="true"
-                                    aria-describedby="v-pass-hint"
-                                />
-                                <kbq-error role="alert">{{ fieldError('password') }}</kbq-error>
-                            </kbq-form-field>
-                            <div class="v-hint" id="v-pass-hint">
-                                VALERIA его никуда не отправляет, передайте пароль пользователю сами.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="v-frow">
-                        <div class="v-frow__label" id="v-type-label">Тип учётки</div>
-                        <div class="v-frow__ctl">
-                            <kbq-radio-group
-                                class="v-check-group"
-                                formControlName="type"
-                                aria-labelledby="v-type-label"
-                            >
-                                @for (t of types; track t.id) {
-                                    <kbq-radio-button [value]="t.id">
-                                        {{ t.label }}<span class="v-check-sub">{{ t.hint }}</span>
-                                    </kbq-radio-button>
-                                }
-                            </kbq-radio-group>
-                        </div>
-                    </div>
+                <fieldset vFsec="Вход">
+                    <v-frow label="Логин" for="v-login" [required]="true">
+                        <kbq-form-field class="v-w320">
+                            <input
+                                kbqInput
+                                id="v-login"
+                                formControlName="login"
+                                [vFieldError]="fieldError('login')"
+                                autocomplete="off"
+                                [required]="true"
+                                [attr.aria-invalid]="!!fieldError('login')"
+                            />
+                            <kbq-error role="alert">{{ fieldError('login') }}</kbq-error>
+                        </kbq-form-field>
+                    </v-frow>
+                    <v-frow label="Временный пароль" for="v-pass" [required]="true">
+                        <kbq-form-field class="v-w320">
+                            <input
+                                kbqInput
+                                type="text"
+                                spellcheck="false"
+                                id="v-pass"
+                                formControlName="password"
+                                [vFieldError]="fieldError('password')"
+                                placeholder="Не менее 12 символов"
+                                autocomplete="new-password"
+                                [required]="true"
+                                aria-describedby="v-pass-hint"
+                            />
+                            <kbq-error role="alert">{{ fieldError('password') }}</kbq-error>
+                        </kbq-form-field>
+                        <kbq-hint id="v-pass-hint">
+                            VALERIA его никуда не отправляет, передайте пароль пользователю сами.
+                        </kbq-hint>
+                    </v-frow>
+                    <v-frow label="Тип учётки" labelId="v-type-label">
+                        <kbq-radio-group
+                            formControlName="type"
+                            aria-labelledby="v-type-label"
+                        >
+                            @for (t of types; track t.id) {
+                                <kbq-radio-button [value]="t.id">
+                                    {{ t.label }}<kbq-hint>{{ t.hint }}</kbq-hint>
+                                </kbq-radio-button>
+                            }
+                        </kbq-radio-group>
+                    </v-frow>
                 </fieldset>
 
-                <fieldset class="v-fsec">
-                    <legend class="v-fsec__title">Работа</legend>
-                    <div class="v-frow">
-                        <label class="v-frow__label" for="v-ws">Рабочая папка</label>
-                        <div class="v-frow__ctl">
-                            <kbq-form-field>
-                                <input
-                                    kbqInput
-                                    kbqInputMonospace
-                                    id="v-ws"
-                                    formControlName="ws"
-                                    [vFieldError]="fieldError('ws')"
-                                    placeholder="team/project"
-                                    aria-describedby="v-ws-hint"
-                                />
-                                <kbq-error role="alert">{{ fieldError('ws') }}</kbq-error>
-                            </kbq-form-field>
-                            <div class="v-hint" id="v-ws-hint">
-                                Путь внутри каталога данных сервера. Если папки нет, она создастся.
-                            </div>
-                        </div>
-                    </div>
-                    <div class="v-frow">
-                        <label class="v-frow__label" for="v-mm">Mattermost</label>
-                        <div class="v-frow__ctl">
-                            <kbq-form-field class="v-w320">
-                                <input
-                                    kbqInput
-                                    id="v-mm"
-                                    formControlName="mm"
-                                    [vFieldError]="fieldError('mm')"
-                                    placeholder="Логин без @"
-                                    aria-describedby="v-mm-hint"
-                                />
-                                <kbq-error role="alert">{{ fieldError('mm') }}</kbq-error>
-                            </kbq-form-field>
-                            <div class="v-hint" id="v-mm-hint">
-                                Сюда Валерия пишет о готовых ответах и задачах. Можно указать позже.
-                            </div>
-                        </div>
-                    </div>
+                <fieldset vFsec="Работа">
+                    <v-frow label="Рабочая папка" for="v-ws">
+                        <kbq-form-field>
+                            <input
+                                kbqInput
+                                kbqInputMonospace
+                                id="v-ws"
+                                formControlName="ws"
+                                [vFieldError]="fieldError('ws')"
+                                placeholder="team/project"
+                                aria-describedby="v-ws-hint"
+                            />
+                            <kbq-error role="alert">{{ fieldError('ws') }}</kbq-error>
+                        </kbq-form-field>
+                        <kbq-hint id="v-ws-hint">
+                            Путь внутри каталога данных сервера. Если папки нет, она создастся.
+                        </kbq-hint>
+                    </v-frow>
+                    <v-frow label="Mattermost" for="v-mm">
+                        <kbq-form-field class="v-w320">
+                            <input
+                                kbqInput
+                                id="v-mm"
+                                formControlName="mm"
+                                [vFieldError]="fieldError('mm')"
+                                placeholder="Логин без @"
+                                aria-describedby="v-mm-hint"
+                            />
+                            <kbq-error role="alert">{{ fieldError('mm') }}</kbq-error>
+                        </kbq-form-field>
+                        <kbq-hint id="v-mm-hint">
+                            Сюда Валерия пишет о готовых ответах и задачах. Можно указать позже.
+                        </kbq-hint>
+                    </v-frow>
                 </fieldset>
-            </div>
 
-            <div class="v-formfoot">
-                <span
-                    [kbqTooltip]="'Укажите логин и пароль не короче 12 символов'"
-                    [kbqTooltipDisabled]="ready()"
-                    [kbqPlacement]="placements.Top"
-                >
-                    <button
-                        kbq-button
-                        type="submit"
-                        [color]="colors.Theme"
-                        [disabled]="!ready() || op.busy()"
-                        [class.kbq-progress]="op.busy()"
+                <ng-container vFootMain>
+                    <span
+                        [kbqTooltip]="'Укажите логин и пароль не короче 12 символов'"
+                        [kbqTooltipDisabled]="ready()"
+                        [kbqPlacement]="placements.Top"
                     >
-                        Создать
-                    </button>
-                </span>
-                <a kbq-button routerLink="/admin/users">Отмена</a>
-            </div>
+                        <button
+                            kbq-button
+                            type="submit"
+                            [color]="colors.Contrast"
+                            [disabled]="!ready() || op.busy()"
+                            [class.kbq-progress]="op.busy()"
+                        >
+                            Создать
+                        </button>
+                    </span>
+                    <a kbq-button routerLink="/admin/users">Отмена</a>
+                </ng-container>
+            </v-form-page>
         </form>
     `,
     styles: [ADMIN_FORM_STYLES],

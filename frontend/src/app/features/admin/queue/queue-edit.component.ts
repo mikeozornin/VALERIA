@@ -18,11 +18,9 @@ import { NotifyService } from '../../../core/notify/notify.service';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { AdminConfigApi, AdminTask, QueueOverview } from '../config-shared/admin-config.api';
-import { BUTTON_CSS } from '../config-shared/buttons';
 import { FormAlertsComponent, FormPageComponent, FrowComponent, FsecComponent } from '../config-shared/form-layout';
 import { SyncSubmit } from '../config-shared/sync-submit';
 import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue, QueueRequest, usedBy, validateQueues, visibleRows } from './queue-form';
-import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 /** «Очереди и лимиты» edit form (prototype `queueEdit`): every change is applied together on «Сохранить». */
 @Component({
@@ -47,20 +45,19 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
         KbqSelectModule,
         KbqTableModule,
         KbqToolTipModule,
-        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <v-screen-header title="Очереди и лимиты" />
         <v-page-state [loading]="loading()" [error]="loadError()" (retry)="load()">
             @if (form(); as v) {
-                <v-form-page>
+                <v-form-page [wide]="true">
                     @if (blocked(); as b) {
-                        <kbq-alert class="v-blocked" [alertColor]="alertColors.Error" [alertStyle]="alertStyles.Colored" role="alert">
-                            <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
+                        <kbq-alert [compact]="true" class="v-blocked" [alertColor]="alertColors.Error" [alertStyle]="alertStyles.Colored" role="alert">
+                            <i kbq-icon="kbq-circle-exclamation_16" color="error"></i>
                             <div kbq-alert-title>{{ b.title }}</div>
                             {{ b.text }}
-                            <a kbq-button kbq-alert-control class="v-compact" [color]="colors.ContrastFade" routerLink="/admin/tasks">Настройка задач</a>
+                            <a kbq-button kbq-alert-control [color]="colors.ContrastFade" routerLink="/admin/tasks">Настройка задач</a>
                         </kbq-alert>
                     }
                     <v-form-alerts [submit]="submit" (overwrite)="overwrite()" />
@@ -82,7 +79,7 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
                                 </kbq-form-field>
                                 <span>сессий</span>
                                 @if (!v.useEnv) {
-                                    <button type="button" kbq-button class="v-compact" [color]="colors.Contrast" kbqStyle="transparent" (click)="useEnv()">
+                                    <button type="button" kbq-button [color]="colors.Contrast" kbqStyle="transparent" (click)="useEnv()">
                                         <i kbq-icon="kbq-arrow-rotate-left_16"></i>
                                         Вернуть {{ envLimit() }} из конфигурации
                                     </button>
@@ -167,10 +164,10 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
                                         <td class="v-actions">
                                             @if (r.is_system) {
                                                 <span kbqTooltip="Основную очередь архивировать нельзя" kbqPlacement="left">
-                                                    <button type="button" kbq-button class="v-compact" [color]="colors.ContrastFade" disabled>Архивировать</button>
+                                                    <button type="button" kbq-button [color]="colors.ContrastFade" disabled>Архивировать</button>
                                                 </span>
                                             } @else {
-                                                <button type="button" kbq-button class="v-compact" [color]="colors.ContrastFade" (click)="archive(r)">Архивировать</button>
+                                                <button type="button" kbq-button [color]="colors.ContrastFade" (click)="archive(r)">Архивировать</button>
                                             }
                                         </td>
                                     </tr>
@@ -220,11 +217,11 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
                                         <td></td>
                                         <td class="v-actions">
                                             <span kbqTooltip="Укажите название" kbqPlacement="left" [kbqTooltipDisabled]="!!d.name.trim()">
-                                                <button type="button" kbq-button class="v-compact" [color]="colors.Theme" [disabled]="!d.name.trim()" (click)="addQueue()">
+                                                <button type="button" kbq-button [color]="colors.Contrast" [disabled]="!d.name.trim()" (click)="addQueue()">
                                                     Добавить
                                                 </button>
                                             </span>
-                                            <button type="button" kbq-button class="v-compact" [color]="colors.ContrastFade" (click)="draft.set(null)">Отмена</button>
+                                            <button type="button" kbq-button [color]="colors.ContrastFade" (click)="draft.set(null)">Отмена</button>
                                         </td>
                                     </tr>
                                 }
@@ -232,7 +229,7 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
                         </table>
                         @if (!draft()) {
                             <div class="v-addq">
-                                <button type="button" kbq-button class="v-compact" [color]="colors.Contrast" kbqStyle="transparent" (click)="startAdd()">
+                                <button type="button" kbq-button [color]="colors.Contrast" kbqStyle="transparent" (click)="startAdd()">
                                     <i kbq-icon="kbq-plus_16"></i>
                                     Добавить очередь
                                 </button>
@@ -279,7 +276,7 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
                     </fieldset>
 
                     <ng-container vFootMain>
-                        <button type="button" kbq-button [color]="colors.Theme" [disabled]="submit.pending()" (click)="save()">Сохранить</button>
+                        <button type="button" kbq-button [color]="colors.Contrast" [disabled]="submit.pending()" (click)="save()">Сохранить</button>
                         <a kbq-button [color]="colors.ContrastFade" routerLink="/admin/queue/settings">Отмена</a>
                     </ng-container>
                 </v-form-page>
@@ -287,34 +284,23 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
         </v-page-state>
     `,
     styles: [
-        BUTTON_CSS,
         `
         :host { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-        v-form-page ::ng-deep .v-form { max-width: 960px; }
         .v-inline { display: flex; align-items: center; gap: var(--kbq-size-s); flex-wrap: wrap; }
         .v-num { width: 96px; }
         .v-select { width: 260px; }
         .v-table { width: 100%; }
         .v-table td { vertical-align: middle; }
-        .v-table td { vertical-align: middle; }
-        kbq-hint {
-            display: block;
-            color: var(--kbq-foreground-contrast-secondary);
-            font-size: var(--kbq-typography-text-compact-font-size);
-            line-height: var(--kbq-typography-text-compact-line-height);
-        }
-        kbq-hint[color='error'] { color: var(--kbq-foreground-error); }
         .v-qname { display: inline-flex; align-items: center; gap: var(--kbq-size-xs); }
         .v-qhint { margin-top: calc(-1 * var(--kbq-size-xxs)); }
         .v-secondary { color: var(--kbq-foreground-contrast-secondary); }
         .v-nowrap { white-space: nowrap; }
         .v-actions { text-align: right; white-space: nowrap; }
         .v-actions > * + * { margin-left: var(--kbq-size-xs); }
-        .v-pt6 { padding-top: 6px; }
+        .v-pt6 { padding-top: var(--kbq-size-xs); }
         /* Prototype: «Добавить очередь» spans the table width, label centred, 8px below the table. */
         .v-addq { margin-top: var(--kbq-size-s); }
         .v-addq > .kbq-button { width: 100%; justify-content: center; }
-        .v-addq > .kbq-button ::ng-deep .kbq-button-wrapper { justify-content: center; }
         .v-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     `,
     ],

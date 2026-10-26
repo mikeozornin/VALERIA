@@ -28,7 +28,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
                 }
             </ng-container>
             <ng-container vHeaderActions>
-                <a kbq-button [color]="colors.Theme" routerLink="/admin/tasks/new">
+                <a kbq-button [color]="colors.Contrast" routerLink="/admin/tasks/new">
                     <i kbq-icon="kbq-plus_16"></i>
                     Создать задачу
                 </a>
@@ -78,8 +78,6 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
         .v-table td { vertical-align: middle; }
         .v-table th { white-space: nowrap; }
         .v-row { cursor: pointer; }
-        .v-title.kbq-link { color: var(--kbq-foreground-contrast); text-decoration: none; }
-        .v-row:hover .v-title.kbq-link { color: var(--kbq-foreground-theme); }
         .v-mono { font-family: var(--kbq-typography-mono-normal-font-family); }
         .v-nowrap { white-space: nowrap; }
         .v-secondary { color: var(--kbq-foreground-contrast-secondary); }

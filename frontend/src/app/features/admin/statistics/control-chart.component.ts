@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { KbqToolTipModule } from '@koobiq/components/tooltip';
 import { durShort } from '../config-shared/format';
 import { ShapeComponent, ShapeName } from './shape.component';
 import {
@@ -22,7 +23,7 @@ import {
  */
 @Component({
     selector: 'v-control-chart',
-    imports: [ShapeComponent],
+    imports: [ShapeComponent, KbqToolTipModule],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         @let m = model();
@@ -54,7 +55,7 @@ import {
                             [style.height.%]="p.stem"
                         ></i>
                     }
-                    <span class="v-cc__pt" [class.is-r]="p.x > 70" [style.left.%]="p.x" [style.bottom.%]="p.y" [attr.data-tt]="p.tt">
+                    <span class="v-cc__pt" [style.left.%]="p.x" [style.bottom.%]="p.y" [kbqTooltip]="p.tt">
                         <svg [vShape]="p.shape" [st]="p.st"></svg>
                     </span>
                 }
@@ -67,7 +68,7 @@ import {
             </div>
             <div class="v-hist">
                 @for (b of m.bars; track b.key) {
-                    <span class="v-hist__col" [style.left.%]="b.left" [style.width.%]="b.width" [attr.data-tt]="b.tt">
+                    <span class="v-hist__col" [style.left.%]="b.left" [style.width.%]="b.width" [kbqTooltip]="b.tt">
                         <span class="v-hist__bar" [style.height.%]="b.height">
                             @if (b.cancelled) {
                                 <i class="v-st--cancelled" [style.flex]="b.cancelled"></i>
@@ -151,7 +152,7 @@ import {
             line-height: var(--kbq-typography-text-compact-line-height);
             white-space: nowrap;
             color: var(--kbq-foreground-contrast);
-            font-weight: 500;
+            font-weight: var(--kbq-typography-text-compact-medium-font-weight);
             pointer-events: none;
             z-index: 2;
             text-shadow: 0 0 3px var(--kbq-background-bg), 0 0 3px var(--kbq-background-bg);
@@ -174,34 +175,12 @@ import {
             margin-bottom: 2px;
             font-size: var(--kbq-typography-text-compact-font-size);
             line-height: var(--kbq-typography-text-compact-line-height);
-            font-weight: 600;
+            font-weight: var(--kbq-typography-text-compact-strong-font-weight);
             font-variant-numeric: tabular-nums;
         }
         .v-st--done, .v-st--running, .v-st--queued { color: var(--kbq-background-theme); }
         .v-st--failed { color: var(--kbq-background-error); }
         .v-st--cancelled { color: var(--kbq-foreground-contrast-tertiary); }
-        [data-tt]:hover::after {
-            content: attr(data-tt);
-            position: absolute;
-            bottom: calc(100% + 6px);
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 45;
-            width: max-content;
-            max-width: 320px;
-            padding: var(--kbq-size-s) var(--kbq-size-m);
-            border-radius: var(--kbq-size-s);
-            background: var(--kbq-background-night);
-            color: var(--kbq-foreground-on-contrast);
-            font-size: var(--kbq-typography-text-normal-font-size);
-            line-height: 18px;
-            font-weight: 400;
-            white-space: pre-line;
-            box-shadow: var(--kbq-shadow-popup);
-            pointer-events: none;
-        }
-        .v-cc__pt.is-r:hover::after, .v-hist__col:last-child:hover::after { left: auto; right: 0; transform: none; }
-        .v-cc__pt:not(.is-r):hover::after { left: 0; transform: none; }
     `,
 })
 export class ControlChartComponent {

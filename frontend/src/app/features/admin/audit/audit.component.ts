@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
 import { KbqButtonModule } from '@koobiq/components/button';
+import { kbqCodeBlockHighlightJsConfigProvider, KbqCodeBlockModule } from '@koobiq/components/code-block';
 import { KbqComponentColors } from '@koobiq/components/core';
 import { KbqContentPanelModule } from '@koobiq/components/content-panel';
 import { KbqDlModule } from '@koobiq/components/dl';
@@ -51,7 +52,15 @@ interface AuditRow extends AuditEvent {
 /** «Аудит» (`/admin/audit`, SPEC §10.6): who did what, with details of an event in the side panel. */
 @Component({
     selector: 'v-admin-audit',
+    // Only the JSON grammar: the payload is always JSON, the full highlight.js bundle is 1 MB.
+    providers: [
+        kbqCodeBlockHighlightJsConfigProvider({
+            core: () => import('highlight.js/lib/core'),
+            languages: { json: () => import('highlight.js/lib/languages/json') },
+        }),
+    ],
     imports: [
+        KbqCodeBlockModule,
         ScreenHeaderComponent,
         PageStateComponent,
         AdminSearchComponent,
@@ -191,8 +200,7 @@ interface AuditRow extends AuditEvent {
                             <section class="v-csec">
                                 <div class="v-csec__title">Подробности</div>
                                 @if (metaJson(); as json) {
-                                    <!-- Prototype .k-code: plain grey block, no border, no syntax colours. -->
-                                    <pre class="v-code">{{ json }}</pre>
+                                    <kbq-code-block [files]="[{ content: json, language: 'json' }]" [softWrap]="true" [canCopy]="false" />
                                 } @else {
                                     <div class="v-secondary">Подробностей нет</div>
                                 }
@@ -206,21 +214,8 @@ interface AuditRow extends AuditEvent {
     styles: [
         ADMIN_LIST_STYLES,
         `
-            .v-code {
-                margin: 0;
-                padding: 12px;
-                border-radius: 8px;
-                background: var(--kbq-background-bg-secondary);
-                color: var(--kbq-foreground-contrast);
-                font-family: var(--kbq-font-family-mono);
-                font-size: 12px;
-                line-height: 16px;
-                letter-spacing: 0;
-                white-space: pre-wrap;
-                word-break: break-word;
-            }
             .v-mt8 {
-                margin-top: 8px;
+                margin-top: var(--kbq-size-s);
             }
             .v-search {
                 width: 240px;
