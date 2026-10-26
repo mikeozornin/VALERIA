@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from test_chat_actions import ui_app as ui_app
 
 from opencode_web.app import PACKAGE_DIR
@@ -52,3 +54,20 @@ async def test_file_like_paths_are_plain_not_found(ui_app):
     # Real static files are still served.
     response = await t.client.get("/static/index.html")
     assert response.status_code == 200 and response.content == INDEX
+
+
+async def test_built_ui_assets_are_served_from_static(ui_app):
+    t = ui_app
+    t.client.cookies.clear()
+    html = INDEX.decode()
+    # The production build references its favicon and hashed assets under /static/.
+    assert '<link rel="icon" type="image/svg+xml" href="/static/favicon.svg"' in html
+    favicon = await t.client.get("/static/favicon.svg")
+    assert favicon.status_code == 200
+    assert favicon.headers["content-type"].startswith("image/svg+xml")
+    for src in re.findall(r'(?:src|href)="(/static/[^"]+)"', html):
+        response = await t.client.get(src)
+        assert response.status_code == 200, src
+    # The old UI is gone.
+    for old in ("/static/app.js", "/static/styles.css", "/static/vendor/markdown-it.esm.min.mjs"):
+        assert (await t.client.get(old)).status_code == 404, old

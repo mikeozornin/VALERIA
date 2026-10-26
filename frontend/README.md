@@ -26,17 +26,16 @@ Against the real backend: `VALERIA_API=http://127.0.0.1:<port> bun run start`. T
 Mock personas: open `http://localhost:4201/__mock/session?as=user|tasks|admin`, then `/`.
 Demo password: `valeria-demo-2026`.
 
-### Production build and the old UI
+### Production build
 
-The build writes `index.html` and hashed assets into `src/opencode_web/static/`, which still holds the
-tracked files of the old UI. Asset URLs are `/static/…` (`deployUrl`), base href is `/`; critical CSS
-inlining is off because the inlined `url(./media/…)` would resolve outside `/static/`.
+The backend serves only this UI. `bun run build` replaces `src/opencode_web/static/` with `index.html`,
+hashed assets, `favicon.svg` (from `public/`) and `3rdpartylicenses.txt`. Asset URLs are `/static/…`
+(`deployUrl`), base href is `/`; critical CSS inlining is off because the inlined `url(./media/…)` would
+resolve outside `/static/`. The Docker image and the systemd deploy do not build the frontend, so the build
+output is committed: rebuild and commit `src/opencode_web/static/` together with frontend changes.
 
-Until the backend switches to the new UI, do not commit the build output. After a local build:
-
-```sh
-git checkout -- src/opencode_web/static && git clean -fd src/opencode_web/static
-```
+Old hash links of the previous UI (`#/consultations/:id`, `#/tasks/runs/:id`, `#/users`…) are rewritten to
+the new routes in `main.ts` before the router starts (`core/guards/legacy-hash.ts`).
 
 ## Layout
 

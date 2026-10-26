@@ -28,6 +28,12 @@
             ],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "public"
+              }
+            ],
             "styles": [
               "node_modules/@fontsource/inter/400.css",
               "node_modules/@fontsource/inter/500.css",
@@ -52,7 +58,6 @@
                 "base": "../src/opencode_web/static",
                 "browser": ""
               },
-              "deleteOutputPath": false,
               "deployUrl": "/static/",
               "baseHref": "/",
               "budgets": [

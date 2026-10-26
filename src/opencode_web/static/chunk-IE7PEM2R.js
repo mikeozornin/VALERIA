@@ -1,0 +1,1 @@
+import{Lb as i,O as e,Yg as n,sa as o}from"./chunk-XTIF6Y6Z.js";var l=class r{vFieldError=i(null);constructor(){let t=e(n,{self:!0});t.errorStateMatcher={isErrorState:()=>!!this.vFieldError()}}static \u0275fac=function(a){return new(a||r)};static \u0275dir=o({type:r,selectors:[["","vFieldError",""]],inputs:{vFieldError:[1,"vFieldError"]}})};export{l as a};
