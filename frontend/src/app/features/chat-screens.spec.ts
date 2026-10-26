@@ -256,4 +256,20 @@ describe('task-run screen', () => {
         expect(cmp.notFound()).toBe(true);
         expect(cmp.run()).toBeNull();
     });
+
+    it('asks the API on chat.deleted when the sidebar never had the run, and shows «not found» once the run is gone', async () => {
+        let deleted = false;
+        const { cmp, events, open } = setup(TaskRunComponent, (url) => (url === '/api/task-runs/r1' && !deleted ? Promise.resolve(run) : notFound()));
+        await open('r1');
+        expect(cmp.run()).not.toBeNull();
+        events.next({ type: 'chat.deleted', chat_id: 'c-other' });
+        await flush();
+        expect(cmp.notFound()).toBe(false);
+        expect(cmp.run()).not.toBeNull();
+        deleted = true;
+        events.next({ type: 'chat.deleted', chat_id: 'c-r1' });
+        await flush();
+        expect(cmp.notFound()).toBe(true);
+        expect(cmp.run()).toBeNull();
+    });
 });

@@ -104,7 +104,7 @@ export class TaskRunComponent {
     private readonly now = signal(Date.now());
     private readonly cancelFooter = viewChild.required<TemplateRef<object>>('cancelFooter');
     private cancelRef: KbqModalRef | null = null;
-    /** Chat of the shown run, kept after the sidebar drops the row (a run has no `chat_id` of its own). */
+    /** Chat of the shown run from the sidebar row, kept after the sidebar drops it (the run payload has no `chat_id`). */
     private chatOf: { run: string; chat: string | number } | null = null;
 
     protected readonly item = computed(() => {
@@ -172,7 +172,13 @@ export class TaskRunComponent {
             .pipe(takeUntilDestroyed())
             .subscribe((event) => {
                 const shown = this.chatOf;
-                if (shown && shown.run === this.id() && sameId(event.chat_id, shown.chat)) this.markGone();
+                if (shown && shown.run === this.id()) {
+                    if (sameId(event.chat_id, shown.chat)) this.markGone();
+                    return;
+                }
+                // The run payload has no chat_id and the sidebar never had this run: ask the API, which answers 404
+                // once the run's chat is deleted.
+                void this.checkGone();
             });
 
         this.events
@@ -286,6 +292,16 @@ export class TaskRunComponent {
         this.error.set(null);
         this.run.set(null);
         this.notFound.set(true);
+    }
+
+    private async checkGone(): Promise<void> {
+        const id = this.id();
+        if (this.notFound()) return;
+        try {
+            await this.api.get<TaskRun>(`/api/task-runs/${encodeURIComponent(id)}`);
+        } catch (err) {
+            if (id === this.id() && err instanceof ApiError && err.isNotFound) this.markGone();
+        }
     }
 
     private async refresh(): Promise<void> {
