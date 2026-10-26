@@ -112,9 +112,13 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     if (!admin && (chat.owner_user_id !== c.user.id || chat.workspace_snapshot !== c.user.workspace_path)) fail(404, "Диалог не найден");
     return chat;
   };
+  /** app.py visible_item: the caller's own chat, of a kind they may use, in their current workspace (task runs follow the user). */
   const anyChatOfOwner = (c: Ctx, chatId: string) => {
     const chat = store.chats.get(chatId);
     if (!chat || chat.owner_user_id !== c.user.id) fail(404, "Chat not found");
+    const kind = store.item(chat).kind;
+    if (c.user.tasks_only && kind === "folder") fail(404, "Chat not found");
+    if (kind !== "task" && c.user.workspace_path && chat.workspace_snapshot !== c.user.workspace_path) fail(404, "Chat not found");
     return chat;
   };
   const idempotent = (c: Ctx, fn: () => Json) => {
@@ -257,7 +261,9 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
       chat.archived_at = chat.archived_at ?? now;
       chat.snoozed_until = null;
     } else {
+      if (chat.archived_at && store.item(chat).kind !== "task" && chat.archived_reason) fail(409, "Chat was archived after a workspace change");
       chat.archived_at = null;
+      chat.archived_reason = null;
     }
     chat.updated_at = now;
     store.armSnooze(chat);
@@ -492,6 +498,10 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
   // -------------------------------------------------------------- queue / jobs
   add("GET", "/api/queue/me", "user", (c) =>
     [...store.jobs.values()].filter((j) => j.effective_user_id === c.user.id)
+      // app.py my_queue: job_kind(job) in allowed_item_kinds(user), so a «Задачи и вопросы» user gets no folder jobs.
+      .filter((j) => !c.user.tasks_only || j.task_id || store.chats.get(j.chat_id)?.consultation)
+      // Folder jobs and questions only from the current workspace, task runs follow the user.
+      .filter((j) => j.task_id || store.chats.get(j.chat_id)?.workspace_snapshot === c.user.workspace_path)
       .sort((a, b) => b.sequence - a.sequence).slice(0, 500)
       .map((j) => ({ ...store.jobRow(j), ...(j.task_id ? { chat_title: store.displayTitle(j) } : {}), position: store.position(j) })));
   add("GET", "/api/jobs/:id", "user", (c) => {
@@ -515,6 +525,9 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
 
   // -------------------------------------------------------------- admin: users
   const userOr404 = (id: string) => store.users.get(id) ?? fail(404, "User not found");
+  /** app.py checked_workspace / batch with ALLOW_SHARED_WORKSPACES off (the default): another active user has the workspace. */
+  const workspaceInUse = (path: string, excludeId: string | null = null) =>
+    [...store.users.values()].some((u) => u.id !== excludeId && u.status === "active" && u.workspace_path === path);
   add("GET", "/api/admin/users", "admin_read", () =>
     [...store.users.values()].sort((a, b) => a.login.localeCompare(b.login)).map((u) => store.userRow(u)));
   add("POST", "/api/admin/users", "admin", (c) => {
@@ -524,13 +537,15 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     const role = c.body.role ?? "user";
     if (!["user", "admin"].includes(role)) fail(422, "Role must be 'user' or 'admin'");
     if (role !== "admin" && !c.body.workspace_path) fail(422, "Workspace is required for a user");
+    const workspace = c.body.workspace_path ? resolveWorkspace(c.body.workspace_path) : null;
+    if (workspace && workspaceInUse(workspace)) fail(409, "Workspace is already assigned");
     const mm = (c.body.mattermost_username ?? "").trim().replace(/^@/, "").toLowerCase() || null;
     if ([...store.users.values()].some((u) => u.login === c.body.login || (mm && u.mattermost_username === mm))) fail(409, "Login or Mattermost user already exists");
     const now = nowIso();
     const user = {
       id: store.newId("u"), login: c.body.login, password: c.body.password, role, tasks_only: c.body.tasks_only ? 1 : 0,
       mattermost_username: mm, mattermost_user_id: mm ? `mm${mm.replace(/\W/g, "")}` : null,
-      workspace_path: c.body.workspace_path ? resolveWorkspace(c.body.workspace_path) : null, status: "active",
+      workspace_path: workspace, status: "active",
       max_active_jobs: null, created_at: now, updated_at: now, last_login_at: null,
     };
     store.users.set(user.id, user);
@@ -546,6 +561,7 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     const path = c.body.workspace_path != null ? c.body.workspace_path : current.workspace_path;
     if (role !== "admin" && !path) fail(422, "Workspace is required for a user");
     const workspace = path ? resolveWorkspace(path) : null;
+    if (workspace && workspaceInUse(workspace, current.id)) fail(409, "Workspace is already assigned");
     const changed = workspace !== current.workspace_path;
     if (changed && [...store.jobs.values()].some((j) => j.effective_user_id === current.id && UNFINISHED.has(j.status))) {
       fail(409, "Workspace cannot change while jobs are queued or active");
@@ -569,13 +585,25 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     current.role = role;
     current.workspace_path = workspace;
     current.updated_at = nowIso();
+    // database.py apply_workspace_change: archive the folder chats and questions of other workspaces (not the ones archived
+    // by hand), bring back the ones archived earlier for leaving this workspace; task runs stay as they are.
+    const moved: Json[] = [];
     if (changed && workspace) {
+      const now = nowIso();
       for (const chat of store.chats.values()) {
-        if (chat.owner_user_id === current.id && chat.workspace_snapshot !== workspace && !chat.archived_reason) chat.archived_reason = "workspace_changed";
+        if (chat.owner_user_id !== current.id || store.item(chat).kind === "task") continue;
+        if (chat.workspace_snapshot !== workspace && !chat.archived_at && !chat.archived_reason) {
+          Object.assign(chat, { archived_reason: "workspace_changed", archived_at: now, snoozed_until: null, updated_at: now });
+          moved.push(chat);
+        } else if (chat.workspace_snapshot === workspace && chat.archived_reason === "workspace_changed") {
+          Object.assign(chat, { archived_reason: null, archived_at: null, updated_at: now });
+          moved.push(chat);
+        }
       }
     }
     store.updatedBy.set(`users:${current.id}`, c.user.login);
     store.addAudit(c.user.id, "user.update", { type: "user", id: current.id });
+    for (const chat of moved) { store.armSnooze(chat); store.emitChat(chat); }
     return store.publicUser(current);
   });
   add("POST", "/api/admin/users/batch", "admin", (c) => {
@@ -584,10 +612,15 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     const target = c.body.status === "blocked" ? "disabled" : "active";
     const results = (c.body.ids as string[]).map((id) => {
       const user = store.users.get(id);
-      if (!user) return { id, login: null, ok: false, skipped: true, reason: "not_found" };
+      if (!user) return { id, login: null, ok: false, skipped: false, reason: "not_found" };
       if (user.id === c.user.id) return { id, login: user.login, ok: false, skipped: true, reason: "self" };
       if (user.status === target) return { id, login: user.login, ok: true, skipped: true, reason: "already" };
-      if (store.scenario.fail === "batch:" + user.id) return { id, login: user.login, ok: false, skipped: false, reason: "error" };
+      // Same exclusivity rule as the single update: an active user may not share a workspace with another active user.
+      if (target === "active" && user.workspace_path && workspaceInUse(user.workspace_path, user.id)) {
+        return { id, login: user.login, ok: false, skipped: false, reason: "workspace_in_use" };
+      }
+      // The backend's only other per-user failure: update_user rejects the change (ValueError).
+      if (store.scenario.fail === "batch:" + user.id) return { id, login: user.login, ok: false, skipped: false, reason: "invalid" };
       user.status = target;
       user.updated_at = nowIso();
       store.updatedBy.set(`users:${user.id}`, c.user.login);

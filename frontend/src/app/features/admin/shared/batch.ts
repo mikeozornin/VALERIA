@@ -3,10 +3,12 @@ import { plural } from './format';
 /** One item of `POST /api/admin/users/batch` → `results`. */
 export interface BatchResult {
     id: string;
-    login: string;
+    /** `null` when the id does not exist (`reason: 'not_found'`). */
+    login: string | null;
     ok: boolean;
     skipped?: boolean;
-    reason: null | 'self' | 'already' | 'not_found' | 'error' | string;
+    /** Mirrors `admin_batch_users` in app.py. */
+    reason: null | 'self' | 'already' | 'not_found' | 'invalid' | 'workspace_in_use';
 }
 
 export type BatchAction = 'block' | 'unblock';

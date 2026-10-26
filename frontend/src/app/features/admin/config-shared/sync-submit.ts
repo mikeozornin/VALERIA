@@ -1,5 +1,5 @@
 import { signal } from '@angular/core';
-import { ApiError } from '../../../core/api/api-error';
+import { ApiError, isAccessChanged } from '../../../core/api/api-error';
 import { describeError } from '../../../core/status/error-codes';
 import { Clash, readClash } from './concurrency';
 
@@ -43,7 +43,7 @@ export class SyncSubmit {
         } catch (err) {
             const clash = readClash(err);
             if (clash) this.clash.set(clash);
-            else this.error.set(describeError(err));
+            else if (!isAccessChanged(err)) this.error.set(describeError(err));
             return { ok: false, cancelled: false, err };
         } finally {
             this.clearTimer();
@@ -68,7 +68,7 @@ export class SyncSubmit {
     fail(err: unknown): void {
         const clash = readClash(err);
         if (clash) this.clash.set(clash);
-        else this.error.set(describeError(err));
+        else if (!isAccessChanged(err)) this.error.set(describeError(err));
     }
 
     private armTimer(): void {

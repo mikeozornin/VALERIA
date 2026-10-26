@@ -1,7 +1,7 @@
 import { HttpClient, HttpContext, HttpContextToken, HttpHeaders, HttpInterceptorFn, HttpParams } from '@angular/common/http';
 import { inject, Injectable, InjectionToken, Injector } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, throwError } from 'rxjs';
+import { catchError, from, switchMap, throwError } from 'rxjs';
 import { ApiError, toApiError } from './api-error';
 
 /** CSRF token from `/api/auth/me` or `/api/auth/login`. Memory only, never persisted (SPEC §15). */
@@ -21,12 +21,19 @@ export class CsrfTokenStore {
 /** Called on any 401 (except auth probes) to drop the in-memory session. Provided by AuthService. */
 export const ON_UNAUTHORIZED = new InjectionToken<() => void>('ON_UNAUTHORIZED');
 
+/**
+ * Called on any 403 (except auth probes) before the request rejects. Re-reads the session and, when the user's access
+ * changed (demoted admin, «Задачи и вопросы»), re-runs the navigation so the guards show «Раздел недоступен» instead
+ * of the screen (SPEC §16.2); resolves true in that case. Provided by AuthService.
+ */
+export const ON_FORBIDDEN = new InjectionToken<() => Promise<boolean>>('ON_FORBIDDEN');
+
 /** Requests flagged with this token do not trigger the 401 → /login redirect (auth probes). */
 export const SKIP_AUTH_REDIRECT = new HttpContextToken<boolean>(() => false);
 
 const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
 
-/** Adds `x-csrf-token` to non-GET `/api` requests; on 401 sends the user to `/login?return=…`. */
+/** Adds `x-csrf-token` to non-GET `/api` requests; on 401 sends the user to `/login?return=…`; 403 → ON_FORBIDDEN. */
 export const apiInterceptor: HttpInterceptorFn = (req, next) => {
     const csrf = inject(CsrfTokenStore);
     const router = inject(Router);
@@ -46,6 +53,19 @@ export const apiInterceptor: HttpInterceptorFn = (req, next) => {
                 if (!current.startsWith('/login')) {
                     void router.navigate(['/login'], { queryParams: { return: current } });
                 }
+            }
+            const onForbidden = apiError.isForbidden && !req.context.get(SKIP_AUTH_REDIRECT) && injector.get(ON_FORBIDDEN, null);
+            if (onForbidden) {
+                // The caller gets the 403 once the session is re-read; when access changed the navigation has already
+                // re-run, so the screen is «Раздел недоступен» by then. Rejecting (not hanging) lets a screen that is
+                // still reachable leave its loading state.
+                return from(onForbidden()).pipe(
+                    switchMap((changed) => {
+                        // Marked so toasts and inline errors skip it: the 403 never reaches the user (SPEC §16.2).
+                        if (changed) apiError.accessChanged = true;
+                        return throwError(() => apiError);
+                    }),
+                );
             }
             return throwError(() => apiError);
         }),

@@ -124,6 +124,13 @@ def chat_event_for_user(user: dict[str, Any], event: dict[str, Any]) -> dict[str
             return None
         workspace = user.get("workspace_path")
         if kind != "task" and workspace and row.get("workspace_snapshot") != workspace:
+            if (
+                event["type"] == "chat.updated"
+                and row.get("archived_reason") == "workspace_changed"
+            ):
+                # Archived because the owner moved to another workspace: the chat is now
+                # out of the owner's reach (like after a reload), so drop it from the list.
+                return {"type": "chat.deleted", "chat_id": row.get("chat_id")}
             return None
         if row.get("deleted_at") and event["type"] != "chat.deleted":
             return None

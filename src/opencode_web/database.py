@@ -35,7 +35,7 @@ UNFINISHED_JOB_STATUSES = ("queued", *ACTIVE_JOB_STATUSES)
 ITEM_QUERY = """SELECT c.id AS chat_id, c.kind AS chat_kind, c.consultation,
        c.title AS chat_title, c.workspace_snapshot, c.owner_user_id,
        u.login AS owner_login, c.created_at, c.updated_at, c.archived_at,
-       c.snoozed_until, c.deleted_at, j.id AS job_id, j.status AS job_status,
+       c.archived_reason, c.snoozed_until, c.deleted_at, j.id AS job_id, j.status AS job_status,
        j.task_id, j.task_title, j.plan_first, j.phase2_message_id
 FROM chats c
 JOIN users u ON u.id = c.owner_user_id

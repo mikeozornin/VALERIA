@@ -21,7 +21,7 @@ Demo password for every seed user: `valeria-demo-2026`.
 | `?delay=ms`, header `x-mock-delay: ms` | Adds latency (for example 300 ms for the loader). This also works as a page-URL query via `Referer`. |
 | `POST /__mock/session {"delay":300,"delay_path":"/api/me/items"}` | Sets a persistent delay, optionally limited to paths containing a substring. |
 | header `x-mock-fail: 503` | Forces this request to fail with `{"detail":"Mock forced error"}`. |
-| `POST /__mock/session {"fail":"/api/tasks","fail_status":500,"fail_times":1}` | Forced-error toggle: matching requests fail `fail_times` times. Use `"*"` to fail every request, and `null` to turn the toggle off. `"fail":"batch:u-pvolkov"` makes that id return `reason:"error"` in a batch. |
+| `POST /__mock/session {"fail":"/api/tasks","fail_status":500,"fail_times":1}` | Forced-error toggle: matching requests fail `fail_times` times. Use `"*"` to fail every request, and `null` to turn the toggle off. `"fail":"batch:u-pvolkov"` makes that id return `reason:"invalid"` in a batch (the backend's rejected-update reason). |
 | `GET /__mock/session?as=admin&redirect=/admin` | Switches persona and answers 302 to the redirect with one `ocw_session` cookie (a link for the browser). |
 | `GET /__mock/state` | Returns the profile, scenario, every item id with its status, queue positions, users, tasks and tombstones. |
 | `POST /__mock/reset [{"as":"user"}]` | Reseeds everything and signs in again. With `as`, the profile starts from the defaults (folder assigned, not first login, feed all) plus the body. |

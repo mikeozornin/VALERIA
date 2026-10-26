@@ -1,7 +1,7 @@
 import { computed, DestroyRef, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject } from 'rxjs';
-import { ApiError } from '../api/api-error';
+import { ApiError, isAccessChanged } from '../api/api-error';
 import { EventsService } from '../events/events.service';
 import { isActive, isWaiting } from '../status/status';
 import { Item } from './item.model';
@@ -76,6 +76,8 @@ export class ItemsStore {
                 this._loaded.set(true);
             })
             .catch((error: unknown) => {
+                // A 403 that changed the user's access is not shown (SPEC §16.2).
+                if (isAccessChanged(error)) return;
                 this._error.set(error instanceof ApiError ? error : new ApiError(0, null, null, null));
             })
             .finally(() => {
@@ -114,8 +116,13 @@ export class ItemsStore {
         this.patchChat(item.chat_id, res ?? { snoozed_until: null });
     }
 
+    /** A repeated delete answers 404: the chat is gone either way, so that counts as success. */
     async remove(item: Item): Promise<void> {
-        await this.api.remove(item.chat_id);
+        try {
+            await this.api.remove(item.chat_id);
+        } catch (err) {
+            if (!(err instanceof ApiError && err.isNotFound)) throw err;
+        }
         this.removeChat(item.chat_id);
     }
 

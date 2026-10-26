@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { filter, Subject } from 'rxjs';
+import { ApiError } from '../api/api-error';
 import { EventsService, ServerEvent } from '../events/events.service';
 import { Item } from './item.model';
 import { groupItems, nextSnoozeReturn } from './items-grouping';
@@ -187,6 +188,23 @@ describe('ItemsStore', () => {
         expect(store.groups().snoozed).toEqual([]);
 
         await store.remove(store.byChatId('c-b')!);
+        expect(store.items().map((i) => i.id)).toEqual(['a']);
+    });
+
+    it('treats 404 on a repeated delete as success and drops the row', async () => {
+        api.list.mockResolvedValue([item('a', 'completed', -5), item('b', 'completed', -6)]);
+        await store.start();
+        api.remove.mockRejectedValueOnce(new ApiError(404, null, 'Chat not found', null));
+        await expect(store.remove(store.byChatId('c-b')!)).resolves.toBeUndefined();
+        expect(store.items().map((i) => i.id)).toEqual(['a']);
+    });
+
+    it('keeps the row and rethrows when delete fails for another reason', async () => {
+        api.list.mockResolvedValue([item('a', 'completed', -5)]);
+        await store.start();
+        const error = new ApiError(500, null, null, null);
+        api.remove.mockRejectedValueOnce(error);
+        await expect(store.remove(store.byChatId('c-a')!)).rejects.toBe(error);
         expect(store.items().map((i) => i.id)).toEqual(['a']);
     });
 });

@@ -10,7 +10,7 @@ from test_admin_stop import make_dispatcher, settle
 from test_consultations import ConsultationClient
 from test_tasks_api import create_task, login
 
-from opencode_web.app import create_app
+from opencode_web.app import create_app, event_for_user
 from opencode_web.database import Database
 
 
@@ -364,6 +364,59 @@ async def test_workspace_change_archives_folder_chats_and_questions_but_not_task
         assert chat["archived_reason"] is None and chat["archived_at"] is None
     await login(t.client, "worker")
     assert set(await my_chat_ids(t)) == {question["chat_id"], run["chat_id"], folder["chat_id"]}
+
+
+async def test_workspace_change_drops_archived_chats_from_the_owners_live_list(
+    ui_app, workspace
+):
+    t = ui_app
+    worker = t.users["worker"]
+    question = await make_question(t, "worker")
+    run = await make_run(t, "worker")
+    folder = await make_folder(t, "worker")
+    for item in (question, run, folder):
+        for job in t.db.unfinished_chat_jobs(item["chat_id"]):
+            t.db.set_job_status(job["id"], "cancelled")
+    moved = workspace / "moved"
+    moved.mkdir()
+    events = t.app.state.events
+    published = []
+    original = events.publish
+
+    async def capture(event):
+        published.append(event)
+        await original(event)
+
+    events.publish = capture
+    await login(t.client)
+
+    async def move_to(path):
+        published.clear()
+        response = await t.client.patch(
+            f"/api/admin/users/{worker['id']}", json={"workspace_path": str(path)}
+        )
+        assert response.status_code == 200, response.text
+        owner = t.db.get_user(worker["id"])
+        admin = t.db.get_user(t.users["admin"]["id"])
+        return (
+            [event_for_user(t.db, owner, event) for event in published],
+            [event_for_user(t.db, admin, event) for event in published],
+        )
+
+    for_owner, for_admin = await move_to(moved)
+    # The owner's sidebar drops them, as /api/me/items does after a reload.
+    assert sorted(for_owner, key=lambda e: e["chat_id"]) == sorted(
+        ({"type": "chat.deleted", "chat_id": item["chat_id"]} for item in (question, folder)),
+        key=lambda e: e["chat_id"],
+    )
+    # Admins still see the archive itself.
+    assert {e["type"] for e in for_admin} == {"chat.updated"}
+    assert all(e["archived_at"] for e in for_admin)
+
+    # Moving back sends the restored rows to the owner again.
+    for_owner, _ = await move_to(worker["workspace_path"])
+    assert {e["chat_id"] for e in for_owner} == {question["chat_id"], folder["chat_id"]}
+    assert all(e["type"] == "chat.updated" and e["archived_at"] is None for e in for_owner)
 
 
 async def my_chat_ids(t):

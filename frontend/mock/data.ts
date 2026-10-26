@@ -51,7 +51,7 @@ export const USERS: SeedUser[] = [
     workspace: "fw/hal-stm32", status: "active", max_active_jobs: 2,
     last_login_at: protoTime(0, "11:02"), created_at: protoDate(9, 4, "10:30") },
   { id: "u-anikitina", login: "a.nikitina", role: "user", tasks_only: 1, mattermost_username: "a.nikitina",
-    workspace: "qa/firmware-sdk", status: "active", max_active_jobs: null,
+    workspace: "qa/firmware-sdk-ci", status: "active", max_active_jobs: null,
     last_login_at: protoTime(-1, "17:40"), created_at: protoDate(9, 15) },
   { id: "u-mbelov", login: "m.belov", role: "user", tasks_only: 1, mattermost_username: null,
     workspace: "docs/release-notes", status: "active", max_active_jobs: null,

@@ -30,6 +30,7 @@ import { KbqInputModule } from '@koobiq/components/input';
 import { KbqModalRef, KbqModalService, ModalSize } from '@koobiq/components/modal';
 import { KbqTableModule } from '@koobiq/components/table';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
+import { isAccessChanged } from '../../../core/api/api-error';
 import { ApiService } from '../../../core/api/api.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { NotifyService } from '../../../core/notify/notify.service';
@@ -53,6 +54,7 @@ import { AdminSearchComponent } from '../shared/admin-search.component';
 import { ADMIN_LIST_STYLES } from '../shared/admin-styles';
 import { BatchAction, batchToast, BatchResult } from '../shared/batch';
 import { DASH, formatWhen, plural } from '../shared/format';
+import { escapeHtml } from '../config-shared/format';
 import { statusTextColor } from '../shared/requests.helpers';
 import { SyncOp, SyncSlowAlertComponent } from '../shared/sync-op';
 
@@ -62,6 +64,11 @@ const RECENT_LIMIT = 20;
  * «Пользователи» (`/admin/users`, SPEC §10.2): table with checkboxes, the focused row's card in a content panel
  * (`?focus=login`), `kbq-actions-panel` for block / unblock, «Сбросить пароль» modal. Focus and checks are independent.
  */
+/** Koobiq renders a string `kbqTitle` through `[innerHTML]`, so the login is escaped. */
+export function resetPasswordTitle(login: string): string {
+    return `Сбросить пароль ${escapeHtml(login)}?`;
+}
+
 @Component({
     selector: 'v-admin-users',
     imports: [
@@ -697,6 +704,7 @@ export class UsersComponent {
             this.notify.error(
                 action === 'block' ? 'Не удалось заблокировать' : 'Не удалось разблокировать',
                 describeError(err).text,
+                err,
             );
         } finally {
             this.batchBusy.set(false);
@@ -710,7 +718,7 @@ export class UsersComponent {
         this.resetError.set(null);
         this.resetTarget = user;
         this.modalRef = this.modal.create({
-            kbqTitle: `Сбросить пароль ${user.login}?`,
+            kbqTitle: resetPasswordTitle(user.login),
             kbqContent: this.resetTpl(),
             kbqFooter: this.resetFooterTpl(),
             kbqSize: ModalSize.Small,
@@ -738,7 +746,7 @@ export class UsersComponent {
         if (result.ok) {
             this.modalRef?.close();
             this.notify.success('Пароль сброшен', 'Открытые сессии пользователя завершены');
-        } else if ('error' in result) {
+        } else if ('error' in result && !isAccessChanged(result.error)) {
             this.resetError.set(describeError(result.error).text);
         }
     }

@@ -1,5 +1,5 @@
 import { Route, Routes } from '@angular/router';
-import { authMatch, guestMatch } from './core/guards/auth.guard';
+import { authMatch, guestMatch, startupErrorMatch } from './core/guards/auth.guard';
 import { dirtyGuard } from './core/guards/dirty.guard';
 import { adminMatch, notTasksOnlyMatch } from './core/guards/role.guard';
 import type { DeniedReason } from './shared/access-denied/access-denied.component';
@@ -104,5 +104,12 @@ export const routes: Routes = [
         canMatch: [authMatch],
         loadComponent: () => import('./shell/shell.component').then((m) => m.ShellComponent),
         children: shellRoutes,
+    },
+    {
+        // `/api/auth/me` failed with a network error or 5xx: error state with retry, the URL stays as typed.
+        path: '**',
+        canMatch: [startupErrorMatch],
+        loadComponent: () =>
+            import('./shared/startup-error/startup-error.component').then((m) => m.StartupErrorComponent),
     },
 ];

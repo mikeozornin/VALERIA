@@ -19,6 +19,12 @@ export class ApiError extends Error {
         this.name = 'ApiError';
     }
 
+    /**
+     * Set by the API interceptor on a 403 that changed the user's access: the screen is already «Раздел недоступен»
+     * and the error is never shown, neither as a toast nor inline (SPEC §16.2). Check with `isAccessChanged`.
+     */
+    accessChanged = false;
+
     get isNetwork(): boolean {
         return this.status === 0;
     }
@@ -38,6 +44,11 @@ export class ApiError extends Error {
     get isConflict(): boolean {
         return this.status === 409;
     }
+}
+
+/** True for a 403 after which the user's access changed: show nothing for it (SPEC §16.2). */
+export function isAccessChanged(error: unknown): boolean {
+    return error instanceof ApiError && error.accessChanged;
 }
 
 export function toApiError(error: unknown): ApiError {

@@ -165,9 +165,10 @@ def main() -> int:
         "MATTERMOST_TOKEN_FILE": "",
         "MATTERMOST_CA_BUNDLE": "",
         "LOG_LEVEL": "INFO",
+        # Explicit, so a developer .env (cli.py calls load_dotenv) cannot turn the API docs on.
+        "APP_ENABLE_DOCS": "false",
         "FAKE_OPENCODE_LOG": str(fake_log),
     }
-    env.pop("APP_ENABLE_DOCS", None)
 
     backend: subprocess.Popen | None = None
     exit_code = 1

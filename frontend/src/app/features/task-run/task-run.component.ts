@@ -104,6 +104,8 @@ export class TaskRunComponent {
     private readonly now = signal(Date.now());
     private readonly cancelFooter = viewChild.required<TemplateRef<object>>('cancelFooter');
     private cancelRef: KbqModalRef | null = null;
+    /** Chat of the shown run from the sidebar row, kept after the sidebar drops it (the run payload has no `chat_id`). */
+    private chatOf: { run: string; chat: string | number } | null = null;
 
     protected readonly item = computed(() => {
         const id = this.id();
@@ -159,7 +161,25 @@ export class TaskRunComponent {
             const id = this.id();
             untracked(() => void this.load(id));
         });
+        effect(() => {
+            const chat = this.item()?.chat_id;
+            if (chat != null) this.chatOf = { run: this.id(), chat };
+        });
         void this.catalog.ensure().catch(() => undefined);
+
+        this.events
+            .on('chat.deleted')
+            .pipe(takeUntilDestroyed())
+            .subscribe((event) => {
+                const shown = this.chatOf;
+                if (shown && shown.run === this.id()) {
+                    if (sameId(event.chat_id, shown.chat)) this.markGone();
+                    return;
+                }
+                // The run payload has no chat_id and the sidebar never had this run: ask the API, which answers 404
+                // once the run's chat is deleted.
+                void this.checkGone();
+            });
 
         this.events
             .on('task.updated')
@@ -259,9 +279,28 @@ export class TaskRunComponent {
             this.notify.info('Запуск отменён');
             void this.refresh();
         } catch (error) {
-            this.notify.error(failureText('Не удалось отменить запуск', error));
+            this.notify.error(failureText('Не удалось отменить запуск', error), undefined, error);
         } finally {
             this.stopping.set(false);
+        }
+    }
+
+    /** The run's chat was deleted (here or in another tab): show «not found». */
+    private markGone(): void {
+        this.cancelRef?.close();
+        this.loading.set(false);
+        this.error.set(null);
+        this.run.set(null);
+        this.notFound.set(true);
+    }
+
+    private async checkGone(): Promise<void> {
+        const id = this.id();
+        if (this.notFound()) return;
+        try {
+            await this.api.get<TaskRun>(`/api/task-runs/${encodeURIComponent(id)}`);
+        } catch (err) {
+            if (id === this.id() && err instanceof ApiError && err.isNotFound) this.markGone();
         }
     }
 
@@ -269,7 +308,7 @@ export class TaskRunComponent {
         const id = this.id();
         try {
             const run = await this.api.get<TaskRun>(`/api/task-runs/${encodeURIComponent(id)}`);
-            if (id === this.id()) this.apply(run);
+            if (id === this.id() && !this.notFound()) this.apply(run);
         } catch {
             /* keep what is shown; the next event or poll will retry */
         }

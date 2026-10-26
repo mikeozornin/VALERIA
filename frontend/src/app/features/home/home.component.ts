@@ -269,6 +269,8 @@ export class HomeComponent {
         } catch (error) {
             this.notify.error(
                 failureText(mode === 'ask' ? 'Не удалось отправить вопрос' : 'Не удалось начать работу', error),
+                undefined,
+                error,
             );
         } finally {
             this.sending.set(false);
@@ -301,7 +303,7 @@ export class HomeComponent {
             void this.items.refresh().catch(() => undefined);
             void this.router.navigate(['/tasks/runs', run.id]);
         } catch (error) {
-            this.notify.error(failureText('Не удалось запустить задачу', error));
+            this.notify.error(failureText('Не удалось запустить задачу', error), undefined, error);
         } finally {
             this.launching.set(false);
         }

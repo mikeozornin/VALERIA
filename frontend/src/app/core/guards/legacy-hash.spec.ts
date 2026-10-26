@@ -31,6 +31,13 @@ describe('legacy hash links', () => {
         expect(legacyHashTarget('')).toBeNull();
         expect(legacyHashTarget('#/consultations/%E0')).toBeNull();
     });
+
+    it('ignores Object.prototype keys', () => {
+        expect(legacyHashTarget('#/constructor')).toBeNull();
+        expect(legacyHashTarget('#/__proto__')).toBeNull();
+        expect(legacyHashTarget('#/toString')).toBeNull();
+        expect(legacyHashTarget('#/hasOwnProperty')).toBeNull();
+    });
 });
 
 describe('safeReturnUrl', () => {

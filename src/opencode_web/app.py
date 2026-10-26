@@ -52,6 +52,7 @@ from .notifications import (
 from .opencode_client import OpenCodeError, OpenCodeManager
 from .questions import question_event, session_questions, validate_answers
 from .security import new_token, normalize_login, verify_password
+from .security_headers import ContentSecurityPolicyMiddleware
 from .submissions import submission
 from .task_results import task_final_answer
 
@@ -614,6 +615,12 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         openapi_url="/openapi.json" if docs else None,
     )
     app.mount("/static", StaticFiles(directory=PACKAGE_DIR / "static"), name="static")
+    app.add_middleware(
+        ContentSecurityPolicyMiddleware,
+        exempt_paths=(
+            frozenset({"/docs", "/docs/oauth2-redirect", "/redoc"}) if docs else frozenset()
+        ),
+    )
 
     def database(request: Request) -> Database:
         return request.app.state.database
@@ -1538,12 +1545,17 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         principal: Annotated[dict[str, Any], Depends(current_principal)],
         db: Annotated[Database, Depends(database)],
     ) -> list[dict[str, Any]]:
-        kinds = allowed_item_kinds(principal["user"])
+        user = principal["user"]
+        kinds = allowed_item_kinds(user)
+        workspace = user.get("workspace_path")
         positions = db.queue_positions()
         return [
             public_queue_job(job, positions.get(job["id"]))
-            for job in db.list_jobs(principal["user"]["id"])
+            for job in db.list_jobs(user["id"])
             if not job.get("chat_deleted_at") and job_kind(job) in kinds
+            # Like /api/me/items: folder chats and questions belong to one workspace,
+            # task runs follow the user.
+            and (job_kind(job) == "task" or job["workspace_snapshot"] == workspace)
         ]
 
     @app.get("/api/jobs/{job_id}")
@@ -1896,6 +1908,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         body: UserBatchBody,
         principal: Annotated[dict[str, Any], Depends(admin_principal)],
         db: Annotated[Database, Depends(database)],
+        config: Annotated[Settings, Depends(settings_dep)],
     ) -> dict[str, Any]:
         """Block or unblock several users; each one succeeds or fails on its own."""
         admin_id = principal["user"]["id"]
@@ -1914,6 +1927,15 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
                 result.update(skipped=True, reason="self")
             elif user["status"] == target:
                 result.update(ok=True, skipped=True, reason="already")
+            elif (
+                target == "active"
+                and user.get("workspace_path")
+                and not config.allow_shared_workspaces
+                and db.workspace_in_use(user["workspace_path"], exclude_user_id=user_id)
+            ):
+                # Same exclusivity rule as the single PATCH (checked_workspace):
+                # an active user may not share a workspace with another active user.
+                result["reason"] = "workspace_in_use"
             else:
                 try:
                     db.update_user(user_id, status=target, actor_id=admin_id)

@@ -1,6 +1,7 @@
 import { inject, Injectable, TemplateRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { KbqToastData, KbqToastService, KbqToastStyle } from '@koobiq/components/toast';
+import { isAccessChanged } from '../api/api-error';
 import { Item, itemRoute } from '../items/item.model';
 import { isWaiting, statusLabel } from '../status/status';
 
@@ -31,7 +32,9 @@ export class NotifyService {
         this.show(KbqToastStyle.Success, title, text);
     }
 
-    error(title: string, text?: string): void {
+    /** Pass the caught error as `cause`: a 403 that changed the user's access shows no toast (SPEC §16.2). */
+    error(title: string, text?: string, cause?: unknown): void {
+        if (isAccessChanged(cause)) return;
         this.show(KbqToastStyle.Error, title, text);
     }
 

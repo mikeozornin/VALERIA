@@ -41,11 +41,15 @@ export class AuthService {
     private readonly router = inject(Router);
 
     private readonly _user = signal<User | null>(null);
+    private readonly _loadError = signal<unknown>(null);
     private loading: Promise<User | null> | null = null;
+    private forbidden: Promise<boolean> | null = null;
     private loaded = false;
 
     /** Current user or null when signed out / not loaded yet. */
     readonly user = this._user.asReadonly();
+    /** Last non-401 failure of `/api/auth/me` (network, 5xx); the app shows an error state with retry. */
+    readonly loadError = this._loadError.asReadonly();
     readonly isAdmin = computed(() => this._user()?.role === 'admin');
     readonly tasksOnly = computed(() => !!this._user()?.tasks_only && this._user()?.role !== 'admin');
     readonly roleLabel = computed(() => {
@@ -65,6 +69,7 @@ export class AuthService {
                         this.reset();
                         return null;
                     }
+                    this._loadError.set(error);
                     throw error;
                 })
                 .finally(() => {
@@ -78,6 +83,27 @@ export class AuthService {
     refresh(): Promise<User | null> {
         this.loaded = false;
         return this.ensureLoaded();
+    }
+
+    /**
+     * After a 403: re-reads the session and, when the role or «Задачи и вопросы» changed, re-runs the current
+     * navigation so the route guards show «Раздел недоступен» (SPEC §16.2). Resolves true when access changed.
+     */
+    handleForbidden(): Promise<boolean> {
+        this.forbidden ??= (async () => {
+            const before = this._user();
+            try {
+                const after = await this.refresh();
+                const changed = !after || after.role !== before?.role || !!after.tasks_only !== !!before?.tasks_only;
+                if (changed) await this.router.navigateByUrl(this.router.url, { onSameUrlNavigation: 'reload' });
+                return changed;
+            } catch {
+                return false;
+            } finally {
+                this.forbidden = null;
+            }
+        })();
+        return this.forbidden;
     }
 
     /** Rejects with ApiError; 401 detail is «Неверный логин или пароль». */
@@ -98,12 +124,14 @@ export class AuthService {
 
     /** Clears the in-memory session after a 401. */
     reset(): void {
+        this._loadError.set(null);
         this._user.set(null);
         this.csrf.set(null);
         this.loaded = true;
     }
 
     private accept(res: AuthResponse): User {
+        this._loadError.set(null);
         this.csrf.set(res.csrf_token);
         this._user.set(res.user);
         this.loaded = true;

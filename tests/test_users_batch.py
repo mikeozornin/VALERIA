@@ -95,3 +95,27 @@ async def test_batch_validation_and_access(ui_app):
     )
     assert response.status_code == 403
     assert t.db.get_user(t.users["tasker"]["id"])["status"] == "active"
+
+
+async def test_batch_unblock_refuses_a_workspace_taken_by_another_active_user(ui_app):
+    t = ui_app
+    ids = {name: user["id"] for name, user in t.users.items()}
+    await login(t.client, "admin")
+    worker_path = t.db.get_user(ids["worker"])["workspace_path"]
+    # While stranger was blocked, worker kept using the same workspace.
+    t.db.update_user(ids["stranger"], status="disabled", workspace_path=worker_path)
+    t.db.update_user(ids["tasker"], status="disabled")
+
+    rows = await batch(t, [ids["stranger"], ids["tasker"]], "active")
+
+    assert rows[ids["stranger"]] == {
+        "id": ids["stranger"], "login": "stranger", "ok": False, "skipped": False,
+        "reason": "workspace_in_use",
+    }
+    assert rows[ids["tasker"]]["ok"] is True
+    assert t.db.get_user(ids["stranger"])["status"] == "disabled"
+    assert t.db.get_user(ids["tasker"])["status"] == "active"
+    audited = [
+        entry["object_id"] for entry in t.db.list_audit() if entry["action"] == "user.update"
+    ]
+    assert ids["stranger"] not in audited
