@@ -43,6 +43,7 @@ export class AuthService {
     private readonly _user = signal<User | null>(null);
     private readonly _loadError = signal<unknown>(null);
     private loading: Promise<User | null> | null = null;
+    private forbidden: Promise<boolean> | null = null;
     private loaded = false;
 
     /** Current user or null when signed out / not loaded yet. */
@@ -82,6 +83,27 @@ export class AuthService {
     refresh(): Promise<User | null> {
         this.loaded = false;
         return this.ensureLoaded();
+    }
+
+    /**
+     * After a 403: re-reads the session and, when the role or «Задачи и вопросы» changed, re-runs the current
+     * navigation so the route guards show «Раздел недоступен» (SPEC §16.2). Resolves true when access changed.
+     */
+    handleForbidden(): Promise<boolean> {
+        this.forbidden ??= (async () => {
+            const before = this._user();
+            try {
+                const after = await this.refresh();
+                const changed = !after || after.role !== before?.role || !!after.tasks_only !== !!before?.tasks_only;
+                if (changed) await this.router.navigateByUrl(this.router.url, { onSameUrlNavigation: 'reload' });
+                return changed;
+            } catch {
+                return false;
+            } finally {
+                this.forbidden = null;
+            }
+        })();
+        return this.forbidden;
     }
 
     /** Rejects with ApiError; 401 detail is «Неверный логин или пароль». */

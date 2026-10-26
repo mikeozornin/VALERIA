@@ -15,7 +15,7 @@ import { LuxonDateAdapter } from '@koobiq/angular-luxon-adapter/adapter';
 import { DateAdapter, DateFormatter, KBQ_DATE_LOCALE, KBQ_LOCALE_SERVICE, KbqLocaleService } from '@koobiq/components/core';
 import { kbqToastConfigurationProvider, KbqToastPosition } from '@koobiq/components/toast';
 import { routes } from './app.routes';
-import { apiInterceptor, ON_UNAUTHORIZED } from './core/api/api.service';
+import { apiInterceptor, ON_FORBIDDEN, ON_UNAUTHORIZED } from './core/api/api.service';
 import { AuthService } from './core/auth/auth.service';
 import { AppThemeService } from './core/theme/theme.service';
 
@@ -41,6 +41,13 @@ export const appConfig: ApplicationConfig = {
             useFactory: () => {
                 const auth = inject(AuthService);
                 return () => auth.reset();
+            },
+        },
+        {
+            provide: ON_FORBIDDEN,
+            useFactory: () => {
+                const auth = inject(AuthService);
+                return () => auth.handleForbidden();
             },
         },
         provideAppInitializer(() => inject(AppThemeService).init()),
