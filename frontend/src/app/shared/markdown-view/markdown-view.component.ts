@@ -48,6 +48,32 @@ import { SAFE_MARKED_OPTIONS } from './safe-markdown';
         .v-md ::ng-deep :is(.kbq-markdown__h1, .kbq-markdown__h2, .kbq-markdown__h3, .kbq-markdown__h4, .kbq-markdown__h5, .kbq-markdown__h6):first-child {
             margin-top: 0;
         }
+        /* Bullets are «•» as in the prototype (browser disc), not Koobiq's «—». */
+        .v-md ::ng-deep .kbq-markdown__ul {
+            list-style: disc;
+        }
+        .v-md ::ng-deep .kbq-markdown__ul > li::before {
+            content: none;
+        }
+        /* Code as in the prototype: inline 12.5px on contrast-fade; blocks 12/16 on bg-secondary, 12px padding. */
+        .v-md ::ng-deep .kbq-markdown__code {
+            font-family: var(--kbq-font-family-mono);
+            font-size: 12.5px;
+            letter-spacing: 0;
+        }
+        .v-md ::ng-deep .kbq-markdown__code:not(.kbq-markdown__pre > .kbq-markdown__code) {
+            background-color: var(--kbq-background-contrast-fade);
+            border-radius: 4px;
+        }
+        .v-md ::ng-deep .kbq-markdown__pre {
+            padding: 12px;
+            border-radius: 8px;
+            background-color: var(--kbq-background-bg-secondary);
+        }
+        .v-md ::ng-deep .kbq-markdown__pre > .kbq-markdown__code {
+            font-size: 12px;
+            line-height: 16px;
+        }
     `,
 })
 export class MarkdownViewComponent {

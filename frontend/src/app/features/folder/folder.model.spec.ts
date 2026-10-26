@@ -1,5 +1,14 @@
 import { OcMessage } from '../../shared/agent-steps/opencode.model';
-import { agentLabel, alwaysLabel, folderPhase, isFolderBusy, upsertMessageInfo, upsertPart, workingText } from './folder.model';
+import {
+    agentLabel,
+    alwaysLabel,
+    folderPhase,
+    folderStateText,
+    isFolderBusy,
+    upsertMessageInfo,
+    upsertPart,
+    workingText,
+} from './folder.model';
 
 const user = (id: string, agent: string): OcMessage => ({ info: { id, role: 'user', agent }, parts: [] });
 const bot = (id: string, agent: string): OcMessage => ({ info: { id, role: 'assistant', agent }, parts: [] });
@@ -16,6 +25,20 @@ describe('folderPhase', () => {
         expect(folderPhase('idle', [user('u', 'plan'), bot('a', 'plan')])).toBe('plan');
         expect(folderPhase('idle', [user('u', 'build'), bot('a', 'build')])).toBe('done');
         expect(folderPhase('idle', [])).toBe('empty');
+    });
+});
+
+describe('folderStateText', () => {
+    it('words the aside state as in the prototype', () => {
+        expect(folderStateText('running', [user('u', 'build')], 'В работе')).toBe('Работает');
+        expect(folderStateText('running', [user('u', 'plan')], 'В работе')).toBe('Составляет план');
+        expect(folderStateText('waiting_permission', [], 'x')).toBe('Ждёт разрешения');
+        expect(folderStateText('idle', [user('u', 'plan'), bot('a', 'plan')], 'Готово')).toBe('Ждёт вашего сообщения');
+        expect(folderStateText('idle', [user('u', 'build'), bot('a', 'build')], 'x')).toBe('Готово');
+    });
+    it('keeps the common label for other states', () => {
+        expect(folderStateText('queued', [], 'В очереди')).toBe('В очереди');
+        expect(folderStateText('failed', [bot('a', 'build')], 'Завершена с ошибкой')).toBe('Завершена с ошибкой');
     });
 });
 

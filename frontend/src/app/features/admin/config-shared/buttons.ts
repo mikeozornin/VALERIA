@@ -8,7 +8,8 @@ export const BUTTON_CSS = `
         --kbq-button-size-horizontal-padding: var(--kbq-size-s);
         --kbq-button-size-border-radius: 6px;
         min-height: 24px;
-        font-size: var(--kbq-typography-text-compact-font-size);
-        line-height: var(--kbq-typography-text-compact-line-height);
+        /* 24px high, body-size text: the prototype's compact buttons render at 14px. */
+        font-size: var(--kbq-typography-text-normal-font-size);
+        line-height: 20px;
     }
 `;

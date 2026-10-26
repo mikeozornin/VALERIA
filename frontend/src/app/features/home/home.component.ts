@@ -36,6 +36,8 @@ import { SendButtonComponent } from '../../shared/chat-composer/send-button.comp
 import { clockTime, findActiveDuplicate, TaskDef, TaskRun, TemplateDef } from '../../shared/tasks/task.model';
 import { TasksCatalog } from '../../shared/tasks/tasks-catalog.service';
 import { HomeDrafts, HomeMode } from './home-drafts';
+import { OutlineIconComponent } from '../../shared/outline-icon/outline-icon.component';
+import { planFirst } from '../../shared/agent-order';
 
 /** `GET /api/options`: agents and models for «Сделать». */
 interface ChatOptions {
@@ -73,6 +75,7 @@ const AGENT_LABELS: Record<string, string> = { plan: 'Plan', build: 'Build' };
         KbqTextareaModule,
         KbqToolTipModule,
         SendButtonComponent,
+        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { class: 'v-home', '[attr.inert]': 'underlay() ? "" : null', '[attr.aria-hidden]': 'underlay() || null' },
@@ -113,6 +116,8 @@ export class HomeComponent {
     protected readonly templates = signal<TemplateDef[]>([]);
     protected readonly variantsCount = computed(() => this.tasks().length + this.templates().length);
     protected readonly options = signal<ChatOptions | null>(null);
+    /** Mode toggle order follows the prototype: «План | Сборка». */
+    protected readonly agentOrder = computed(() => planFirst(this.options()?.agents ?? []));
 
     /** Task of `/new/:taskId`, once the catalog is loaded. */
     protected readonly preset = computed<TaskDef | null>(() => {

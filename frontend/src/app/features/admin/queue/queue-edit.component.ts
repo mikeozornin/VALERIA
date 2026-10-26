@@ -22,6 +22,7 @@ import { BUTTON_CSS } from '../config-shared/buttons';
 import { FormAlertsComponent, FormPageComponent, FrowComponent, FsecComponent } from '../config-shared/form-layout';
 import { SyncSubmit } from '../config-shared/sync-submit';
 import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue, QueueRequest, usedBy, validateQueues, visibleRows } from './queue-form';
+import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 /** «Очереди и лимиты» edit form (prototype `queueEdit`): every change is applied together on «Сохранить». */
 @Component({
@@ -46,6 +47,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
         KbqSelectModule,
         KbqTableModule,
         KbqToolTipModule,
+        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -55,7 +57,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
                 <v-form-page>
                     @if (blocked(); as b) {
                         <kbq-alert class="v-blocked" [alertColor]="alertColors.Error" [alertStyle]="alertStyles.Colored" role="alert">
-                            <i kbq-icon="kbq-circle-xmark_16" aria-hidden="true"></i>
+                            <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                             <div kbq-alert-title>{{ b.title }}</div>
                             {{ b.text }}
                             <a kbq-button kbq-alert-control class="v-compact" [color]="colors.ContrastFade" routerLink="/admin/tasks">Настройка задач</a>
@@ -218,7 +220,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
                                         <td></td>
                                         <td class="v-actions">
                                             <span kbqTooltip="Укажите название" kbqPlacement="left" [kbqTooltipDisabled]="!!d.name.trim()">
-                                                <button type="button" kbq-button class="v-compact" [color]="colors.Contrast" [disabled]="!d.name.trim()" (click)="addQueue()">
+                                                <button type="button" kbq-button class="v-compact" [color]="colors.Theme" [disabled]="!d.name.trim()" (click)="addQueue()">
                                                     Добавить
                                                 </button>
                                             </span>
@@ -229,7 +231,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
                             </tbody>
                         </table>
                         @if (!draft()) {
-                            <div>
+                            <div class="v-addq">
                                 <button type="button" kbq-button class="v-compact" [color]="colors.Contrast" kbqStyle="transparent" (click)="startAdd()">
                                     <i kbq-icon="kbq-plus_16"></i>
                                     Добавить очередь
@@ -277,7 +279,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
                     </fieldset>
 
                     <ng-container vFootMain>
-                        <button type="button" kbq-button [color]="colors.Contrast" [disabled]="submit.pending()" (click)="save()">Сохранить</button>
+                        <button type="button" kbq-button [color]="colors.Theme" [disabled]="submit.pending()" (click)="save()">Сохранить</button>
                         <a kbq-button [color]="colors.ContrastFade" routerLink="/admin/queue/settings">Отмена</a>
                     </ng-container>
                 </v-form-page>
@@ -309,6 +311,10 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
         .v-actions { text-align: right; white-space: nowrap; }
         .v-actions > * + * { margin-left: var(--kbq-size-xs); }
         .v-pt6 { padding-top: 6px; }
+        /* Prototype: «Добавить очередь» spans the table width, label centred, 8px below the table. */
+        .v-addq { margin-top: var(--kbq-size-s); }
+        .v-addq > .kbq-button { width: 100%; justify-content: center; }
+        .v-addq > .kbq-button ::ng-deep .kbq-button-wrapper { justify-content: center; }
         .v-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     `,
     ],

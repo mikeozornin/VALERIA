@@ -4,6 +4,7 @@ import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqLinkModule } from '@koobiq/components/link';
 import { clashTitle } from './concurrency';
 import { SLOW_TITLE, SyncSubmit } from './sync-submit';
+import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 /**
  * Entity form page (prototype `formPage`): sections with labels on the left and a footer that follows the form
@@ -121,12 +122,12 @@ export class FrowComponent {
  */
 @Component({
     selector: 'v-form-alerts',
-    imports: [KbqAlertModule, KbqIconModule, KbqLinkModule],
+    imports: [KbqAlertModule, KbqIconModule, KbqLinkModule, OutlineIconComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         @if (submit().slow()) {
             <kbq-alert compact [alertColor]="colors.Warning" [alertStyle]="styles.Colored" role="status">
-                <i kbq-icon="kbq-triangle-exclamation_16" aria-hidden="true"></i>
+                <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
                 {{ slowTitle }}
                 <button type="button" kbq-alert-control kbq-link pseudo (click)="submit().waitMore()">Подождать еще</button>
                 <button type="button" kbq-alert-control kbq-link pseudo (click)="submit().cancel()">Отменить</button>
@@ -135,13 +136,13 @@ export class FrowComponent {
         @if (submit().clash(); as clash) {
             @if (clash.kind === 'conflict') {
                 <kbq-alert compact [alertColor]="colors.Warning" [alertStyle]="styles.Colored" role="alert">
-                    <i kbq-icon="kbq-triangle-exclamation_16" aria-hidden="true"></i>
+                    <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
                     {{ title(clash) }}
                     <button type="button" kbq-alert-control kbq-link pseudo (click)="overwrite.emit()">Перезаписать</button>
                 </kbq-alert>
             } @else {
                 <kbq-alert compact [alertColor]="colors.Error" [alertStyle]="styles.Colored" role="alert">
-                    <i kbq-icon="kbq-circle-xmark_16" aria-hidden="true"></i>
+                    <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                     {{ title(clash) }}
                     @if (recreatable()) {
                         <button type="button" kbq-alert-control kbq-link pseudo (click)="recreate.emit()">Создать объект</button>
@@ -151,7 +152,7 @@ export class FrowComponent {
         }
         @if (submit().error(); as err) {
             <kbq-alert compact [alertColor]="colors.Error" [alertStyle]="styles.Colored" role="alert">
-                <i kbq-icon="kbq-circle-xmark_16" aria-hidden="true"></i>
+                <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                 <div kbq-alert-title>Не удалось сохранить</div>
                 {{ err.text }}
                 @if (err.code) {

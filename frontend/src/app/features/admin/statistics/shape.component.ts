@@ -24,6 +24,40 @@ export type ShapeName =
 export const TASK_SHAPES: ShapeName[] = ['triangle', 'square', 'diamond', 'down', 'circle', 'pentagon', 'hexagon', 'star', 'plus', 'right', 'left', 'cross'];
 
 /**
+ * The prototype ties shapes to the kind of task: CI ▲, MR review ■, release notes ◆, duplicate search ▼,
+ * YouTrack ●. A task whose title names one of these kinds gets that shape; the rest take the free shapes
+ * in title order. Same tasks in, same shapes out, whatever order the API returns them in.
+ */
+const KIND_SHAPES: [RegExp, ShapeName][] = [
+    [/дубликат|duplicate/i, 'down'],
+    [/(^|[^a-zа-яё])ci([^a-zа-яё]|$)/i, 'triangle'],
+    [/merge request|(^|[^a-zа-яё])mr([^a-zа-яё]|$)/i, 'square'],
+    [/release notes/i, 'diamond'],
+    [/youtrack/i, 'circle'],
+];
+
+export function assignTaskShapes(tasks: readonly { id: string; title: string }[]): Record<string, ShapeName> {
+    const sorted = [...tasks].sort((a, b) => a.title.localeCompare(b.title, 'ru') || a.id.localeCompare(b.id));
+    const out: Record<string, ShapeName> = {};
+    const used = new Set<ShapeName>();
+    for (const t of sorted) {
+        const kind = KIND_SHAPES.find(([re, shape]) => !used.has(shape) && re.test(t.title));
+        if (kind) {
+            out[t.id] = kind[1];
+            used.add(kind[1]);
+        }
+    }
+    let i = 0;
+    for (const t of sorted) {
+        if (out[t.id]) continue;
+        const free = TASK_SHAPES.filter((s) => !used.has(s));
+        out[t.id] = free.length ? free[0] : TASK_SHAPES[i++ % TASK_SHAPES.length];
+        used.add(out[t.id]);
+    }
+    return out;
+}
+
+/**
  * A 12×12 glyph: `<svg vShape="triangle" st="done">`. Fill follows the run outcome via `--kbq-*` tokens:
  * done = theme, failed = error, cancelled = tertiary, running/queued = hollow.
  */

@@ -35,6 +35,7 @@ import { AppThemeService, THEME_OPTIONS } from '../../core/theme/theme.service';
 import { snoozeNavLabel } from '../../core/time/snooze';
 import { ChatActionsService } from '../chat-menu/chat-actions.service';
 import { ChatMenuComponent } from '../chat-menu/chat-menu.component';
+import { OutlineIconComponent } from '../../shared/outline-icon/outline-icon.component';
 
 /** Admin sections of the «Система» submenu (SPEC §6.1 item 9, prototype `SYS`). */
 export const SYSTEM_ENTRIES: readonly { link: string; label: string; icon: string }[] = [
@@ -73,6 +74,7 @@ export function initialsOf(login: string): string {
         KbqToolTipModule,
         KbqProgressSpinnerModule,
         ChatMenuComponent,
+        OutlineIconComponent,
     ],
     templateUrl: './nav.component.html',
     styleUrl: './nav.component.scss',

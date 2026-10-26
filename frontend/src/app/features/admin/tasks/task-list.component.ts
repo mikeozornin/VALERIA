@@ -28,7 +28,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
                 }
             </ng-container>
             <ng-container vHeaderActions>
-                <a kbq-button [color]="colors.Contrast" routerLink="/admin/tasks/new">
+                <a kbq-button [color]="colors.Theme" routerLink="/admin/tasks/new">
                     <i kbq-icon="kbq-plus_16"></i>
                     Создать задачу
                 </a>

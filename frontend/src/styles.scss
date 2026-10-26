@@ -1,6 +1,11 @@
 // Global styles. Colours come only from Koobiq tokens (`--kbq-*`); fonts are self-hosted (angular.json).
 
 @use 'styles/buttons';
+@use 'styles/alerts';
+@use 'styles/spinner';
+@use 'styles/filter-bar';
+@use 'styles/modal';
+@use 'styles/empty-state';
 
 html,
 body {
@@ -39,10 +44,9 @@ v-root {
     letter-spacing: var(--kbq-typography-text-compact-letter-spacing);
 }
 
-// Compact alert title (prototype `.k-alert__title`: 14/20, medium). Koobiq's compact alert uses a 16px heading.
-.kbq-alert.kbq-alert_compact .kbq-alert__title {
-    font-family: var(--kbq-typography-text-normal-font-family);
-    font-size: var(--kbq-typography-text-normal-font-size);
-    line-height: var(--kbq-typography-text-normal-line-height);
-    font-weight: 500;
+// Plain × instead of Koobiq's circled one on the actions-panel close and the search cleaner (prototype `i-x`).
+// Both templates are Koobiq's, so the glyph of `kbq-xmark_16` is swapped in on their own icon.
+.kbq-actions-panel-container__close-button .kbq-circle-xmark_16::before,
+.kbq-cleaner .kbq-circle-xmark_16::before {
+    content: '\f664';
 }

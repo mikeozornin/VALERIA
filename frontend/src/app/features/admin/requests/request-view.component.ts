@@ -13,6 +13,7 @@ import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-heade
 import { AdminJob, AdminRequest } from '../shared/admin.models';
 import { DASH, formatWhen } from '../shared/format';
 import { MarkdownViewComponent } from '../../../shared/markdown-view/markdown-view.component';
+import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 /** One line of the read-only conversation. */
 interface ViewMessage {
@@ -58,6 +59,7 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
         KbqIconModule,
         MarkdownViewComponent,
         KbqProgressSpinnerModule,
+        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -73,8 +75,8 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
             <v-page-state [loading]="loading()" [error]="error()" [errorTitle]="errorTitle()" (retry)="load()">
                 @if (request(); as r) {
                     <div class="v-chat">
-                        <kbq-alert [alertColor]="alertColors.Info">
-                            <i kbq-icon-item="kbq-eye_16"></i>
+                        <kbq-alert [alertColor]="alertColors.Info" alertStyle="colored">
+                            <i kbq-icon="" color="theme"><v-outline-icon name="eye" /></i>
                             Вы смотрите {{ kindObject(r) }} пользователя <b>{{ r.user.login || dash }}</b
                             >. Ответить или написать от его имени отсюда нельзя.
                         </kbq-alert>

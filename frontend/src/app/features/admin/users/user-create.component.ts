@@ -19,6 +19,8 @@ import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-heade
 import { ACCOUNT_TYPES, AccountType, accountTypeToApi, AdminUser } from '../shared/admin.models';
 import { ADMIN_FORM_STYLES } from '../shared/admin-styles';
 import { SyncOp, SyncSlowAlertComponent } from '../shared/sync-op';
+import { KbqIconModule } from '@koobiq/components/icon';
+import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 const MIN_PASSWORD = 12;
 
@@ -37,6 +39,8 @@ const MIN_PASSWORD = 12;
         KbqInputModule,
         KbqRadioModule,
         KbqToolTipModule,
+        KbqIconModule,
+        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -46,7 +50,8 @@ const MIN_PASSWORD = 12;
             <div class="v-form">
                 <v-sync-slow-alert [op]="op" />
                 @if (saveError(); as e) {
-                    <kbq-alert [alertColor]="alertColors.Error">
+                    <kbq-alert [alertColor]="alertColors.Error" alertStyle="colored">
+                        <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                         <div kbq-alert-title>Не удалось создать пользователя</div>
                         {{ e }}
                     </kbq-alert>
@@ -76,7 +81,9 @@ const MIN_PASSWORD = 12;
                         <div class="v-frow__ctl">
                             <kbq-form-field class="v-w320">
                                 <input
-                                    kbqInputPassword
+                                    kbqInput
+                                    type="text"
+                                    spellcheck="false"
                                     id="v-pass"
                                     formControlName="password"
                                     [vFieldError]="fieldError('password')"
@@ -85,7 +92,6 @@ const MIN_PASSWORD = 12;
                                     [required]="true"
                                     aria-describedby="v-pass-hint"
                                 />
-                                <kbq-password-toggle />
                                 <kbq-error role="alert">{{ fieldError('password') }}</kbq-error>
                             </kbq-form-field>
                             <div class="v-hint" id="v-pass-hint">

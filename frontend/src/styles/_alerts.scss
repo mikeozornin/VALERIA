@@ -1,0 +1,71 @@
+// Alerts follow the prototype `.k-alert` (section «alert, toast, empty state»):
+//   container: padding 8px, radius 12px; icon 8px from the top, 4px from the left, 8px gap to the text;
+//   body: padding 4px 8px 4px 0; title 14/20 medium, on the icon's line, no gap before the text;
+//   actions: 8px below the text, 8px apart. Compact (`.k-alert--compact`): padding 4px 8px, radius 8px,
+//   icon 4px from the top, body padding 2px 0.
+// Colours stay Koobiq's: `colored` = the `*-less` fill (error, warning, success, theme for info),
+// `default` = the neutral contrast-less fill (prototype plain `.k-alert`).
+// Koobiq declares its size tokens on `:where(.kbq-alert)`, so redeclaring them here wins regardless of order.
+.kbq-alert {
+    --kbq-alert-size-normal-container-border-radius: var(--kbq-size-m);
+    --kbq-alert-size-normal-container-padding-top: var(--kbq-size-s);
+    --kbq-alert-size-normal-container-padding-right: var(--kbq-size-s);
+    --kbq-alert-size-normal-container-padding-bottom: var(--kbq-size-s);
+    --kbq-alert-size-normal-container-padding-left: var(--kbq-size-s);
+    --kbq-alert-size-normal-content-padding-top: var(--kbq-size-xxs);
+    --kbq-alert-size-normal-content-padding-right: var(--kbq-size-s);
+    --kbq-alert-size-normal-content-padding-bottom: var(--kbq-size-xxs);
+    --kbq-alert-size-normal-content-padding-left: 0;
+    --kbq-alert-size-normal-icon-margin-top: var(--kbq-size-s);
+    --kbq-alert-size-normal-icon-margin-right: var(--kbq-size-s);
+    --kbq-alert-size-normal-icon-margin-bottom: 0;
+    --kbq-alert-size-normal-icon-margin-left: var(--kbq-size-xxs);
+    --kbq-alert-size-normal-icon-padding-top: 0;
+    --kbq-alert-size-normal-no-title-icon-margin-top: var(--kbq-size-s);
+    --kbq-alert-size-normal-no-title-icon-padding-top: 0;
+    --kbq-alert-size-normal-title-margin-bottom: 0;
+    --kbq-alert-size-normal-button-stack-padding-top: var(--kbq-size-s);
+    --kbq-alert-size-normal-button-stack-padding-bottom: 0;
+    --kbq-alert-size-normal-close-button-margin-top: var(--kbq-size-3xs);
+
+    --kbq-alert-size-compact-container-border-radius: var(--kbq-size-s);
+    --kbq-alert-size-compact-container-padding-top: var(--kbq-size-xxs);
+    --kbq-alert-size-compact-container-padding-right: var(--kbq-size-s);
+    --kbq-alert-size-compact-container-padding-bottom: var(--kbq-size-xxs);
+    --kbq-alert-size-compact-container-padding-left: var(--kbq-size-s);
+    --kbq-alert-size-compact-content-padding-top: var(--kbq-size-3xs);
+    --kbq-alert-size-compact-content-padding-right: 0;
+    --kbq-alert-size-compact-content-padding-bottom: var(--kbq-size-3xs);
+    --kbq-alert-size-compact-content-padding-left: 0;
+    --kbq-alert-size-compact-icon-margin-top: var(--kbq-size-xxs);
+    --kbq-alert-size-compact-icon-margin-right: var(--kbq-size-s);
+    --kbq-alert-size-compact-icon-padding-top: 0;
+    --kbq-alert-size-compact-no-title-icon-margin-top: var(--kbq-size-xxs);
+    --kbq-alert-size-compact-no-title-icon-padding-top: 0;
+    --kbq-alert-size-compact-title-margin-bottom: 0;
+    --kbq-alert-size-compact-button-stack-padding-top: var(--kbq-size-s);
+    --kbq-alert-size-compact-button-stack-padding-bottom: 0;
+}
+
+// The class is doubled to outrank Koobiq's own rules, which load after the global stylesheet.
+.kbq-alert.kbq-alert {
+    .kbq-alert__content_title {
+        margin-bottom: 0;
+    }
+
+    .kbq-alert__title {
+        font-family: var(--kbq-typography-text-normal-font-family);
+        font-size: var(--kbq-typography-text-normal-font-size);
+        line-height: var(--kbq-typography-text-normal-line-height);
+        letter-spacing: var(--kbq-typography-text-normal-letter-spacing);
+        font-weight: 500;
+    }
+
+    .kbq-alert__content .kbq-alert__button-stack {
+        gap: var(--kbq-size-s);
+    }
+
+    .kbq-alert__content .kbq-alert__button-stack_has-button {
+        padding-top: var(--kbq-size-s);
+    }
+}

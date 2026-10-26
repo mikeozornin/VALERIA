@@ -9,6 +9,7 @@ import { KbqTextareaModule } from '@koobiq/components/textarea';
 import { SendButtonComponent } from '../chat-composer/send-button.component';
 import { isSendShortcut } from '../chat-composer/send-action';
 import { allowsCustom, buildReplyPayload, emptySelection, QuestionRequest, QuestionSelection } from './clarify.model';
+import { OutlineIconComponent } from '../outline-icon/outline-icon.component';
 
 const CUSTOM = '\u0000custom';
 
@@ -18,12 +19,12 @@ const CUSTOM = '\u0000custom';
  */
 @Component({
     selector: 'v-clarify-card',
-    imports: [FormsModule, KbqRadioModule, KbqCheckboxModule, KbqFormFieldModule, KbqTextareaModule, KbqIconModule, SendButtonComponent],
+    imports: [FormsModule, KbqRadioModule, KbqCheckboxModule, KbqFormFieldModule, KbqTextareaModule, KbqIconModule, SendButtonComponent, OutlineIconComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { role: 'group', 'aria-label': 'Валерия уточняет', '(keydown)': 'onKeydown($event)' },
     template: `
         <div class="v-qcard__head">
-            <i kbq-icon="kbq-circle-question_16" [color]="colors.Theme" aria-hidden="true"></i>
+            <v-outline-icon name="help-circle" class="v-ic_theme" />
             Валерия уточняет
         </div>
         @for (q of request().questions; track $index; let i = $index) {
@@ -137,7 +138,9 @@ export class ClarifyCardComponent {
     }
 
     protected pickRadio(i: number, value: string): void {
-        this.patch(i, (s) => (value === CUSTOM ? { ...s, customOn: true } : { ...s, customOn: false, selected: [value] }));
+        this.patch(i, (s) =>
+            value === CUSTOM ? { ...s, customOn: true } : { ...s, customOn: false, selected: [value] },
+        );
     }
 
     protected toggle(i: number, label: string, checked: boolean): void {

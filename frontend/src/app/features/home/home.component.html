@@ -1,7 +1,7 @@
 <div class="v-home__narrow">
     @if (noFolder()) {
-        <kbq-alert class="v-home__nofolder" alertColor="warning" alertStyle="colored" [compact]="true">
-            <i kbq-icon="kbq-triangle-exclamation_16" [color]="colors.Warning"></i>
+        <kbq-alert class="v-home__nofolder" alertColor="warning" alertStyle="colored">
+            <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
             <div kbq-alert-title>{{ noFolderText }}</div>
             Без неё нельзя задать вопрос, запустить задачу или работать в папке. Напишите администратору.
         </kbq-alert>
@@ -55,8 +55,8 @@
             </div>
             <div class="v-home__hint">Текст добавится в конец инструкции задачи.</div>
             @if (duplicate()) {
-                <kbq-alert class="v-home__duplicate" alertColor="warning" alertStyle="colored" [compact]="true">
-                    <i kbq-icon="kbq-triangle-exclamation_16" [color]="colors.Warning"></i>
+                <kbq-alert class="v-home__duplicate" alertColor="warning" alertStyle="colored">
+                    <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
                     <div kbq-alert-title>Такой запуск уже идёт</div>
                     Эта задача с той же ссылкой выполняется с {{ duplicateTime() }}. Новый запуск не создан.
                     <button kbq-alert-control kbq-button [color]="colors.ContrastFade" (click)="openDuplicate()">
@@ -160,13 +160,13 @@
                 </kbq-button-toggle-group>
                 @if (mode() === 'do') {
                     @if (options(); as opts) {
-                        @if (opts.agents.length > 1) {
+                        @if (agentOrder().length > 1) {
                             <kbq-button-toggle-group
                                 aria-label="Агент"
                                 [value]="agent()"
                                 (change)="agent.set($event.value)"
                             >
-                                @for (a of opts.agents; track a) {
+                                @for (a of agentOrder(); track a) {
                                     <kbq-button-toggle [value]="a">{{ agentLabels[a] || a }}</kbq-button-toggle>
                                 }
                             </kbq-button-toggle-group>
@@ -180,8 +180,8 @@
                                 >
                                     <kbq-optgroup label="Модель">
                                         @for (m of opts.models; track m.id) {
-                                            <kbq-option [value]="m.id" [viewValue]="m.name">
-                                                {{ m.name }}
+                                            <kbq-option [value]="m.id" [viewValue]="m.id">
+                                                {{ m.id }}
                                                 @if (isDefaultModel(m.id)) {
                                                     <span class="v-home__hint-inline">по умолчанию</span>
                                                 }

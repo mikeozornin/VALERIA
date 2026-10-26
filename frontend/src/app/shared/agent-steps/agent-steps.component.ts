@@ -34,9 +34,15 @@ const ICONS: Record<StepIcon, string> = {
         }
     `,
     styles: `
-        :host { display: block; }
+        :host {
+            /* Two columns as in the prototype: step text, then the secondary detail; details line up across rows. */
+            display: grid;
+            grid-template-columns: auto minmax(0, max-content) minmax(0, 1fr);
+        }
         .v-step {
-            display: flex;
+            display: grid;
+            grid-column: 1 / -1;
+            grid-template-columns: subgrid;
             align-items: center;
             gap: var(--kbq-size-s);
             padding: 6px var(--kbq-size-s);

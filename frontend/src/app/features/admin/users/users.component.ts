@@ -57,6 +57,7 @@ import { DASH, formatWhen, plural } from '../shared/format';
 import { escapeHtml } from '../config-shared/format';
 import { statusTextColor } from '../shared/requests.helpers';
 import { SyncOp, SyncSlowAlertComponent } from '../shared/sync-op';
+import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 const RECENT_LIMIT = 20;
 
@@ -93,6 +94,7 @@ export function resetPasswordTitle(login: string): string {
         KbqFormFieldModule,
         KbqInputModule,
         KbqAlertModule,
+        OutlineIconComponent,
     ],
     providers: [KbqActionsPanel],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -359,7 +361,8 @@ export function resetPasswordTitle(login: string): string {
             <form class="v-reset" (ngSubmit)="confirmReset()" id="v-reset-form">
                 <v-sync-slow-alert [op]="resetOp" />
                 @if (resetError(); as e) {
-                    <kbq-alert [alertColor]="alertColors.Error">
+                    <kbq-alert [alertColor]="alertColors.Error" alertStyle="colored">
+                        <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                         <div kbq-alert-title>Не удалось сбросить пароль</div>
                         {{ e }}
                     </kbq-alert>
@@ -367,13 +370,14 @@ export function resetPasswordTitle(login: string): string {
                 <kbq-form-field>
                     <kbq-label>Новый временный пароль</kbq-label>
                     <input
-                        kbqInputPassword
+                        kbqInput
+                        type="text"
+                        spellcheck="false"
                         [formControl]="resetPassword"
                         placeholder="Не менее 12 символов"
                         autocomplete="new-password"
                         cdkFocusInitial
                     />
-                    <kbq-password-toggle />
                     <kbq-hint>VALERIA его никуда не отправляет, передайте пароль пользователю сами.</kbq-hint>
                 </kbq-form-field>
                 <p class="v-modal-p v-mt16">
