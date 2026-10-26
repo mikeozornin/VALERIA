@@ -1,20 +1,26 @@
 <kbq-vertical-navbar class="v-nav" [expanded]="true" aria-label="Главное меню">
     <kbq-navbar-container class="v-nav__top">
-        <div class="v-nav__brand" aria-hidden="true">
-            <span class="v-nav__logo"></span>
-            <span class="v-nav__brand-text">VALERIA</span>
-        </div>
+        <kbq-navbar-brand class="v-nav__brand" [disabled]="true" aria-hidden="true">
+            <kbq-navbar-logo><span class="v-nav__logo"></span></kbq-navbar-logo>
+            <kbq-navbar-title>VALERIA</kbq-navbar-title>
+        </kbq-navbar-brand>
 
-        <a kbq-navbar-item class="v-nav__search" routerLink="/search" routerLinkActive="kbq-active">
-            <i kbq-icon="kbq-magnifying-glass_16"></i>
+        <a
+            kbq-navbar-item
+            class="v-nav__search"
+            routerLink="/search"
+            routerLinkActive="kbq-active"
+            #searchLink="routerLinkActive"
+        >
+            <i kbq-icon="kbq-magnifying-glass_16" [color]="searchLink.isActive ? colors.Contrast : colors.ContrastFade"></i>
             <kbq-navbar-title>Поиск и команды</kbq-navbar-title>
         </a>
 
         <div kbq-navbar-item class="v-nav__newreq-item">
             <a
                 kbq-button
-                kbqStyle="transparent"
-                [color]="colors.Theme"
+                kbqStyle="filled"
+                [color]="colors.ContrastFade"
                 class="v-nav__newreq"
                 routerLink="/"
                 data-nav-home
@@ -52,7 +58,10 @@
                 [attr.aria-expanded]="snoozedOpen()"
                 (click)="snoozedOpen.update(toggle)"
             >
-                <i [kbq-icon]="snoozedOpen() ? 'kbq-chevron-down_16' : 'kbq-chevron-right_16'"></i>
+                <i
+                    [kbq-icon]="snoozedOpen() ? 'kbq-chevron-down_16' : 'kbq-chevron-right_16'"
+                    [color]="colors.ContrastFade"
+                ></i>
                 <kbq-navbar-title>Отложенные</kbq-navbar-title>
                 <span class="v-nav__count">{{ groups().snoozed.length }}</span>
             </button>
@@ -71,7 +80,10 @@
                 [attr.aria-expanded]="archiveOpen()"
                 (click)="archiveOpen.update(toggle)"
             >
-                <i [kbq-icon]="archiveOpen() ? 'kbq-chevron-down_16' : 'kbq-chevron-right_16'"></i>
+                <i
+                    [kbq-icon]="archiveOpen() ? 'kbq-chevron-down_16' : 'kbq-chevron-right_16'"
+                    [color]="colors.ContrastFade"
+                ></i>
                 <kbq-navbar-title>Архив</kbq-navbar-title>
                 <span class="v-nav__count">{{ groups().archive.length }}</span>
             </button>
@@ -83,7 +95,10 @@
         }
     </kbq-navbar-container>
 
-    <kbq-navbar-container class="v-nav__bottom" [class.v-nav__bottom_divided]="listOverflows()">
+    <kbq-navbar-container class="v-nav__bottom">
+        @if (listOverflows()) {
+            <kbq-navbar-divider />
+        }
         @if (auth.isAdmin()) {
             <button
                 kbq-navbar-item
@@ -92,7 +107,7 @@
                 [class.kbq-active]="inAdmin()"
                 [kbqDropdownTriggerFor]="systemMenu"
             >
-                <i kbq-icon="kbq-gear_16"></i>
+                <i kbq-icon="kbq-gear_16" [color]="inAdmin() ? colors.Contrast : colors.ContrastFade"></i>
                 <kbq-navbar-title>Система</kbq-navbar-title>
             </button>
         }
@@ -121,11 +136,12 @@
             [class.v-nav__chat_menu]="cm.opened()"
             [routerLink]="route(item)"
             routerLinkActive="kbq-active"
+            #chatLink="routerLinkActive"
             [attr.data-key]="key(item)"
             (keydown.shift.f10)="$event.preventDefault(); cm.openFromKeyboard()"
             (keydown.contextmenu)="$event.preventDefault(); cm.openFromKeyboard()"
         >
-            <i [kbq-icon]="kindIcon(item)"></i>
+            <i [kbq-icon]="kindIcon(item)" [color]="chatLink.isActive ? colors.Contrast : colors.ContrastFade"></i>
             <kbq-navbar-title>{{ item.title }}</kbq-navbar-title>
             @switch (trail) {
                 @case ('status') {
@@ -140,22 +156,22 @@
                         <!-- Only Активные is coloured (prototype): finished chats get neutral icons, the label tells the outcome. -->
                         @switch (statusMark(item)) {
                             @case ('waiting') {
-                                <v-outline-icon name="alert-circle" class="v-ic_warning" />
+                                <i kbq-icon="kbq-circle-exclamation_16" [color]="colors.Warning"></i>
                             }
                             @case ('running') {
                                 <kbq-progress-spinner mode="indeterminate" />
                             }
                             @case ('success') {
-                                <v-outline-icon name="check-circle" class="v-ic_fade" />
+                                <i kbq-icon="kbq-circle-check_16" [color]="colors.ContrastFade"></i>
                             }
                             @case ('failed') {
-                                <v-outline-icon name="alert-circle" class="v-ic_fade" />
+                                <i kbq-icon="kbq-circle-exclamation_16" [color]="colors.ContrastFade"></i>
                             }
                             @case ('cancelled') {
-                                <v-outline-icon name="x-circle" class="v-ic_fade" />
+                                <i kbq-icon="kbq-circle-xmark_16" [color]="colors.ContrastFade"></i>
                             }
                             @default {
-                                <v-outline-icon name="clock" class="v-ic_fade" />
+                                <i kbq-icon="kbq-clock_16" [color]="colors.ContrastFade"></i>
                             }
                         }
                     </span>
@@ -169,7 +185,7 @@
     </ng-template>
 </kbq-vertical-navbar>
 
-<kbq-dropdown #systemMenu="kbqDropdown" class="v-nav__menu">
+<kbq-dropdown #systemMenu="kbqDropdown">
     @for (entry of systemEntries; track entry.link) {
         <a kbq-dropdown-item [routerLink]="entry.link" [class.kbq-selected]="isCurrent(entry.link)">
             <i [kbq-icon]="entry.icon"></i>{{ entry.label }}
@@ -177,24 +193,25 @@
     }
 </kbq-dropdown>
 
-<kbq-dropdown #userMenu="kbqDropdown" class="v-nav__menu" yPosition="above">
+<kbq-dropdown #userMenu="kbqDropdown" yPosition="above">
     @if (auth.user(); as user) {
-        <div class="kbq-dropdown__group-header v-menu-caption">{{ user.login }} · {{ auth.roleLabel() }}</div>
+        <div class="kbq-dropdown__group-header">{{ user.login }} · {{ auth.roleLabel() }}</div>
     }
-    <div class="kbq-dropdown__group-header v-menu-caption">Тема</div>
+    <div class="kbq-dropdown__group-header">Тема</div>
     @for (option of themeOptions; track option.id) {
         <button
             kbq-dropdown-item
-            class="v-nav__theme"
             role="menuitemradio"
             [class.kbq-selected]="theme.mode() === option.id"
             [attr.aria-checked]="theme.mode() === option.id"
             (click)="theme.setMode(option.id)"
         >
-            <i kbq-icon="kbq-check_16" [class.v-nav__check_off]="theme.mode() !== option.id"></i>
-            <span class="v-nav__theme-label">{{ option.label }}</span>
+            {{ option.label }}
             @if (option.hint) {
-                <span class="v-nav__hint kbq-text-compact">{{ option.hint }}</span>
+                <div class="kbq-dropdown-item__caption">{{ option.hint }}</div>
+            }
+            @if (theme.mode() === option.id) {
+                <span kbqDropdownItemAction><i kbq-icon="kbq-check_16" [color]="colors.ContrastFade"></i></span>
             }
         </button>
     }

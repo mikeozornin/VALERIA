@@ -64,12 +64,12 @@ export const CHAT_MENU_LABEL = 'Действия с чатом';
                         <i kbq-icon="kbq-undo_16"></i>Вернуть из архива
                     </button>
                     <kbq-divider />
-                    <button kbq-dropdown-item class="v-chat-menu__danger" (click)="actions.confirmRemove(item(), row())">
+                    <button kbq-dropdown-item (click)="actions.confirmRemove(item(), row())">
                         <i kbq-icon="kbq-trash_16" [color]="colors.Error"></i>Удалить
                     </button>
                 }
                 @default {
-                    <div class="kbq-dropdown__group-header v-menu-caption">Отложить</div>
+                    <div class="kbq-dropdown__group-header">Отложить</div>
                     @if (mode() === 'snoozed') {
                         <button kbq-dropdown-item (click)="actions.unsnooze(item())">
                             <i kbq-icon="kbq-undo_16"></i>Вернуть из отложенных
@@ -84,7 +84,7 @@ export const CHAT_MENU_LABEL = 'Действия с чатом';
                         <i kbq-icon="kbq-box-archive_16"></i>В архив
                     </button>
                     <kbq-divider />
-                    <button kbq-dropdown-item class="v-chat-menu__danger" (click)="actions.confirmRemove(item(), row())">
+                    <button kbq-dropdown-item (click)="actions.confirmRemove(item(), row())">
                         <i kbq-icon="kbq-trash_16" [color]="colors.Error"></i>Удалить
                     </button>
                 }
@@ -93,7 +93,6 @@ export const CHAT_MENU_LABEL = 'Действия с чатом';
     `,
     styles: `
         :host { display: inline-flex; flex: none; align-items: center; }
-        .kbq-dropdown-item.v-chat-menu__danger { color: var(--kbq-foreground-error); }
     `,
 })
 export class ChatMenuComponent {
