@@ -4,11 +4,13 @@ import {
     Component,
     computed,
     effect,
+    DestroyRef,
     ElementRef,
     inject,
     Injector,
     input,
     signal,
+    TemplateRef,
     untracked,
     viewChild,
 } from '@angular/core';
@@ -18,8 +20,12 @@ import { KbqBadgeColors, KbqBadgeModule } from '@koobiq/components/badge';
 import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqComponentColors, PopUpPlacements } from '@koobiq/components/core';
 import { KbqEmptyStateModule } from '@koobiq/components/empty-state';
+import { KbqFormFieldModule } from '@koobiq/components/form-field';
 import { KbqIconModule } from '@koobiq/components/icon';
+import { KbqInputModule } from '@koobiq/components/input';
 import { KbqLinkModule } from '@koobiq/components/link';
+import { KbqListModule } from '@koobiq/components/list';
+import { KbqModalRef, KbqModalService, ModalSize } from '@koobiq/components/modal';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
 import { AuthService } from '../../core/auth/auth.service';
 import { Item, itemKey, itemRoute } from '../../core/items/item.model';
@@ -39,6 +45,8 @@ type Row =
 /**
  * «Поиск и команды» (`/search?q=`), SPEC §8.5 and §12. Shown over the home screen like the prototype:
  * the route replaces the outlet, so the screen renders home underneath (inert) and the palette on top.
+ * The palette is a stock kbq-modal opened for the lifetime of the route: closing it leaves the route,
+ * leaving the route closes it.
  * Searches only what is loaded: menu items (archive and snoozed included) and tasks.
  */
 @Component({
@@ -48,8 +56,11 @@ type Row =
         KbqBadgeModule,
         KbqButtonModule,
         KbqEmptyStateModule,
+        KbqFormFieldModule,
         KbqIconModule,
+        KbqInputModule,
         KbqLinkModule,
+        KbqListModule,
         KbqToolTipModule,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -67,6 +78,7 @@ export class SearchComponent {
     private readonly items = inject(ItemsStore);
     private readonly catalog = inject(TasksCatalog);
     private readonly drafts = inject(HomeDrafts);
+    private readonly modal = inject(KbqModalService);
 
     protected readonly colors = KbqComponentColors;
     protected readonly badgeColors = KbqBadgeColors;
@@ -77,6 +89,11 @@ export class SearchComponent {
     protected readonly statusBadgeColor = statusBadgeColor;
 
     private readonly input = viewChild<ElementRef<HTMLInputElement>>('input');
+    private readonly head = viewChild.required<TemplateRef<object>>('head');
+    private readonly body = viewChild.required<TemplateRef<object>>('body');
+    private modalRef?: KbqModalRef;
+    /** Set once the palette starts leaving, so Esc, the backdrop and the close button navigate only once. */
+    private closing = false;
     /** Came here from another screen of the app: close goes back to it. */
     private readonly hasBack = !!this.router.lastSuccessfulNavigation?.previousNavigation;
 
@@ -112,7 +129,36 @@ export class SearchComponent {
                 if (q !== this.query()) this.query.set(q);
             });
         });
-        afterNextRender(() => this.input()?.nativeElement.focus());
+        afterNextRender(() => this.openModal());
+        inject(DestroyRef).onDestroy(() => {
+            this.closing = true;
+            this.modalRef?.close();
+        });
+    }
+
+    private openModal(): void {
+        this.modalRef = this.modal.create({
+            kbqTitle: this.head(),
+            kbqContent: this.body(),
+            kbqSize: ModalSize.Medium,
+            kbqClosable: false,
+            kbqMaskClosable: true,
+            kbqRestoreFocus: false,
+            kbqOnCancel: () => this.close(),
+        });
+        afterNextRender(
+            () => {
+                // kbq-modal has no dialog role of its own; the e2e and assistive tech find the palette by it.
+                // The container class is bound in the modal's first render, so this waits for it.
+                const container = this.modalRef?.getElement().querySelector('.kbq-modal-container');
+                container?.setAttribute('role', 'dialog');
+                container?.setAttribute('aria-modal', 'true');
+                container?.setAttribute('aria-label', 'Поиск и команды');
+                // The modal focuses its first button on open; the palette starts in the search field.
+                this.input()?.nativeElement.focus();
+            },
+            { injector: this.injectorRef },
+        );
     }
 
     protected rowId(key: string): string {
@@ -192,12 +238,10 @@ export class SearchComponent {
     }
 
     protected close(): void {
+        if (this.closing) return;
+        this.closing = true;
         if (this.hasBack) this.location.back();
         else void this.router.navigate(['/']);
-    }
-
-    protected onBackdrop(event: MouseEvent): void {
-        if (event.target === event.currentTarget) this.close();
     }
 
     private readonly injectorRef = inject(Injector);

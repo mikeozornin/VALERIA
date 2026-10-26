@@ -33,7 +33,6 @@ kbq-dd.v-task-run__input {
 
 .v-runcard__icon {
     flex: none;
-    color: var(--kbq-icon-contrast-fade);
 }
 
 .v-task-run__code {
@@ -47,9 +46,9 @@ kbq-dd.v-task-run__input {
     list-style: none;
     margin: 0 0 var(--kbq-size-l);
     padding: var(--kbq-size-l);
-    border-radius: 12px;
+    border-radius: var(--kbq-size-m);
     background: var(--kbq-background-card);
-    border: 1px solid var(--kbq-line-contrast-less);
+    border: var(--kbq-size-border-width) solid var(--kbq-line-contrast-less);
 }
 
 .v-stages__item {
@@ -57,8 +56,8 @@ kbq-dd.v-task-run__input {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding-top: 28px;
+    gap: var(--kbq-size-3xs);
+    padding-top: calc(var(--kbq-size-xl) + var(--kbq-size-s));
     color: var(--kbq-foreground-contrast-tertiary);
 
     &::before {
@@ -66,8 +65,8 @@ kbq-dd.v-task-run__input {
         position: absolute;
         top: 9px;
         left: 22px;
-        right: 4px;
-        height: 2px;
+        right: var(--kbq-size-xxs);
+        height: var(--kbq-size-3xs);
         background: var(--kbq-line-contrast-less);
     }
 
@@ -81,10 +80,10 @@ kbq-dd.v-task-run__input {
     top: 0;
     left: 0;
     box-sizing: border-box;
-    width: 20px;
-    height: 20px;
+    width: var(--kbq-size-xl);
+    height: var(--kbq-size-xl);
     border-radius: 50%;
-    border: 2px solid var(--kbq-line-contrast-fade);
+    border: var(--kbq-size-3xs) solid var(--kbq-line-contrast-fade);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -92,8 +91,6 @@ kbq-dd.v-task-run__input {
 }
 
 .v-stages__time {
-    font-size: 12px;
-    line-height: 16px;
     color: var(--kbq-foreground-contrast-secondary);
 }
 
@@ -118,11 +115,11 @@ kbq-dd.v-task-run__input {
 .v-stages__item_active {
     .v-stages__dot {
         border-color: var(--kbq-background-theme);
-        box-shadow: inset 0 0 0 4px var(--kbq-background-theme-fade);
+        box-shadow: inset 0 0 0 var(--kbq-size-xxs) var(--kbq-background-theme-fade);
     }
 
     .v-stages__name {
-        font-weight: 600;
+        font-weight: var(--kbq-typography-text-normal-strong-font-weight);
     }
 }
 
@@ -139,9 +136,9 @@ kbq-dd.v-task-run__input {
 /* Cards */
 .v-runcard {
     padding: var(--kbq-size-l);
-    border-radius: 12px;
+    border-radius: var(--kbq-size-m);
     background: var(--kbq-background-card);
-    border: 1px solid var(--kbq-line-contrast-less);
+    border: var(--kbq-size-border-width) solid var(--kbq-line-contrast-less);
 }
 
 .v-runcard__status {
@@ -162,12 +159,6 @@ kbq-dd.v-task-run__input {
     flex: 1;
 }
 
-.v-runcard__title {
-    font-size: 16px;
-    line-height: 24px;
-    font-weight: 600;
-}
-
 .v-runcard__sub {
     color: var(--kbq-foreground-contrast-secondary);
 }
@@ -175,23 +166,5 @@ kbq-dd.v-task-run__input {
 .v-runcard__time {
     margin-top: var(--kbq-size-s);
     text-align: right;
-    font-size: 12px;
-    line-height: 16px;
     color: var(--kbq-foreground-contrast-tertiary);
-}
-
-.v-runcard__title_sub {
-    font-size: 18px;
-    line-height: 26px;
-}
-
-/* Prototype `.k-spinner--big`: 32px with a 3px ring (Koobiq big is 48px). */
-.v-runcard__spinner,
-.v-runcard__spinner ::ng-deep .kbq-progress-spinner__inner {
-    width: 32px;
-    height: 32px;
-}
-
-.v-runcard__spinner ::ng-deep .kbq-progress-spinner__circle {
-    stroke-width: 9.4%;
 }

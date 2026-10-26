@@ -1,13 +1,13 @@
 <div class="v-home__narrow">
     @if (noFolder()) {
-        <kbq-alert class="v-home__nofolder" alertColor="warning" alertStyle="colored">
-            <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
+        <kbq-alert class="v-home__nofolder" alertColor="warning" alertStyle="colored" [compact]="true">
+            <i kbq-icon="kbq-triangle-exclamation_16"></i>
             <div kbq-alert-title>{{ noFolderText }}</div>
             Без неё нельзя задать вопрос, запустить задачу или работать в папке. Напишите администратору.
         </kbq-alert>
     }
 
-    <h1 class="v-home__head">Что нужно сделать?</h1>
+    <h1 class="kbq-title v-home__head">Что нужно сделать?</h1>
 
     @if (taskId() !== undefined) {
         @if (preset(); as task) {
@@ -53,10 +53,10 @@
                     ><i kbq-icon="kbq-play_16"></i>Запустить</v-send-button
                 >
             </div>
-            <div class="v-home__hint">Текст добавится в конец инструкции задачи.</div>
+            <div class="kbq-text-compact v-home__hint">Текст добавится в конец инструкции задачи.</div>
             @if (duplicate()) {
-                <kbq-alert class="v-home__duplicate" alertColor="warning" alertStyle="colored">
-                    <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
+                <kbq-alert class="v-home__duplicate" alertColor="warning" alertStyle="colored" [compact]="true">
+                    <i kbq-icon="kbq-triangle-exclamation_16"></i>
                     <div kbq-alert-title>Такой запуск уже идёт</div>
                     Эта задача с той же ссылкой выполняется с {{ duplicateTime() }}. Новый запуск не создан.
                     <button kbq-alert-control kbq-button [color]="colors.ContrastFade" (click)="openDuplicate()">
@@ -92,7 +92,7 @@
             <kbq-dropdown #variants="kbqDropdown" [panelMaxWidth]="480">
                 <div class="kbq-dropdown__group-header">Задачи</div>
                 @for (task of tasks(); track task.id) {
-                    <button kbq-dropdown-item class="v-home__variant" (click)="openTask(task)">
+                    <button kbq-dropdown-item (click)="openTask(task)">
                         <b>{{ task.title }}</b>
                         @if (task.description) {
                             <div class="kbq-dropdown-item__caption">{{ task.description }}</div>
@@ -103,7 +103,7 @@
                     <kbq-divider />
                     <div class="kbq-dropdown__group-header">Шаблоны для «Сделать»</div>
                     @for (template of templates(); track template.id) {
-                        <button kbq-dropdown-item class="v-home__variant" (click)="useTemplate(template)">
+                        <button kbq-dropdown-item (click)="useTemplate(template)">
                             <b>{{ template.title }}</b>
                             <div class="kbq-dropdown-item__caption">{{ templateExcerpt(template) }}</div>
                         </button>
