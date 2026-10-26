@@ -252,9 +252,13 @@ export class Store {
     if (!admin) {
       const kinds = user.tasks_only ? ["question", "task"] : ["question", "task", "folder"];
       if (row.owner_user_id !== user.id || !kinds.includes(row.kind)) return null;
-      if (row.kind !== "task" && user.workspace_path && row.workspace_snapshot !== user.workspace_path) return null;
+      if (row.kind !== "task" && user.workspace_path && row.workspace_snapshot !== user.workspace_path) {
+        // Archived because the owner moved to another workspace: out of reach now, so it leaves the owner's list.
+        if (event.type === "chat.updated" && row.archived_reason === "workspace_changed") return { type: "chat.deleted", chat_id: row.chat_id };
+        return null;
+      }
     }
-    const { owner_user_id: _o, workspace_snapshot: _w, ...item } = row;
+    const { owner_user_id: _o, workspace_snapshot: _w, archived_reason: _r, ...item } = row;
     let visible: Json;
     if (event.type === "chat.deleted") visible = { type: "chat.deleted", chat_id: item.chat_id };
     else if (event.type === "task.title.updated") {
@@ -266,7 +270,9 @@ export class Store {
 
   emitJob(job: Json) { this.publish({ type: "job.updated", job: this.jobRow(job) }); }
   /** items.py chat_item_row: the public item plus the columns the fan-out filters on. */
-  chatEventRow(chat: Json) { return { ...this.item(chat), owner_user_id: chat.owner_user_id, workspace_snapshot: chat.workspace_snapshot }; }
+  chatEventRow(chat: Json) {
+    return { ...this.item(chat), owner_user_id: chat.owner_user_id, workspace_snapshot: chat.workspace_snapshot, archived_reason: chat.archived_reason ?? null };
+  }
   /** items.py publish_chat_updated / publish_chat_deleted (+ task.title.updated for task runs). */
   emitChat(chat: Json, type: "chat.updated" | "chat.deleted" | "task.title.updated" = "chat.updated") {
     this.publish({ type, item: this.chatEventRow(chat) });

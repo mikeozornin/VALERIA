@@ -119,8 +119,13 @@ describe("tasks_only", () => {
     expect(items.length).toBeGreaterThan(0);
     expect(items.every((i: any) => i.kind !== "folder")).toBe(true);
     expect((await c.req("POST", "/api/chats/q-gcc13/unsnooze", {})).status).toBe(200);
-    // folder chats are forbidden even for the owner
+    // folder chats are forbidden even for the owner; chat actions do not see them (app.py visible_item)
     expect((await c.req("POST", "/api/chats/f-planning/messages", { message: "x" })).status).toBe(403);
+    expect(mock.store.chats.get("f-planning").owner_user_id).toBe("u-isokolova");
+    for (const action of ["archive", "unarchive", "snooze", "unsnooze"]) {
+      expect((await c.req("POST", `/api/chats/f-planning/${action}`, { until: new Date(Date.now() + 3600000).toISOString() })).status).toBe(404);
+    }
+    expect((await c.req("DELETE", "/api/chats/f-planning")).status).toBe(404);
   });
 });
 
@@ -255,11 +260,79 @@ describe("admin", () => {
       { id: "u-dorlov", login: "d.orlov", ok: false, skipped: true, reason: "self" },
       { id: "u-segorova", login: "s.egorova", ok: true, skipped: true, reason: "already" },
       { id: "u-pvolkov", login: "p.volkov", ok: true, skipped: false, reason: null },
-      { id: "u-missing", login: null, ok: false, skipped: true, reason: "not_found" },
+      { id: "u-missing", login: null, ok: false, skipped: false, reason: "not_found" },
     ]);
     const users = (await c.req("GET", "/api/admin/users")).body;
     expect(users.find((u: any) => u.id === "u-pvolkov").status).toBe("disabled");
     expect((await c.req("POST", "/api/admin/users/batch", { ids: [], status: "gone" })).status).toBe(422);
+  });
+
+  test("batch unblock: a workspace taken by another active user fails; a rejected update is 'invalid'", async () => {
+    const c = await new Client().as("admin");
+    mock.store.users.get("u-segorova").workspace_path = mock.store.users.get("u-pvolkov").workspace_path;
+    const r = await c.req("POST", "/api/admin/users/batch", { ids: ["u-segorova"], status: "active" });
+    expect(r.body.results).toEqual([{ id: "u-segorova", login: "s.egorova", ok: false, skipped: false, reason: "workspace_in_use" }]);
+    expect(mock.store.users.get("u-segorova").status).toBe("disabled");
+
+    mock.store.scenario.fail = "batch:u-pvolkov";
+    const failed = await c.req("POST", "/api/admin/users/batch", { ids: ["u-pvolkov"], status: "blocked" });
+    expect(failed.body.results).toEqual([{ id: "u-pvolkov", login: "p.volkov", ok: false, skipped: false, reason: "invalid" }]);
+  });
+
+  test("workspace change archives other workspaces' folder chats and questions, the owner gets chat.deleted", async () => {
+    const user = await new Client().as("user");
+    const admin = await new Client().as("admin");
+    // Without its profile cookie the user tab does not re-apply the seed workspaces on every request.
+    user.cookies.delete("mock_scenario");
+    const iso = mock.store.users.get("u-isokolova");
+    const home = iso.workspace_path;
+    // The backend refuses a workspace change while jobs are queued or active.
+    const unfinished = ["queued", "dispatching", "running", "waiting_permission", "waiting_question", "cancelling"];
+    for (const job of mock.store.jobs.values()) {
+      if (job.effective_user_id === "u-isokolova" && unfinished.includes(job.status)) mock.store.setStatus(job, "cancelled");
+    }
+    const before = (await user.req("GET", "/api/me/items")).body;
+    const local = before.filter((i: any) => i.kind !== "task" && !i.archived_at);
+    const tasks = before.filter((i: any) => i.kind === "task");
+    expect(local.length).toBeGreaterThan(0);
+    expect(tasks.length).toBeGreaterThan(0);
+    const queueBefore = (await user.req("GET", "/api/queue/me")).body;
+    expect(queueBefore.some((j: any) => !j.task_id)).toBe(true);
+
+    const events = await collectEvents(user, (evs) => local.every((i: any) => evs.some((e) => e.type === "chat.deleted" && e.chat_id === i.chat_id)));
+    await Bun.sleep(30);
+    const moved = await admin.req("PATCH", "/api/admin/users/u-isokolova", { workspace_path: "/srv/elsewhere" });
+    expect(moved.status).toBe(200);
+    const got = await events.finished;
+    for (const i of local) expect(got).toContainEqual({ type: "chat.deleted", chat_id: i.chat_id });
+    for (const i of local) {
+      const chat = mock.store.chats.get(i.chat_id);
+      expect(chat.archived_reason).toBe("workspace_changed");
+      expect(chat.archived_at).toBeTruthy();
+      expect(chat.snoozed_until).toBeNull();
+    }
+    for (const t of tasks) expect(mock.store.chats.get(t.chat_id).archived_reason ?? null).toBeNull();
+    // Out of reach: not listed, actions 404, the queue keeps only task runs.
+    expect((await user.req("GET", "/api/me/items")).body.map((i: any) => i.chat_id).sort()).toEqual(tasks.map((i: any) => i.chat_id).sort());
+    expect((await user.req("POST", `/api/chats/${local[0].chat_id}/unarchive`, {})).status).toBe(404);
+    expect((await user.req("GET", "/api/queue/me")).body.every((j: any) => j.task_id)).toBe(true);
+
+    // Moving back restores them.
+    expect((await admin.req("PATCH", "/api/admin/users/u-isokolova", { workspace_path: home })).status).toBe(200);
+    for (const i of local) {
+      const chat = mock.store.chats.get(i.chat_id);
+      expect(chat.archived_reason).toBeNull();
+      expect(chat.archived_at).toBeNull();
+    }
+    expect((await user.req("GET", "/api/me/items")).body.length).toBe(before.length);
+  });
+
+  test("unarchive of a chat archived by a workspace change is 409", async () => {
+    const user = await new Client().as("user");
+    const chat = mock.store.chats.get("q-gcc13");
+    Object.assign(chat, { archived_reason: "workspace_changed", archived_at: new Date().toISOString() });
+    expect(await user.req("POST", "/api/chats/q-gcc13/unarchive", {})).toEqual({ status: 409, body: { detail: "Chat was archived after a workspace change" } });
+    expect(chat.archived_at).toBeTruthy();
   });
 
   test("PATCH optimistic concurrency: 409 conflict, 404 deleted", async () => {
