@@ -27,6 +27,7 @@ import { KbqEmptyStateModule } from '@koobiq/components/empty-state';
 import { KbqFormFieldModule } from '@koobiq/components/form-field';
 import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqInputModule } from '@koobiq/components/input';
+import { KbqListModule } from '@koobiq/components/list';
 import { KbqModalRef, KbqModalService, ModalSize } from '@koobiq/components/modal';
 import { KbqTableModule } from '@koobiq/components/table';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
@@ -57,7 +58,6 @@ import { DASH, formatWhen, plural } from '../shared/format';
 import { escapeHtml } from '../config-shared/format';
 import { statusTextColor } from '../shared/requests.helpers';
 import { SyncOp, SyncSlowAlertComponent } from '../shared/sync-op';
-import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 const RECENT_LIMIT = 20;
 
@@ -93,8 +93,8 @@ export function resetPasswordTitle(login: string): string {
         KbqDividerModule,
         KbqFormFieldModule,
         KbqInputModule,
+        KbqListModule,
         KbqAlertModule,
-        OutlineIconComponent,
     ],
     providers: [KbqActionsPanel],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -106,7 +106,7 @@ export function resetPasswordTitle(login: string): string {
                 }
             </ng-container>
             <ng-container vHeaderActions>
-                <a kbq-button [color]="colors.Theme" routerLink="/admin/users/new">
+                <a kbq-button [color]="colors.Contrast" routerLink="/admin/users/new">
                     <i kbq-icon="kbq-plus_16"></i>
                     Создать пользователя
                 </a>
@@ -268,21 +268,26 @@ export function resetPasswordTitle(login: string): string {
                                     }
                                 </div>
                                 @if (recent(); as list) {
-                                    @for (r of list.slice(0, recentLimit); track r.kind + r.id) {
-                                        <a class="v-crow" [routerLink]="['/admin/requests', r.id]">
-                                            <i
-                                                kbq-icon
-                                                [class]="kindIcon(r.kind)"
-                                                [color]="colors.ContrastFade"
-                                                aria-hidden="true"
-                                            ></i>
-                                            <span class="v-crow__t">{{ r.title }}</span>
-                                            <span class="v-crow__st" [style.color]="statusColor(r)">{{
-                                                status(r)
-                                            }}</span>
-                                            <span class="v-tertiary v-nowrap">{{ when(r.updated_at) }}</span>
-                                        </a>
-                                    } @empty {
+                                    @if (list.length) {
+                                        <kbq-list>
+                                            @for (r of list.slice(0, recentLimit); track r.kind + r.id) {
+                                                <a kbq-list-item class="v-crow" [routerLink]="['/admin/requests', r.id]">
+                                                    <i
+                                                        kbq-list-icon
+                                                        kbq-icon
+                                                        [class]="kindIcon(r.kind)"
+                                                        [color]="colors.ContrastFade"
+                                                        aria-hidden="true"
+                                                    ></i>
+                                                    <span kbq-line>{{ r.title }}</span>
+                                                    <span class="v-crow__st" [style.color]="statusColor(r)">{{
+                                                        status(r)
+                                                    }}</span>
+                                                    <span class="v-tertiary v-nowrap">{{ when(r.updated_at) }}</span>
+                                                </a>
+                                            }
+                                        </kbq-list>
+                                    } @else {
                                         <div class="v-secondary">Запросов пока нет</div>
                                     }
                                 } @else if (recentError()) {
@@ -347,7 +352,7 @@ export function resetPasswordTitle(login: string): string {
         <ng-template #blockFooterTpl>
             <button
                 kbq-button
-                [color]="colors.Error"
+                [color]="colors.ContrastFade"
                 [disabled]="batchBusy()"
                 [class.kbq-progress]="batchBusy()"
                 (click)="confirmBlock()"
@@ -361,8 +366,8 @@ export function resetPasswordTitle(login: string): string {
             <form class="v-reset" (ngSubmit)="confirmReset()" id="v-reset-form">
                 <v-sync-slow-alert [op]="resetOp" />
                 @if (resetError(); as e) {
-                    <kbq-alert [alertColor]="alertColors.Error" alertStyle="colored">
-                        <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
+                    <kbq-alert [compact]="true" [alertColor]="alertColors.Error" alertStyle="colored">
+                        <i kbq-icon="kbq-circle-exclamation_16" color="error"></i>
                         <div kbq-alert-title>Не удалось сбросить пароль</div>
                         {{ e }}
                     </kbq-alert>
@@ -395,7 +400,7 @@ export function resetPasswordTitle(login: string): string {
                     kbq-button
                     type="submit"
                     form="v-reset-form"
-                    [color]="colors.Theme"
+                    [color]="colors.Contrast"
                     [disabled]="!resetValid() || resetOp.busy()"
                     [class.kbq-progress]="resetOp.busy()"
                 >
@@ -418,31 +423,15 @@ export function resetPasswordTitle(login: string): string {
                 margin-left: 4px;
                 vertical-align: 1px;
             }
+            /* A one-column grid keeps the nowrap item titles out of the panel min-content, so they truncate instead of widening it. */
+            .v-csec > kbq-list { display: grid; grid-template-columns: minmax(0, 1fr); }
             .v-crow {
-                display: grid;
-                grid-template-columns: 16px minmax(0, 1fr) auto auto;
-                gap: 8px;
-                align-items: center;
-                padding: 6px 8px;
-                margin: 0 -8px;
-                border-radius: 8px;
                 color: inherit;
                 text-decoration: none;
             }
-            .v-crow:hover {
-                background: var(--kbq-states-background-transparent-hover);
-            }
-            .v-crow:focus-visible {
-                outline: 2px solid var(--kbq-states-line-focus-theme);
-                outline-offset: -2px;
-            }
-            .v-crow__t {
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-            }
             .v-crow__st {
-                font-size: 12px;
+                font-size: var(--kbq-typography-text-compact-font-size);
+                line-height: var(--kbq-typography-text-compact-line-height);
                 white-space: nowrap;
             }
             .v-nowrap {
@@ -455,7 +444,7 @@ export function resetPasswordTitle(login: string): string {
                 white-space: nowrap;
             }
             .v-apanel__count {
-                font-weight: 500;
+                font-weight: var(--kbq-typography-text-normal-medium-font-weight);
                 padding: 0 8px;
             }
             .v-apanel__sep {

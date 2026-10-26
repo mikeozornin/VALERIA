@@ -85,7 +85,7 @@ const KINDS: ItemKind[] = ['question', 'task', 'folder'];
 
             <v-page-state [loading]="loading()" [error]="error()" (retry)="load()">
                 @if (rows().length) {
-                    <table kbq-table class="v-table v-table_lined v-mt8">
+                    <table kbq-table [border]="true" class="v-table v-mt8">
                         <thead>
                             <tr>
                                 <th>Запрос</th>

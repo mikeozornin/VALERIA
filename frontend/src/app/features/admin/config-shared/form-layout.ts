@@ -4,7 +4,6 @@ import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqLinkModule } from '@koobiq/components/link';
 import { clashTitle } from './concurrency';
 import { SLOW_TITLE, SyncSubmit } from './sync-submit';
-import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 /**
  * Entity form page (prototype `formPage`): sections with labels on the left and a footer that follows the form
@@ -21,6 +20,7 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
 @Component({
     selector: 'v-form-page',
     changeDetection: ChangeDetectionStrategy.OnPush,
+    host: { '[class.v-form-page_wide]': 'wide()' },
     template: `
         <div class="v-form"><ng-content /></div>
         <div class="v-formfoot">
@@ -45,6 +45,8 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
             padding-bottom: var(--kbq-size-s);
             margin-bottom: var(--kbq-size-xxl);
         }
+        /* Wide form (queue settings: the queue table needs the room). */
+        :host(.v-form-page_wide) .v-form { max-width: 960px; }
         .v-formfoot {
             position: sticky;
             bottom: 0;
@@ -63,7 +65,10 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
         .v-formfoot__extra:empty { display: none; }
     `,
 })
-export class FormPageComponent {}
+export class FormPageComponent {
+    /** 960px instead of 880px. */
+    readonly wide = input(false);
+}
 
 /** Form section (prototype `fsec`): `<fieldset vFsec="Исполнение">`. */
 @Component({
@@ -93,7 +98,7 @@ export class FsecComponent {
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         @if (label()) {
-            <label class="v-frow__label" [attr.for]="for() || null">
+            <label class="v-frow__label" [attr.for]="for() || null" [attr.id]="labelId() || null">
                 {{ label() }}@if (required()) {
                     <span class="v-frow__req" aria-hidden="true"> *</span>
                 }
@@ -105,7 +110,7 @@ export class FsecComponent {
     `,
     styles: `
         :host { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: var(--kbq-size-l); align-items: start; }
-        .v-frow__label { padding-top: 6px; color: var(--kbq-foreground-contrast-secondary); }
+        .v-frow__label { padding-top: var(--kbq-size-xs); color: var(--kbq-foreground-contrast-secondary); }
         .v-frow__req { color: var(--kbq-foreground-error); }
         .v-frow__ctl { display: flex; flex-direction: column; gap: var(--kbq-size-xxs); min-width: 0; }
     `,
@@ -114,6 +119,8 @@ export class FrowComponent {
     readonly label = input('');
     readonly required = input(false);
     readonly for = input('');
+    /** For `aria-labelledby` on a group control (radio group, checkbox list). */
+    readonly labelId = input('');
 }
 
 /**
@@ -122,12 +129,12 @@ export class FrowComponent {
  */
 @Component({
     selector: 'v-form-alerts',
-    imports: [KbqAlertModule, KbqIconModule, KbqLinkModule, OutlineIconComponent],
+    imports: [KbqAlertModule, KbqIconModule, KbqLinkModule],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         @if (submit().slow()) {
-            <kbq-alert compact [alertColor]="colors.Warning" [alertStyle]="styles.Colored" role="status">
-                <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
+            <kbq-alert [compact]="true" [alertColor]="colors.Warning" [alertStyle]="styles.Colored" role="status">
+                <i kbq-icon="kbq-triangle-exclamation_16" color="warning"></i>
                 {{ slowTitle }}
                 <button type="button" kbq-alert-control kbq-link pseudo (click)="submit().waitMore()">Подождать еще</button>
                 <button type="button" kbq-alert-control kbq-link pseudo (click)="submit().cancel()">Отменить</button>
@@ -135,14 +142,14 @@ export class FrowComponent {
         }
         @if (submit().clash(); as clash) {
             @if (clash.kind === 'conflict') {
-                <kbq-alert compact [alertColor]="colors.Warning" [alertStyle]="styles.Colored" role="alert">
-                    <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
+                <kbq-alert [compact]="true" [alertColor]="colors.Warning" [alertStyle]="styles.Colored" role="alert">
+                    <i kbq-icon="kbq-triangle-exclamation_16" color="warning"></i>
                     {{ title(clash) }}
                     <button type="button" kbq-alert-control kbq-link pseudo (click)="overwrite.emit()">Перезаписать</button>
                 </kbq-alert>
             } @else {
-                <kbq-alert compact [alertColor]="colors.Error" [alertStyle]="styles.Colored" role="alert">
-                    <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
+                <kbq-alert [compact]="true" [alertColor]="colors.Error" [alertStyle]="styles.Colored" role="alert">
+                    <i kbq-icon="kbq-circle-exclamation_16" color="error"></i>
                     {{ title(clash) }}
                     @if (recreatable()) {
                         <button type="button" kbq-alert-control kbq-link pseudo (click)="recreate.emit()">Создать объект</button>
@@ -151,8 +158,8 @@ export class FrowComponent {
             }
         }
         @if (submit().error(); as err) {
-            <kbq-alert compact [alertColor]="colors.Error" [alertStyle]="styles.Colored" role="alert">
-                <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
+            <kbq-alert [compact]="true" [alertColor]="colors.Error" [alertStyle]="styles.Colored" role="alert">
+                <i kbq-icon="kbq-circle-exclamation_16" color="error"></i>
                 <div kbq-alert-title>Не удалось сохранить</div>
                 {{ err.text }}
                 @if (err.code) {

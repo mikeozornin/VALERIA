@@ -44,10 +44,10 @@ import {
     readConflict,
     UNFINISHED_JOB_STATUSES,
 } from '../shared/admin.models';
+import { FormPageComponent, FrowComponent, FsecComponent } from '../config-shared/form-layout';
 import { ADMIN_FORM_STYLES } from '../shared/admin-styles';
 import { SyncOp, SyncSlowAlertComponent } from '../shared/sync-op';
 import { KbqIconModule } from '@koobiq/components/icon';
-import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 const WS_BUSY = 'Workspace cannot change while jobs are queued or active';
 const MM_TAKEN = 'Mattermost user is already assigned';
@@ -65,6 +65,9 @@ interface FormSnapshot {
 @Component({
     selector: 'v-admin-user-edit',
     imports: [
+        FormPageComponent,
+        FsecComponent,
+        FrowComponent,
         ReactiveFormsModule,
         RouterLink,
         ScreenHeaderComponent,
@@ -79,7 +82,6 @@ interface FormSnapshot {
         KbqRadioModule,
         KbqToggleModule,
         KbqIconModule,
-        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -95,12 +97,12 @@ interface FormSnapshot {
             (retry)="load()"
         >
             @if (user(); as u) {
-                <form class="v-formscroll" [formGroup]="form" (ngSubmit)="save()" novalidate>
-                    <div class="v-form">
+                <form class="v-formwrap" [formGroup]="form" (ngSubmit)="save()" novalidate>
+                    <v-form-page>
                         <v-sync-slow-alert [op]="op" />
                         @if (conflict(); as c) {
-                            <kbq-alert [alertColor]="alertColors.Error" alertStyle="colored">
-                                <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
+                            <kbq-alert [compact]="true" [alertColor]="alertColors.Error" alertStyle="colored">
+                                <i kbq-icon="kbq-circle-exclamation_16" color="error"></i>
                                 <div kbq-alert-title>{{ conflictTitle(c) }}</div>
                                 @if (c.kind === 'conflict') {
                                     <div kbq-alert-control>
@@ -118,8 +120,8 @@ interface FormSnapshot {
                             </kbq-alert>
                         }
                         @if (wsJobs(); as jobs) {
-                            <kbq-alert [alertColor]="alertColors.Error" alertStyle="colored">
-                                <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
+                            <kbq-alert [compact]="true" [alertColor]="alertColors.Error" alertStyle="colored">
+                                <i kbq-icon="kbq-circle-exclamation_16" color="error"></i>
                                 <div kbq-alert-title>
                                     Папку не сменить, пока у {{ u.login }} есть задания в очереди или в работе
                                 </div>
@@ -133,155 +135,133 @@ interface FormSnapshot {
                             </kbq-alert>
                         }
                         @if (saveError(); as e) {
-                            <kbq-alert [alertColor]="alertColors.Error" alertStyle="colored">
-                                <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
+                            <kbq-alert [compact]="true" [alertColor]="alertColors.Error" alertStyle="colored">
+                                <i kbq-icon="kbq-circle-exclamation_16" color="error"></i>
                                 <div kbq-alert-title>Не удалось сохранить</div>
                                 {{ e }}
                             </kbq-alert>
                         }
 
-                        <fieldset class="v-fsec">
-                            <legend class="v-fsec__title">Учётка</legend>
-                            <div class="v-frow">
-                                <div class="v-frow__label" id="v-type-label">Тип учётки</div>
-                                <div class="v-frow__ctl">
-                                    <kbq-radio-group
-                                        class="v-check-group"
-                                        formControlName="type"
-                                        aria-labelledby="v-type-label"
-                                    >
-                                        @for (t of types; track t.id) {
-                                            <kbq-radio-button [value]="t.id">
-                                                {{ t.label }}<span class="v-check-sub">{{ t.hint }}</span>
-                                            </kbq-radio-button>
-                                        }
-                                    </kbq-radio-group>
-                                </div>
-                            </div>
-                            <div class="v-frow">
-                                <div class="v-frow__label">Блокировка</div>
-                                <div class="v-frow__ctl">
-                                    <kbq-toggle class="v-pt6" formControlName="blocked" aria-describedby="v-block-hint"
-                                        >Заблокирован</kbq-toggle
-                                    >
-                                    <div class="v-hint" id="v-block-hint">
-                                        Заблокированный пользователь не войдёт в VALERIA, его открытые сессии
-                                        завершатся. Чаты и запуски сохранятся.
-                                    </div>
-                                </div>
-                            </div>
+                        <fieldset vFsec="Учётка">
+                            <v-frow label="Тип учётки" labelId="v-type-label">
+                                <kbq-radio-group
+                                    formControlName="type"
+                                    aria-labelledby="v-type-label"
+                                >
+                                    @for (t of types; track t.id) {
+                                        <kbq-radio-button [value]="t.id">
+                                            {{ t.label }}<kbq-hint>{{ t.hint }}</kbq-hint>
+                                        </kbq-radio-button>
+                                    }
+                                </kbq-radio-group>
+                            </v-frow>
+                            <v-frow label="Блокировка">
+                                <kbq-toggle formControlName="blocked" aria-describedby="v-block-hint"
+                                    >Заблокирован</kbq-toggle
+                                >
+                                <kbq-hint id="v-block-hint">
+                                    Заблокированный пользователь не войдёт в VALERIA, его открытые сессии
+                                    завершатся. Чаты и запуски сохранятся.
+                                </kbq-hint>
+                            </v-frow>
                         </fieldset>
 
-                        <fieldset class="v-fsec">
-                            <legend class="v-fsec__title">Работа</legend>
-                            <div class="v-frow">
-                                <label class="v-frow__label" for="v-ws">Рабочая папка</label>
-                                <div class="v-frow__ctl">
-                                    <kbq-form-field>
-                                        <input
-                                            kbqInput
-                                            kbqInputMonospace
-                                            id="v-ws"
-                                            formControlName="ws"
-                                            [vFieldError]="fieldError('ws')"
-                                            aria-describedby="v-ws-hint"
-                                        />
-                                        <kbq-error role="alert">{{ fieldError('ws') }}</kbq-error>
-                                    </kbq-form-field>
-                                    <div class="v-hint" id="v-ws-hint">
-                                        Путь внутри каталога данных сервера. При смене папки чаты из старой уйдут в
-                                        архив пользователя.
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="v-frow">
-                                <label class="v-frow__label" for="v-limit">Лимит задач</label>
-                                <div class="v-frow__ctl">
-                                    <kbq-form-field class="v-w160">
-                                        <input
-                                            kbqInput
-                                            id="v-limit"
-                                            formControlName="limit"
-                                            [vFieldError]="fieldError('limit')"
-                                            inputmode="numeric"
-                                            [placeholder]="'Общий: ' + (globalLimit() ?? '—')"
-                                            aria-describedby="v-limit-hint"
-                                        />
-                                        <kbq-error role="alert">{{ fieldError('limit') }}</kbq-error>
-                                    </kbq-form-field>
-                                    <div class="v-hint" id="v-limit-hint">
-                                        Сколько задач выполняется одновременно, от 1 до {{ hardLimit() }}. Пусто —
-                                        действует общий лимит.
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="v-frow">
-                                <label class="v-frow__label" for="v-mm">Mattermost</label>
-                                <div class="v-frow__ctl">
-                                    <kbq-form-field class="v-w320">
-                                        <input
-                                            kbqInput
-                                            id="v-mm"
-                                            formControlName="mm"
-                                            [vFieldError]="fieldError('mm')"
-                                            placeholder="Логин без @"
-                                            aria-describedby="v-mm-hint"
-                                        />
-                                        <kbq-error role="alert">{{ fieldError('mm') }}</kbq-error>
-                                    </kbq-form-field>
-                                    <div class="v-hint" id="v-mm-hint">
-                                        @if (mmValue().trim()) {
-                                            Валерия пишет сюда о готовых ответах и задачах.
-                                        } @else {
-                                            Не настроено: Валерия не сможет написать пользователю, когда ответ или
-                                            задача будут готовы.
-                                        }
-                                    </div>
-                                </div>
-                            </div>
+                        <fieldset vFsec="Работа">
+                            <v-frow label="Рабочая папка" for="v-ws">
+                                <kbq-form-field>
+                                    <input
+                                        kbqInput
+                                        kbqInputMonospace
+                                        id="v-ws"
+                                        formControlName="ws"
+                                        [vFieldError]="fieldError('ws')"
+                                        aria-describedby="v-ws-hint"
+                                    />
+                                    <kbq-error role="alert">{{ fieldError('ws') }}</kbq-error>
+                                </kbq-form-field>
+                                <kbq-hint id="v-ws-hint">
+                                    Путь внутри каталога данных сервера. При смене папки чаты из старой уйдут в
+                                    архив пользователя.
+                                </kbq-hint>
+                            </v-frow>
+                            <v-frow label="Лимит задач" for="v-limit">
+                                <kbq-form-field class="v-w160">
+                                    <input
+                                        kbqInput
+                                        id="v-limit"
+                                        formControlName="limit"
+                                        [vFieldError]="fieldError('limit')"
+                                        inputmode="numeric"
+                                        [placeholder]="'Общий: ' + (globalLimit() ?? '—')"
+                                        aria-describedby="v-limit-hint"
+                                    />
+                                    <kbq-error role="alert">{{ fieldError('limit') }}</kbq-error>
+                                </kbq-form-field>
+                                <kbq-hint id="v-limit-hint">
+                                    Сколько задач выполняется одновременно, от 1 до {{ hardLimit() }}. Пусто —
+                                    действует общий лимит.
+                                </kbq-hint>
+                            </v-frow>
+                            <v-frow label="Mattermost" for="v-mm">
+                                <kbq-form-field class="v-w320">
+                                    <input
+                                        kbqInput
+                                        id="v-mm"
+                                        formControlName="mm"
+                                        [vFieldError]="fieldError('mm')"
+                                        placeholder="Логин без @"
+                                        aria-describedby="v-mm-hint"
+                                    />
+                                    <kbq-error role="alert">{{ fieldError('mm') }}</kbq-error>
+                                </kbq-form-field>
+                                <kbq-hint id="v-mm-hint">
+                                    @if (mmValue().trim()) {
+                                        Валерия пишет сюда о готовых ответах и задачах.
+                                    } @else {
+                                        Не настроено: Валерия не сможет написать пользователю, когда ответ или
+                                        задача будут готовы.
+                                    }
+                                </kbq-hint>
+                            </v-frow>
                         </fieldset>
 
-                        <fieldset class="v-fsec">
-                            <legend class="v-fsec__title">Доступ к задачам</legend>
-                            <div class="v-frow">
-                                <div class="v-frow__label" id="v-tasks-label">Задачи</div>
-                                <div class="v-frow__ctl">
-                                    <div class="v-check-group" role="group" aria-labelledby="v-tasks-label">
-                                        @for (t of tasks(); track t.id) {
-                                            <kbq-checkbox
-                                                [checked]="t.visibility === 'all' || access().has(t.id)"
-                                                [disabled]="t.visibility === 'all' || op.busy()"
-                                                (change)="toggleTask(t.id)"
-                                            >
-                                                {{ t.title }}
-                                                @if (t.visibility === 'all') {
-                                                    <span class="v-check-sub">Открыта всем</span>
-                                                } @else if (!t.is_published) {
-                                                    <span class="v-check-sub">Черновик</span>
-                                                }
-                                            </kbq-checkbox>
-                                        }
-                                    </div>
-                                    <div class="v-hint">
-                                        То же самое для всех пользователей сразу — во вкладке «Доступ» настройки задач.
-                                    </div>
+                        <fieldset vFsec="Доступ к задачам">
+                            <v-frow label="Задачи" labelId="v-tasks-label">
+                                <div class="v-check-group" role="group" aria-labelledby="v-tasks-label">
+                                    @for (t of tasks(); track t.id) {
+                                        <kbq-checkbox
+                                            [checked]="t.visibility === 'all' || access().has(t.id)"
+                                            [disabled]="t.visibility === 'all' || op.busy()"
+                                            (change)="toggleTask(t.id)"
+                                        >
+                                            {{ t.title }}
+                                            @if (t.visibility === 'all') {
+                                                <kbq-hint>Открыта всем</kbq-hint>
+                                            } @else if (!t.is_published) {
+                                                <kbq-hint>Черновик</kbq-hint>
+                                            }
+                                        </kbq-checkbox>
+                                    }
                                 </div>
-                            </div>
+                                <kbq-hint>
+                                    То же самое для всех пользователей сразу — во вкладке «Доступ» настройки задач.
+                                </kbq-hint>
+                            </v-frow>
                         </fieldset>
-                    </div>
 
-                    <div class="v-formfoot">
-                        <button
-                            kbq-button
-                            type="submit"
-                            [color]="colors.Theme"
-                            [disabled]="op.busy()"
-                            [class.kbq-progress]="op.busy()"
-                        >
-                            Сохранить
-                        </button>
-                        <a kbq-button routerLink="/admin/users" [queryParams]="{ focus: u.login }">Отмена</a>
-                    </div>
+                        <ng-container vFootMain>
+                            <button
+                                kbq-button
+                                type="submit"
+                                [color]="colors.Contrast"
+                                [disabled]="op.busy()"
+                                [class.kbq-progress]="op.busy()"
+                            >
+                                Сохранить
+                            </button>
+                            <a kbq-button routerLink="/admin/users" [queryParams]="{ focus: u.login }">Отмена</a>
+                        </ng-container>
+                    </v-form-page>
                 </form>
             }
         </v-page-state>

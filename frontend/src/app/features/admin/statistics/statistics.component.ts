@@ -118,10 +118,11 @@ interface TypeOption {
         .v-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: var(--kbq-size-l) var(--kbq-size-xxl) var(--kbq-size-xxl); }
         .v-kpis { display: flex; flex-wrap: wrap; gap: 48px; margin-top: var(--kbq-size-l); }
         .v-kpi__v {
-            font-size: 32px;
-            line-height: 40px;
-            font-weight: 700;
-            letter-spacing: -0.02em;
+            font-family: var(--kbq-typography-headline-font-family);
+            font-size: var(--kbq-typography-headline-font-size);
+            line-height: var(--kbq-typography-headline-line-height);
+            font-weight: var(--kbq-typography-headline-font-weight);
+            letter-spacing: var(--kbq-typography-headline-letter-spacing);
             font-variant-numeric: tabular-nums;
             color: var(--kbq-foreground-contrast);
         }
@@ -131,7 +132,7 @@ interface TypeOption {
             margin: 0;
             font-size: var(--kbq-typography-subheading-font-size);
             line-height: var(--kbq-typography-subheading-line-height);
-            font-weight: 600;
+            font-weight: var(--kbq-typography-subheading-font-weight);
         }
         .v-chart__sub { margin: var(--kbq-size-xxs) 0 0; max-width: 880px; color: var(--kbq-foreground-contrast-secondary); }
         .v-keys {

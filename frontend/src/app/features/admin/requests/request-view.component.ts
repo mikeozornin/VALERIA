@@ -13,7 +13,6 @@ import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-heade
 import { AdminJob, AdminRequest } from '../shared/admin.models';
 import { DASH, formatWhen } from '../shared/format';
 import { MarkdownViewComponent } from '../../../shared/markdown-view/markdown-view.component';
-import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 /** One line of the read-only conversation. */
 interface ViewMessage {
@@ -59,7 +58,6 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
         KbqIconModule,
         MarkdownViewComponent,
         KbqProgressSpinnerModule,
-        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -75,8 +73,8 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
             <v-page-state [loading]="loading()" [error]="error()" [errorTitle]="errorTitle()" (retry)="load()">
                 @if (request(); as r) {
                     <div class="v-chat">
-                        <kbq-alert [alertColor]="alertColors.Info" alertStyle="colored">
-                            <i kbq-icon="" color="theme"><v-outline-icon name="eye" /></i>
+                        <kbq-alert [compact]="true" [alertColor]="alertColors.Info" alertStyle="colored">
+                            <i kbq-icon="kbq-eye_16" color="theme"></i>
                             Вы смотрите {{ kindObject(r) }} пользователя <b>{{ r.user.login || dash }}</b
                             >. Ответить или написать от его имени отсюда нельзя.
                         </kbq-alert>
@@ -184,13 +182,15 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
         }
         .v-subheading {
             margin: 24px 0 8px;
-            font-weight: 600;
-            font-size: 16px;
-            line-height: 24px;
+            font-family: var(--kbq-typography-text-big-strong-font-family);
+            font-size: var(--kbq-typography-text-big-strong-font-size);
+            line-height: var(--kbq-typography-text-big-strong-line-height);
+            font-weight: var(--kbq-typography-text-big-strong-font-weight);
+            letter-spacing: var(--kbq-typography-text-big-strong-letter-spacing);
         }
         .v-runcard {
             padding: 16px;
-            border-radius: 12px;
+            border-radius: var(--kbq-size-m);
             border: 1px solid var(--kbq-line-contrast-less);
             background: var(--kbq-background-card);
             white-space: pre-wrap;
@@ -213,13 +213,13 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
         .v-msg__bubble {
             max-width: 80%;
             padding: 10px 14px;
-            border-radius: 12px 12px 4px 12px;
+            border-radius: var(--kbq-size-m) var(--kbq-size-m) var(--kbq-size-xxs) var(--kbq-size-m);
             background: var(--kbq-background-theme-less);
             white-space: pre-wrap;
         }
         .v-msg__meta {
-            font-size: 12px;
-            line-height: 16px;
+            font-size: var(--kbq-typography-text-compact-font-size);
+            line-height: var(--kbq-typography-text-compact-line-height);
             color: var(--kbq-foreground-contrast-tertiary);
             margin-top: 4px;
         }
@@ -227,14 +227,14 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
             display: flex;
             align-items: center;
             gap: 6px;
-            font-weight: 600;
+            font-weight: var(--kbq-typography-text-normal-strong-font-weight);
             margin-bottom: 6px;
         }
         .v-logo {
             display: inline-block;
             width: 20px;
             height: 20px;
-            border-radius: 6px;
+            border-radius: var(--kbq-size-xs);
             background: var(--kbq-background-theme);
             flex: none;
         }
@@ -244,7 +244,7 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
             gap: 8px;
             margin-top: 10px;
             color: var(--kbq-foreground-warning);
-            font-weight: 500;
+            font-weight: var(--kbq-typography-text-normal-medium-font-weight);
         }
     `,
 })

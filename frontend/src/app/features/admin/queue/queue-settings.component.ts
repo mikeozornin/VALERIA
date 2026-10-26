@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { KbqBadgeColors, KbqBadgeModule } from '@koobiq/components/badge';
 import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqComponentColors } from '@koobiq/components/core';
+import { KbqDlModule } from '@koobiq/components/dl';
 import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqLinkModule } from '@koobiq/components/link';
 import { KbqTableModule } from '@koobiq/components/table';
@@ -16,7 +17,7 @@ import { QueueTabsComponent } from './queue-tabs.component';
 /** «Очередь» → «Очереди и лимиты», read-only (SPEC §10.3): changes happen on a separate form page via «Изменить». */
 @Component({
     selector: 'v-queue-settings',
-    imports: [ScreenHeaderComponent, PageStateComponent, QueueTabsComponent, KbqTableModule, KbqBadgeModule, KbqButtonModule, KbqIconModule, KbqLinkModule, RouterLink],
+    imports: [ScreenHeaderComponent, PageStateComponent, QueueTabsComponent, KbqTableModule, KbqBadgeModule, KbqButtonModule, KbqDlModule, KbqIconModule, KbqLinkModule, RouterLink],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <v-screen-header title="Очередь">
@@ -80,18 +81,18 @@ import { QueueTabsComponent } from './queue-tabs.component';
                         </section>
                         <section class="v-rosec" aria-labelledby="q-route">
                             <h2 class="v-rosec__title" id="q-route">Куда попадают запросы</h2>
-                            <dl class="v-dl">
-                                <dt>Вопросы</dt>
-                                <dd>
+                            <kbq-dl [vertical]="false">
+                                <kbq-dt>Вопросы</kbq-dt>
+                                <kbq-dd>
                                     Очередь «{{ queueName(d.consult.queue_id) }}» ·
                                     <span class="v-mono">{{ d.consult.model }}</span>
                                     · Build, только чтение
-                                </dd>
-                                <dt>Работа в папке</dt>
-                                <dd>Очередь «{{ queueName(d.ov.default_chat_queue_id) }}» · модель пользователь выбирает сам</dd>
-                                <dt>Задачи</dt>
-                                <dd>Очередь и модель задаются в каждой задаче · <a kbq-link routerLink="/admin/tasks">Настройка задач</a></dd>
-                            </dl>
+                                </kbq-dd>
+                                <kbq-dt>Работа в папке</kbq-dt>
+                                <kbq-dd>Очередь «{{ queueName(d.ov.default_chat_queue_id) }}» · модель пользователь выбирает сам</kbq-dd>
+                                <kbq-dt>Задачи</kbq-dt>
+                                <kbq-dd>Очередь и модель задаются в каждой задаче · <a kbq-link routerLink="/admin/tasks">Настройка задач</a></kbq-dd>
+                            </kbq-dl>
                         </section>
                     </div>
                 }
@@ -121,9 +122,6 @@ import { QueueTabsComponent } from './queue-tabs.component';
         .v-secondary { color: var(--kbq-foreground-contrast-secondary); }
         .v-nowrap { white-space: nowrap; }
         .v-mono { font-family: var(--kbq-typography-mono-normal-font-family); }
-        .v-dl { display: grid; grid-template-columns: max-content 1fr; gap: var(--kbq-size-s) var(--kbq-size-xxl); margin: 0; }
-        .v-dl dt { color: var(--kbq-foreground-contrast-secondary); }
-        .v-dl dd { margin: 0; min-width: 0; }
     `,
 })
 export class QueueSettingsComponent {

@@ -11,7 +11,6 @@ import { describeError } from '../../../core/status/error-codes';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { AdminConfigApi, QueueOverview } from '../config-shared/admin-config.api';
-import { BUTTON_CSS } from '../config-shared/buttons';
 import { escapeHtml } from '../config-shared/format';
 import { LiveRow, liveRows, liveStats, stopText, stopTitle } from './queue-live';
 import { QueueTabsComponent } from './queue-tabs.component';
@@ -74,12 +73,10 @@ export const POLL_MS = 5000;
                                 <td class="v-nowrap" [class.v-warning]="r.long" [class.v-secondary]="!r.long">{{ r.time }}</td>
                                 <td class="v-actions">
                                     @if (r.action === 'cancel') {
-                                        <button kbq-button class="v-compact" [color]="colors.ContrastFade" [disabled]="busy().has(r.id)" (click)="cancel(r)">Отменить</button>
+                                        <button kbq-button [color]="colors.ContrastFade" [disabled]="busy().has(r.id)" (click)="cancel(r)">Отменить</button>
                                     } @else if (r.action === 'stop') {
                                         <button
                                             kbq-button
-                                            class="v-compact"
-                                            [class.v-reject]="r.long"
                                             [color]="colors.ContrastFade"
                                             [disabled]="busy().has(r.id)"
                                             (click)="askStop(r)"
@@ -100,7 +97,6 @@ export const POLL_MS = 5000;
         </v-page-state>
     `,
     styles: [
-        BUTTON_CSS,
         `
         :host { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
         .v-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: var(--kbq-size-l) var(--kbq-size-xxl) var(--kbq-size-xxl); }
@@ -115,7 +111,7 @@ export const POLL_MS = 5000;
         .v-stat__v {
             font-size: var(--kbq-typography-headline-font-size);
             line-height: var(--kbq-typography-headline-line-height);
-            font-weight: 600;
+            font-weight: var(--kbq-typography-headline-font-weight);
         }
         .v-stat__s { color: var(--kbq-foreground-contrast-tertiary); }
         .v-jobs { width: 100%; margin-top: var(--kbq-size-l); }
