@@ -274,7 +274,23 @@ const adminPeople: ScreenState[] = [
     },
     goto('admin-people', 'aconsult-list', 'admin', '/admin/requests'),
     goto('admin-people', 'aconsult-user', 'admin', '/admin/requests?user=i.sokolova'),
-    goto('admin-people', 'aconsult-tasks', 'admin', '/admin/requests?type=task&task=t-ci&period=30d'),
+    {
+        group: 'admin-people',
+        state: 'aconsult-tasks',
+        how: '`?as=admin&feed=proto` → `/admin/requests?type=task&period=30d`, «Задача» → «Разбор упавшего CI-пайплайна»',
+        run: async ({ page, mock }) => {
+            await open(page, mock, 'admin', '/admin/requests?type=task&period=30d');
+            await mainReady(page);
+            await page.getByRole('button', { name: /^Задача/ }).click();
+            await page
+                .locator('.cdk-overlay-container')
+                .getByText('Разбор упавшего CI-пайплайна', { exact: true })
+                .click();
+            await expect(page).toHaveURL(/[?&]task=t-ci/);
+            await expect(page.getByRole('button', { name: /^Задача\s*Разбор упавшего CI-пайплайна/ })).toBeVisible();
+            await page.keyboard.press('Escape');
+        },
+    },
     goto('admin-people', 'aconsult-none', 'admin', '/admin/requests?q=zigbee'),
     goto('admin-people', 'aconsult-view', 'admin', '/admin/requests/q-gcc13'),
     goto('admin-people', 'aconsult-view-run', 'admin', '/admin/requests/r-done'),
