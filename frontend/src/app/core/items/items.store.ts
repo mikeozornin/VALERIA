@@ -114,8 +114,13 @@ export class ItemsStore {
         this.patchChat(item.chat_id, res ?? { snoozed_until: null });
     }
 
+    /** A repeated delete answers 404: the chat is gone either way, so that counts as success. */
     async remove(item: Item): Promise<void> {
-        await this.api.remove(item.chat_id);
+        try {
+            await this.api.remove(item.chat_id);
+        } catch (err) {
+            if (!(err instanceof ApiError && err.isNotFound)) throw err;
+        }
         this.removeChat(item.chat_id);
     }
 
