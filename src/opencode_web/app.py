@@ -52,6 +52,7 @@ from .notifications import (
 from .opencode_client import OpenCodeError, OpenCodeManager
 from .questions import question_event, session_questions, validate_answers
 from .security import new_token, normalize_login, verify_password
+from .security_headers import ContentSecurityPolicyMiddleware
 from .submissions import submission
 from .task_results import task_final_answer
 
@@ -614,6 +615,12 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         openapi_url="/openapi.json" if docs else None,
     )
     app.mount("/static", StaticFiles(directory=PACKAGE_DIR / "static"), name="static")
+    app.add_middleware(
+        ContentSecurityPolicyMiddleware,
+        exempt_paths=(
+            frozenset({"/docs", "/docs/oauth2-redirect", "/redoc"}) if docs else frozenset()
+        ),
+    )
 
     def database(request: Request) -> Database:
         return request.app.state.database

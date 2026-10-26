@@ -3,9 +3,14 @@ import { expect, test, type Page } from '@playwright/test';
 const ADMIN = { login: 'admin', password: process.env['E2E_ADMIN_PASSWORD']! };
 const USER = { login: 'smoke-user', password: process.env['E2E_USER_PASSWORD']! };
 
-/** Collects console errors and failed API calls; the smoke fails if any appear. */
-function watchErrors(page: Page): string[] {
+/** Collects console errors, CSP violations and failed API calls; the smoke fails if any appear. */
+async function watchErrors(page: Page): Promise<string[]> {
     const errors: string[] = [];
+    await page.addInitScript(() =>
+        document.addEventListener('securitypolicyviolation', (e) =>
+            console.error(`csp violation: ${e.effectiveDirective} ${e.blockedURI}`),
+        ),
+    );
     page.on('console', (m) => m.type() === 'error' && errors.push(`console: ${m.text()}`));
     page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
     page.on('response', (r) => {
@@ -35,13 +40,15 @@ test('security basics: docs are off, the favicon and the SPA come from /static',
     expect((await request.get('/openapi.json')).status()).toBe(404);
     expect((await request.get('/static/favicon.svg')).ok()).toBeTruthy();
     expect((await request.get('/static/app.js')).status()).toBe(404);
-    await page.goto('/');
+    const shellResponse = await page.goto('/');
+    // Defense in depth: the shell only runs scripts from our origin.
+    expect(shellResponse?.headers()['content-security-policy']).toContain("script-src 'self' 'unsafe-eval';");
     await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/static/favicon.svg');
     await expect(page).toHaveURL(/\/login/);
 });
 
 test('login: a wrong password shows the error, then the admin signs in', async ({ page }) => {
-    const errors = watchErrors(page);
+    const errors = await watchErrors(page);
     await page.goto('/login');
     await page.locator('input[formcontrolname="login"]').fill('admin');
     await page.locator('input[formcontrolname="password"]').fill('wrong-password');
@@ -59,7 +66,7 @@ test('login: a wrong password shows the error, then the admin signs in', async (
 });
 
 test('admin pages open without errors', async ({ page }) => {
-    const errors = watchErrors(page);
+    const errors = await watchErrors(page);
     await signIn(page, ADMIN, errors);
     const pages: [string, string][] = [
         ['/admin/statistics', 'Статистика'],
@@ -74,13 +81,17 @@ test('admin pages open without errors', async ({ page }) => {
         await expect(page.locator('h1.v-screen-header__title'), path).toHaveText(title);
         await expect(page.locator('.v-page-state__error'), path).toHaveCount(0);
     }
+    // A custom period is formatted by Koobiq's DateFormatter (messageformat), which must work under the CSP.
+    await page.goto('/admin/audit?period=custom&from=2026-01-01T00:00:00.000Z&to=2026-01-02T00:00:00.000Z');
+    await expect(page.locator('h1.v-screen-header__title')).toHaveText('Аудит');
+    await expect(page.locator('kbq-filter-bar').getByText(/янв/i).first()).toBeVisible();
     await page.goto('/admin/users');
     await expect(page.getByText('smoke-user').first()).toBeVisible();
     expect(errors).toEqual([]);
 });
 
 test('user: new request screen, then a question with a clarification makes the round trip', async ({ page }) => {
-    const errors = watchErrors(page);
+    const errors = await watchErrors(page);
     await signIn(page, USER, errors);
     await expect(page.getByText('Я только спросить')).toBeVisible();
     await page.getByText('Я только спросить').click();
