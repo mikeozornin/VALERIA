@@ -62,11 +62,7 @@ describe('403 from the API (SPEC §16.2)', () => {
     it('a demoted admin gets «Раздел недоступен», not the backend 403', async () => {
         const harness = await openAsAdmin();
         const api = TestBed.inject(ApiService);
-        const outcome = vi.fn();
-        api.get('/api/admin/users').then(
-            () => outcome('resolved'),
-            (e) => outcome(e),
-        );
+        void api.get('/api/admin/users').catch(() => undefined);
 
         http.expectOne('/api/admin/users').flush({ detail: 'Administrator role required' }, { status: 403, statusText: 'Forbidden' });
         await flushMicrotasks();
@@ -76,7 +72,22 @@ describe('403 from the API (SPEC §16.2)', () => {
             expect((harness.routeNativeElement as HTMLElement).textContent).toContain('Раздел недоступен');
         });
         expect(TestBed.inject(Router).url).toBe('/admin/users');
-        expect(outcome).not.toHaveBeenCalled();
+    });
+
+    it('the request still settles after access changed: it rejects with the 403 once the guards re-ran', async () => {
+        const harness = await openAsAdmin();
+        const api = TestBed.inject(ApiService);
+        const failure = api.get('/api/admin/users').catch((e: unknown) => e);
+
+        http.expectOne('/api/admin/users').flush({ detail: 'Administrator role required' }, { status: 403, statusText: 'Forbidden' });
+        await flushMicrotasks();
+        http.expectOne('/api/auth/me').flush(me('user'));
+
+        const error = await failure;
+        expect(error).toBeInstanceOf(ApiError);
+        expect((error as ApiError).status).toBe(403);
+        harness.detectChanges();
+        expect((harness.routeNativeElement as HTMLElement).textContent).toContain('Раздел недоступен');
     });
 
     it('when access did not change, the caller gets the 403 as usual', async () => {

@@ -1,7 +1,7 @@
 import { HttpClient, HttpContext, HttpContextToken, HttpHeaders, HttpInterceptorFn, HttpParams } from '@angular/common/http';
 import { inject, Injectable, InjectionToken, Injector } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, EMPTY, from, switchMap, throwError } from 'rxjs';
+import { catchError, from, switchMap, throwError } from 'rxjs';
 import { ApiError, toApiError } from './api-error';
 
 /** CSRF token from `/api/auth/me` or `/api/auth/login`. Memory only, never persisted (SPEC §15). */
@@ -22,9 +22,9 @@ export class CsrfTokenStore {
 export const ON_UNAUTHORIZED = new InjectionToken<() => void>('ON_UNAUTHORIZED');
 
 /**
- * Called on any 403 (except auth probes). Re-reads the session and re-runs the navigation; resolves true when the
- * user's access changed (demoted admin, «Задачи и вопросы»), so the guards show «Раздел недоступен» and the 403 is
- * not shown (SPEC §16.2). Provided by AuthService.
+ * Called on any 403 (except auth probes) before the request rejects. Re-reads the session and, when the user's access
+ * changed (demoted admin, «Задачи и вопросы»), re-runs the navigation so the guards show «Раздел недоступен» instead
+ * of the screen (SPEC §16.2); resolves true in that case. Provided by AuthService.
  */
 export const ON_FORBIDDEN = new InjectionToken<() => Promise<boolean>>('ON_FORBIDDEN');
 
@@ -56,8 +56,10 @@ export const apiInterceptor: HttpInterceptorFn = (req, next) => {
             }
             const onForbidden = apiError.isForbidden && !req.context.get(SKIP_AUTH_REDIRECT) && injector.get(ON_FORBIDDEN, null);
             if (onForbidden) {
-                // Access changed: the screen is replaced by «Раздел недоступен», the request never settles.
-                return from(onForbidden()).pipe(switchMap((changed) => (changed ? EMPTY : throwError(() => apiError))));
+                // The caller gets the 403 once the session is re-read; when access changed the navigation has already
+                // re-run, so the screen is «Раздел недоступен» by then. Rejecting (not hanging) lets a screen that is
+                // still reachable leave its loading state.
+                return from(onForbidden()).pipe(switchMap(() => throwError(() => apiError)));
             }
             return throwError(() => apiError);
         }),
