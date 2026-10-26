@@ -1,5 +1,5 @@
 import { KbqBadgeColors } from '@koobiq/components/badge';
-import { isActive, statusBadgeColor, statusIcon, statusLabel, statusTone } from './status';
+import { adminStatusLabel, isActive, statusBadgeColor, statusIcon, statusLabel, statusTone } from './status';
 
 describe('statusLabel', () => {
     const table: [string, string | undefined, string, string][] = [
@@ -47,5 +47,18 @@ describe('statusLabel', () => {
         expect(statusIcon('failed')).toBe('failed');
         expect(statusIcon('cancelled')).toBe('cancelled');
         expect(statusIcon('queued')).toBe('pending');
+    });
+});
+
+describe('adminStatusLabel', () => {
+    it('labels waiting_question as «Ждёт пользователя» for the admin', () => {
+        expect(adminStatusLabel('waiting_question', 'question')).toBe('Ждёт пользователя');
+        expect(adminStatusLabel('waiting_question')).toBe('Ждёт пользователя');
+    });
+
+    it('keeps every other label as statusLabel', () => {
+        expect(adminStatusLabel('waiting_permission', 'folder')).toBe('Ждёт разрешения');
+        expect(adminStatusLabel('completed', 'question')).toBe('Ответ готов');
+        expect(adminStatusLabel('running', 'task')).toBe('В работе');
     });
 });

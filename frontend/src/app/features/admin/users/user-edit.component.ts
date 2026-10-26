@@ -26,7 +26,7 @@ import { ApiService } from '../../../core/api/api.service';
 import { DirtyAware, DirtyFormService } from '../../../core/guards/dirty.guard';
 import { NotifyService } from '../../../core/notify/notify.service';
 import { describeError } from '../../../core/status/error-codes';
-import { statusLabel } from '../../../core/status/status';
+import { adminStatusLabel } from '../../../core/status/status';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import {
@@ -549,7 +549,7 @@ export class UserEditComponent implements DirtyAware {
     protected jobsText(jobs: readonly AdminJob[]): string {
         if (!jobs.length) return '';
         const list = jobs.map(
-            (j) => `«${j.task_title || j.chat_title || j.id}» — ${statusLabel(j.status).toLowerCase()}`,
+            (j) => `«${j.task_title || j.chat_title || j.id}» — ${adminStatusLabel(j.status).toLowerCase()}`,
         );
         return `${list.join('; ')}. `;
     }

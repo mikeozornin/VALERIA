@@ -36,7 +36,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { NotifyService } from '../../../core/notify/notify.service';
 import { matches, tokenize } from '../../../core/search/search';
 import { describeError } from '../../../core/status/error-codes';
-import { KIND_ICON, statusLabel } from '../../../core/status/status';
+import { adminStatusLabel, KIND_ICON } from '../../../core/status/status';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
 import { cpanelWidth, CpanelWidthDirective } from '../../../shell/aside/panel-width';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
@@ -776,7 +776,7 @@ export class UsersComponent {
     }
 
     protected status(r: AdminRequest): string {
-        return statusLabel(r.status, r.kind);
+        return adminStatusLabel(r.status, r.kind);
     }
 
     protected statusColor(r: AdminRequest): string {

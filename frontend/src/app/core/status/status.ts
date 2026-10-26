@@ -55,6 +55,14 @@ export function statusLabel(status: string, kind?: ItemKind | string): string {
     return describe(status, kind)[0];
 }
 
+/**
+ * Status label for admin views: the admin looks at someone else's session, so «Ждёт вашего ответа»
+ * would read as addressed to them. `waiting_question` → «Ждёт пользователя»; everything else as `statusLabel`.
+ */
+export function adminStatusLabel(status: string, kind?: ItemKind | string): string {
+    return status === 'waiting_question' ? 'Ждёт пользователя' : statusLabel(status, kind);
+}
+
 export function statusTone(status: string, kind?: ItemKind | string): StatusTone {
     return describe(status, kind)[1];
 }

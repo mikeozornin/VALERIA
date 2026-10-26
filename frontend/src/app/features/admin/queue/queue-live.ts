@@ -1,5 +1,5 @@
 import { KbqBadgeColors } from '@koobiq/components/badge';
-import { statusBadgeColor, statusLabel } from '../../../core/status/status';
+import { adminStatusLabel, statusBadgeColor } from '../../../core/status/status';
 import { isOn, QueueJob, QueueOverview } from '../config-shared/admin-config.api';
 import { durLive, EMPTY } from '../config-shared/format';
 
@@ -70,8 +70,7 @@ export function liveRows(ov: QueueOverview, now: number): LiveRow[] {
             kindLabel: KIND_LABEL[kind],
             queue: j.queue_name ?? EMPTY,
             status: j.status,
-            // The admin sees someone else's session: «Ждёт вашего ответа» would read as addressed to them.
-            statusLabel: j.status === 'waiting_question' ? 'Ждёт пользователя' : statusLabel(j.status, kind),
+            statusLabel: adminStatusLabel(j.status, kind),
             badge: statusBadgeColor(j.status, kind),
             time: timeLabel(j, now),
             long,

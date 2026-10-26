@@ -16,7 +16,7 @@ import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqTableModule } from '@koobiq/components/table';
 import { ApiService } from '../../../core/api/api.service';
 import { matches, tokenize } from '../../../core/search/search';
-import { ItemKind, KIND_ICON, statusBadgeColor, statusLabel } from '../../../core/status/status';
+import { ItemKind, KIND_ICON, adminStatusLabel, statusBadgeColor } from '../../../core/status/status';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { AdminRequest, AdminTask } from '../shared/admin.models';
@@ -391,7 +391,7 @@ export class RequestsComponent {
     }
 
     protected status(r: AdminRequest): string {
-        return statusLabel(r.status, r.kind);
+        return adminStatusLabel(r.status, r.kind);
     }
 
     protected badgeColor(r: AdminRequest): KbqBadgeColors {

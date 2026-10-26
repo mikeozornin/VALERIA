@@ -7,7 +7,7 @@ import { KbqProgressSpinnerModule } from '@koobiq/components/progress-spinner';
 import { ApiError } from '../../../core/api/api-error';
 import { ApiService } from '../../../core/api/api.service';
 import { errorCodeText } from '../../../core/status/error-codes';
-import { isWaiting, isWorking, statusBadgeColor, statusLabel } from '../../../core/status/status';
+import { isWaiting, isWorking, adminStatusLabel, statusBadgeColor } from '../../../core/status/status';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { AdminJob, AdminRequest } from '../shared/admin.models';
@@ -356,7 +356,7 @@ export class RequestViewComponent {
     }
 
     protected status(r: AdminRequest): string {
-        return statusLabel(r.status, r.kind);
+        return adminStatusLabel(r.status, r.kind);
     }
 
     protected badgeColor(r: AdminRequest): ReturnType<typeof statusBadgeColor> {
