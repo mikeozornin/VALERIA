@@ -12,9 +12,10 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 CONTENT_SECURITY_POLICY = "; ".join([
     "default-src 'self'",
-    # 'unsafe-eval': Koobiq's DateFormatter compiles its messageformat templates with
-    # `new Function` (custom periods in the admin filters). Inline and injected scripts stay
-    # blocked: never 'unsafe-inline' here.
+    # 'unsafe-eval': the Datetime pipe of Koobiq's filter bar (audit, requests, statistics)
+    # formats periods through DateFormatter (durationLong, rangeShortDate, rangeShortDateTime),
+    # and @koobiq/date-formatter compiles messageformat templates with `new Function`. Our own
+    # code does not call it. Inline and injected scripts stay blocked: never 'unsafe-inline'.
     "script-src 'self' 'unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data:",
