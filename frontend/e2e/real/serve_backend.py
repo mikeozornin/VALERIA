@@ -30,7 +30,8 @@ os.environ.setdefault("SMOKE_APP_PORT", os.environ.get("E2E_BACKEND_PORT", "8084
 import smoke_api  # noqa: E402  (reuses its API client and helpers; reads SMOKE_APP_PORT)
 
 HOST, PORT, BASE = smoke_api.HOST, smoke_api.PORT, smoke_api.BASE
-OC_START, OC_END = 46120, 46130
+OC_START = int(os.environ.get("E2E_OPENCODE_PORT_START", "46120"))
+OC_END = OC_START + 10
 
 
 def main() -> int:
@@ -77,8 +78,9 @@ def main() -> int:
         "MATTERMOST_TOKEN_FILE": "",
         "MATTERMOST_CA_BUNDLE": "",
         "LOG_LEVEL": "WARNING",
+        # Explicit, so a developer .env (cli.py calls load_dotenv) cannot turn the API docs on.
+        "APP_ENABLE_DOCS": "false",
     }
-    env.pop("APP_ENABLE_DOCS", None)
 
     stop = threading.Event()
     for sig in (signal.SIGTERM, signal.SIGINT):
