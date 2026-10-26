@@ -213,7 +213,7 @@ export function whenLabel(ms: number, nowMs: number, timeZone = STATS_TZ): strin
     return `${day}, ${hm(ms, timeZone)}`;
 }
 
-/** «Задача · login», or just the title while the runs API does not send the login. */
+/** «Задача · login», or just the title when the owner is unknown. */
 const titleWho = (r: ChartRun) => (r.who ? `${r.title} · ${r.who}` : r.title);
 
 /** Point tooltip (prototype: `${task} · ${who}\n${when} · ${st}\n…`). */

@@ -1897,8 +1897,9 @@ class Database:
             params.append(created_to)
         return self._all(
             f"""SELECT q.id, q.task_id, q.task_title, q.status, q.created_at, q.started_at,
-                       q.finished_at
+                       q.finished_at, u.login
                 FROM queue_jobs q JOIN chats c ON c.id = q.chat_id
+                LEFT JOIN users u ON u.id = c.owner_user_id
                 WHERE {' AND '.join(conditions)} ORDER BY q.sequence""",
             tuple(params),
         )

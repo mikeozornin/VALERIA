@@ -2137,6 +2137,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
                     "kind": "task" if row["task_id"] else "question",
                     "task_id": row["task_id"],
                     "task_title": row["task_title"],
+                    "login": row["login"],
                     "created_at": row["created_at"],
                     "started_at": row["started_at"],
                     "finished_at": row["finished_at"],

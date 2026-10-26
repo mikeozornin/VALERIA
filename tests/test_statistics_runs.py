@@ -7,7 +7,8 @@ from test_chat_actions import ui_app as ui_app
 from test_tasks_api import create_task, login
 
 RUN_KEYS = {
-    "id", "kind", "task_id", "task_title", "created_at", "started_at", "finished_at", "outcome",
+    "id", "kind", "task_id", "task_title", "login", "created_at", "started_at", "finished_at",
+    "outcome",
 }
 
 
@@ -67,7 +68,7 @@ async def test_statistics_runs_list_questions_and_task_runs_with_outcomes(ui_app
     assert all(set(item) == RUN_KEYS for item in payload["items"])
     assert items[run["id"]] == {
         "id": run["id"], "kind": "task", "task_id": t.task["id"],
-        "task_title": t.task["title"], "created_at": "2026-03-01T10:00:00+00:00",
+        "task_title": t.task["title"], "login": "worker", "created_at": "2026-03-01T10:00:00+00:00",
         "started_at": "2026-03-01T10:01:00+00:00", "finished_at": "2026-03-01T10:05:00+00:00",
         "outcome": "completed",
     }
@@ -77,6 +78,9 @@ async def test_statistics_runs_list_questions_and_task_runs_with_outcomes(ui_app
     assert items[later_job]["outcome"] is None
     assert items[other_run]["outcome"] == "failed"
     assert items[other_run]["task_title"] == "Релиз"
+    # The owner's login comes from the chat's user, deleted chats included.
+    assert items[question_job]["login"] == "worker"
+    assert items[later_job]["login"] == "tasker"
 
     assert ids(await runs(t, type="question")) == [question_job, later_job]
     assert ids(await runs(t, type="task")) == [run["id"], other_run]

@@ -30,6 +30,7 @@ function run(over: Partial<StatRun> = {}): StatRun {
         started_at: iso('08:02'),
         finished_at: iso('08:12'),
         outcome: 'completed',
+        login: null,
         ...over,
     };
 }
