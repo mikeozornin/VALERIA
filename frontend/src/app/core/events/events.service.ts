@@ -47,6 +47,12 @@ export interface KnownEvents {
     'task.title.updated': TaskTitleUpdatedEvent;
 }
 
+interface Poller {
+    fn: () => void;
+    ms: number;
+    timer: ReturnType<typeof setInterval> | null;
+}
+
 /** Reconnect pauses: 1.5 → 3 → 6 … up to 30 s (SPEC §14). */
 export const RECONNECT_DELAYS_MS = [1500, 3000, 6000, 12000, 24000, 30000] as const;
 
@@ -65,7 +71,9 @@ export class EventsService {
     private attempt = 0;
     private retryTimer: ReturnType<typeof setTimeout> | null = null;
     private hadConnection = false;
-    private readonly pollers = new Set<{ fn: () => void; ms: number; timer: ReturnType<typeof setInterval> | null }>();
+    /** Between `start()` and `stop()`: the polling fallback only runs while signed in. */
+    private started = false;
+    private readonly pollers = new Set<Poller>();
 
     readonly connected = signal(false);
     readonly events$ = new Subject<ServerEvent>();
@@ -84,30 +92,37 @@ export class EventsService {
 
     /** Opens the stream (idempotent). Called by the shell after sign-in. */
     start(): void {
+        if (!this.started) {
+            this.started = true;
+            if (!this.connected()) this.pollers.forEach((p) => this.startPoller(p));
+        }
         if (this.source || this.retryTimer || typeof EventSource === 'undefined') return;
         this.open();
     }
 
+    /** Closes the stream and stops the polling fallback (sign-out, 401): no requests run after it. */
     stop(): void {
+        this.started = false;
         if (this.retryTimer) clearTimeout(this.retryTimer);
         this.retryTimer = null;
         this.source?.close();
         this.source = null;
         this.attempt = 0;
         this.hadConnection = false;
-        this.setConnected(false);
+        this.connected.set(false);
+        this.pollers.forEach((p) => this.stopPoller(p));
     }
 
     /**
-     * Polling fallback: runs `fn` every `ms` while SSE is down (old UI polled questions every 3 s,
-     * consultations every 5 s). Returns an unregister function — call it in `DestroyRef.onDestroy`.
+     * Polling fallback: runs `fn` every `ms` while the service is started and SSE is down (old UI polled questions
+     * every 3 s, consultations every 5 s). Returns an unregister function — call it in `DestroyRef.onDestroy`.
      */
     pollWhileDisconnected(fn: () => void, ms: number): () => void {
         const poller = { fn, ms, timer: null as ReturnType<typeof setInterval> | null };
         this.pollers.add(poller);
-        if (!this.connected()) this.startPoller(poller);
+        if (this.started && !this.connected()) this.startPoller(poller);
         return () => {
-            if (poller.timer) clearInterval(poller.timer);
+            this.stopPoller(poller);
             this.pollers.delete(poller);
         };
     }
@@ -150,17 +165,18 @@ export class EventsService {
         if (this.connected() === value) return;
         this.connected.set(value);
         for (const p of this.pollers) {
-            if (value) {
-                if (p.timer) clearInterval(p.timer);
-                p.timer = null;
-            } else {
-                this.startPoller(p);
-            }
+            if (value) this.stopPoller(p);
+            else if (this.started) this.startPoller(p);
         }
     }
 
-    private startPoller(p: { fn: () => void; ms: number; timer: ReturnType<typeof setInterval> | null }): void {
+    private startPoller(p: Poller): void {
         if (p.timer) return;
         p.timer = setInterval(() => p.fn(), p.ms);
+    }
+
+    private stopPoller(p: Poller): void {
+        if (p.timer) clearInterval(p.timer);
+        p.timer = null;
     }
 }
