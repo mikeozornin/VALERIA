@@ -3,7 +3,6 @@ import { KbqAlertColors, KbqAlertModule } from '@koobiq/components/alert';
 import { KbqBadgeModule } from '@koobiq/components/badge';
 import { KbqDlModule } from '@koobiq/components/dl';
 import { KbqIconModule } from '@koobiq/components/icon';
-import { KbqMarkdownModule } from '@koobiq/components/markdown';
 import { KbqProgressSpinnerModule } from '@koobiq/components/progress-spinner';
 import { ApiError } from '../../../core/api/api-error';
 import { ApiService } from '../../../core/api/api.service';
@@ -13,6 +12,7 @@ import { PageStateComponent } from '../../../shared/page-state/page-state.compon
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { AdminJob, AdminRequest } from '../shared/admin.models';
 import { DASH, formatWhen } from '../shared/format';
+import { MarkdownViewComponent } from '../../../shared/markdown-view/markdown-view.component';
 
 /** One line of the read-only conversation. */
 interface ViewMessage {
@@ -56,7 +56,7 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
         KbqBadgeModule,
         KbqDlModule,
         KbqIconModule,
-        KbqMarkdownModule,
+        MarkdownViewComponent,
         KbqProgressSpinnerModule,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -108,7 +108,7 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
                                 <div class="v-subheading">Итог</div>
                                 <div class="v-runcard">
                                     @if (result()?.text; as text) {
-                                        <kbq-markdown [markdownText]="text" />
+                                        <v-markdown-view [text]="text" />
                                     } @else {
                                         <span class="v-secondary">{{ dash }}</span>
                                     }
@@ -135,7 +135,7 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
                                         <div class="v-msg__who">
                                             <span class="v-logo" aria-hidden="true"></span>Валерия
                                         </div>
-                                        <kbq-markdown [markdownText]="m.text" />
+                                        <v-markdown-view [text]="m.text" />
                                     </div>
                                 }
                             }
