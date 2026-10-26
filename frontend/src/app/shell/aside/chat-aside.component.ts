@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { KbqResizable, KbqResizer } from '@koobiq/components/resizer';
 import { CHAT_ASIDE_WIDTH, UI_KEYS, UiStateService } from '../../core/state/ui-state.service';
-import { effectivePanelWidth, ViewportService } from './panel-width';
+import { effectivePanelWidth, panelMaxWidth, ViewportService } from './panel-width';
 
 /**
  * Resizable chat aside (folder work, task run). Shown while `valeria.chat.aside.open` is true; the screen header
@@ -27,7 +27,7 @@ import { effectivePanelWidth, ViewportService } from './panel-width';
                 kbqResizable
                 [style.width.px]="width()"
                 [style.min-width.px]="limits.min"
-                [style.max-width.px]="limits.max"
+                [style.max-width.px]="maxWidth()"
             >
                 <div class="v-chat-aside__resizer" [kbqResizer]="[-1, 0]" (sizeChange)="onResize($event.width)"></div>
                 <div class="v-chat-aside__body"><ng-content /></div>
@@ -67,9 +67,13 @@ export class ChatAsideComponent {
     protected readonly limits = CHAT_ASIDE_WIDTH;
     protected readonly open = this.ui.state(UI_KEYS.chatAsideOpen);
     protected readonly width = computed(() => effectivePanelWidth(this.saved(), CHAT_ASIDE_WIDTH.min, this.viewport.width()));
+    /** A drag stops where the content would get narrower than 480 px. */
+    protected readonly maxWidth = computed(() =>
+        panelMaxWidth(CHAT_ASIDE_WIDTH.min, CHAT_ASIDE_WIDTH.max, this.viewport.width()),
+    );
 
     protected onResize(width: number): void {
         if (!Number.isFinite(width)) return;
-        this.saved.set(Math.round(Math.min(CHAT_ASIDE_WIDTH.max, Math.max(CHAT_ASIDE_WIDTH.min, width))));
+        this.saved.set(Math.round(Math.min(this.maxWidth(), Math.max(CHAT_ASIDE_WIDTH.min, width))));
     }
 }

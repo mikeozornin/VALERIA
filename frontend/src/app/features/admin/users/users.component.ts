@@ -109,7 +109,7 @@ const RECENT_LIMIT = 20;
                 [opened]="!!focused()"
                 [width]="panel.width()"
                 [minWidth]="panel.min"
-                [maxWidth]="panel.max"
+                [maxWidth]="panel.max()"
                 (openedChange)="onPanelOpened($event)"
             >
                 <div class="v-content" #content>

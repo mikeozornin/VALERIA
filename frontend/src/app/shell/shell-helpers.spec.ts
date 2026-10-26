@@ -1,4 +1,4 @@
-import { effectivePanelWidth } from './aside/panel-width';
+import { effectivePanelWidth, panelMaxWidth } from './aside/panel-width';
 import { chatMenuMode } from './chat-menu/chat-actions.service';
 import { initialsOf } from './nav/nav.component';
 
@@ -16,6 +16,16 @@ describe('effectivePanelWidth', () => {
     it('squeezes to the minimum when the window is narrower than nav + panel + 480', () => {
         expect(effectivePanelWidth(400, 240, 240 + 400 + 480)).toBe(400);
         expect(effectivePanelWidth(400, 240, 240 + 400 + 479)).toBe(240);
+    });
+});
+
+describe('panelMaxWidth', () => {
+    it('stops a drag where the content would get narrower than 480, never below the minimum', () => {
+        expect(panelMaxWidth(360, 760, 1920)).toBe(760);
+        expect(panelMaxWidth(360, 760, 1440)).toBe(1440 - 240 - 480);
+        expect(panelMaxWidth(360, 760, 900)).toBe(360);
+        // A width saved at the drag limit is never squeezed in the same window.
+        expect(effectivePanelWidth(panelMaxWidth(360, 760, 1440), 360, 1440)).toBe(720);
     });
 });
 

@@ -85,7 +85,7 @@ interface AuditRow extends AuditEvent {
                 [opened]="!!selected()"
                 [width]="panel.width()"
                 [minWidth]="panel.min"
-                [maxWidth]="panel.max"
+                [maxWidth]="panel.max()"
                 (openedChange)="onPanelOpened($event)"
             >
                 <div class="v-content" (scroll)="onScroll($event)">

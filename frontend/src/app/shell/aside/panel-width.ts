@@ -44,11 +44,20 @@ export function effectivePanelWidth(saved: number, min: number, windowWidth: num
     return windowWidth - NAV_WIDTH < saved + MIN_CONTENT_WIDTH ? min : saved;
 }
 
+/**
+ * Widest a panel may be dragged in this window: content keeps 480 px, so a drag never ends in the squeezed
+ * state (which would snap the panel to the minimum). Never below `min`.
+ */
+export function panelMaxWidth(min: number, max: number, windowWidth: number): number {
+    return Math.max(min, Math.min(max, windowWidth - NAV_WIDTH - MIN_CONTENT_WIDTH));
+}
+
 export interface CpanelWidth {
     /** Bind to `kbq-content-panel-container [width]`. */
     readonly width: Signal<number>;
     readonly min: number;
-    readonly max: number;
+    /** Bind to `[maxWidth]`: the 760 px bound, narrowed so the content keeps 480 px in this window. */
+    readonly max: Signal<number>;
     /** True while the panel is squeezed to the minimum by a narrow window. */
     readonly squeezed: Signal<boolean>;
     /** Persists a width the user dragged to (clamped to min…max). */
@@ -62,7 +71,7 @@ export interface CpanelWidth {
  * readonly panel = cpanelWidth('users');
  * ```
  * ```html
- * <kbq-content-panel-container [width]="panel.width()" [minWidth]="panel.min" [maxWidth]="panel.max">
+ * <kbq-content-panel-container [width]="panel.width()" [minWidth]="panel.min" [maxWidth]="panel.max()">
  *   …
  *   <kbq-content-panel [vCpanelWidth]="panel">…</kbq-content-panel>
  * </kbq-content-panel-container>
@@ -71,7 +80,8 @@ export interface CpanelWidth {
 export function cpanelWidth(screen: string): CpanelWidth {
     const saved = inject(UiStateService).state(cpanelWidthKey(screen));
     const viewport = inject(ViewportService);
-    const { min, max } = CPANEL_WIDTH;
+    const { min } = CPANEL_WIDTH;
+    const max = computed(() => panelMaxWidth(min, CPANEL_WIDTH.max, viewport.width()));
     const width = computed(() => effectivePanelWidth(saved(), min, viewport.width()));
     const squeezed = computed(() => width() !== saved());
     return {
@@ -79,7 +89,7 @@ export function cpanelWidth(screen: string): CpanelWidth {
         min,
         max,
         squeezed,
-        save: (px: number) => saved.set(Math.round(Math.min(max, Math.max(min, px)))),
+        save: (px: number) => saved.set(Math.round(Math.min(max(), Math.max(min, px)))),
     };
 }
 
