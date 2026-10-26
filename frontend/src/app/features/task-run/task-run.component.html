@@ -19,7 +19,7 @@
                 </button>
             }
             @if (view() === 'failed') {
-                <button kbq-button [color]="colors.Theme" (click)="rerun()">
+                <button kbq-button [color]="colors.Contrast" (click)="rerun()">
                     <i kbq-icon="kbq-arrow-rotate-right_16"></i>
                     Запустить ещё раз
                 </button>
@@ -42,7 +42,7 @@
                                     }
                                 </span>
                                 <span class="v-stages__name">{{ stage.name }}</span>
-                                <span class="v-stages__time">{{ stage.time }}</span>
+                                <span class="kbq-text-compact v-stages__time">{{ stage.time }}</span>
                             </li>
                         }
                     </ol>
@@ -51,9 +51,9 @@
                         @case ('queued') {
                             <div class="v-runcard">
                                 <div class="v-runcard__status">
-                                    <i kbq-icon="kbq-clock_24" class="v-runcard__icon" aria-hidden="true"></i>
+                                    <i kbq-icon="kbq-clock_24" class="v-runcard__icon" [color]="colors.ContrastFade" aria-hidden="true"></i>
                                     <div>
-                                        <div class="v-runcard__title">
+                                        <div class="kbq-text-big-strong">
                                             {{ status() === 'dispatching' ? statusText() : aheadText() }}
                                         </div>
                                         <div class="v-runcard__sub">Обычно 3–5 минут. {{ notifyText }}.</div>
@@ -66,7 +66,7 @@
                                 <div class="v-runcard__status">
                                     <kbq-progress-spinner class="v-runcard__spinner" mode="indeterminate" size="big" />
                                     <div>
-                                        <div class="v-runcard__title">{{ workingText() }}</div>
+                                        <div class="kbq-text-big-strong">{{ workingText() }}</div>
                                         <div class="v-runcard__sub">
                                             Здесь будет итоговый отчёт. Ход работы задачи не показывается.
                                         </div>
@@ -77,8 +77,8 @@
                         @case ('done') {
                             <div class="v-runcard">
                                 <div class="v-runcard__head">
-                                    <v-outline-icon name="check-circle" class="v-ic_success" />
-                                    <span class="v-runcard__title v-runcard__title_sub">Итог</span>
+                                    <i kbq-icon="kbq-circle-check_16" [color]="colors.Success" aria-hidden="true"></i>
+                                    <span class="kbq-subheading">Итог</span>
                                     <span class="v-runcard__spacer"></span>
                                     @if (result()?.text) {
                                         <button
@@ -99,12 +99,12 @@
                                         <div class="v-runcard__sub">Итог недоступен.</div>
                                     }
                                 }
-                                <div class="v-runcard__time">{{ finishedAt() }}</div>
+                                <div class="kbq-text-compact v-runcard__time">{{ finishedAt() }}</div>
                             </div>
                         }
                         @case ('failed') {
-                            <kbq-alert alertColor="error" alertStyle="colored">
-                                <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
+                            <kbq-alert alertColor="error" alertStyle="colored" [compact]="true">
+                                <i kbq-icon="kbq-circle-exclamation_16"></i>
                                 <div kbq-alert-title>Задача завершилась с ошибкой</div>
                                 {{ errorText().text }} {{ failedHint }}
                                 @if (errorText().code) {
@@ -113,8 +113,8 @@
                             </kbq-alert>
                         }
                         @case ('cancelled') {
-                            <kbq-alert>
-                                <i kbq-icon="" color="contrast-fade"><v-outline-icon name="info" /></i>
+                            <kbq-alert [compact]="true">
+                                <i kbq-icon="kbq-circle-info_16" [color]="colors.ContrastFade"></i>
                                 <div kbq-alert-title>Запуск отменён в {{ finishedAt() }}</div>
                                 Итога нет. Чтобы начать заново, запустите задачу ещё раз.
                                 <button kbq-alert-control kbq-button [color]="colors.ContrastFade" (click)="rerun()">
@@ -149,7 +149,7 @@
 <ng-template #cancelFooter>
     <button
         kbq-button
-        [color]="colors.Error"
+        [color]="colors.ContrastFade"
         [disabled]="stopping()"
         [class.kbq-progress]="stopping()"
         (click)="confirmStop()"

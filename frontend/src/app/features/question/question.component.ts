@@ -44,7 +44,6 @@ import { MarkdownViewComponent } from '../../shared/markdown-view/markdown-view.
 import { NotFoundComponent } from '../../shared/not-found/not-found.component';
 import { PageStateComponent } from '../../shared/page-state/page-state.component';
 import { ConsultationDetail, QueueJob, queueLine, questionTitle } from './question.model';
-import { OutlineIconComponent } from '../../shared/outline-icon/outline-icon.component';
 
 /** Answers given in this browser session, shown under the question they clarify (the API does not return them). */
 interface Clarified {
@@ -75,7 +74,6 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
         ClarifyCardComponent,
         ChatComposerComponent,
         SendButtonComponent,
-        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -83,7 +81,6 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
             @if (!notFound()) {
                 <kbq-tag
                     vHeaderAfterTitle
-                    class="v-ro-tag"
                     [color]="colors.ContrastFade"
                     [kbqTooltip]="'Валерия читает код, GitLab и YouTrack. Файлы не меняет.'"
                     [kbqPlacement]="placements.Bottom"
@@ -108,7 +105,7 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
                                     <v-user-message [text]="m.text" [time]="m.id === firstUserId() ? createdTime() : ''" />
                                     @for (c of clarifiedAfter(m.id); track $index) {
                                         <div class="v-clarified">
-                                            <v-outline-icon name="help-circle" class="v-ic_fade v-clarified__icon" />
+                                            <i kbq-icon="kbq-circle-question_16" class="v-clarified__icon" [color]="colors.ContrastFade" aria-hidden="true"></i>
                                             <div>
                                                 <div class="v-secondary">{{ c.question }}</div>
                                                 <div>Ваш ответ: <b>{{ c.answer }}</b></div>
@@ -141,8 +138,8 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
                             @if (phase() === 'clarify' && pendingQuestion(); as q) {
                                 <v-clarify-card [request]="q" [submit]="reply" />
                             } @else if (phase() === 'failed') {
-                                <kbq-alert alertStyle="colored" alertColor="error">
-                                    <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
+                                <kbq-alert alertStyle="colored" alertColor="error" [compact]="true">
+                                    <i kbq-icon="kbq-circle-exclamation_16"></i>
                                     <div kbq-alert-title>Не удалось подготовить ответ</div>
                                     Вопрос сохранён. Отправьте его ещё раз.
                                     @if (failure(); as f) {
@@ -182,7 +179,7 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
         .v-dock {
             flex: none;
             padding: var(--kbq-size-m) var(--kbq-size-xxl) var(--kbq-size-l);
-            border-top: 1px solid var(--kbq-line-contrast-less);
+            border-top: var(--kbq-size-border-width) solid var(--kbq-line-contrast-less);
             background: var(--kbq-background-bg);
         }
         .v-secondary { color: var(--kbq-foreground-contrast-secondary); }
@@ -193,12 +190,11 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
             align-items: flex-start;
             margin: var(--kbq-size-s) 0;
             padding: var(--kbq-size-s) var(--kbq-size-m);
-            border-left: 2px solid var(--kbq-line-contrast-fade);
+            border-left: var(--kbq-size-3xs) solid var(--kbq-line-contrast-fade);
         }
-        .v-clarified__icon { flex: none; margin-top: 2px; color: var(--kbq-icon-contrast-fade); }
+        .v-clarified__icon { flex: none; margin-top: var(--kbq-size-3xs); }
         .v-plain-status { padding: var(--kbq-size-s) 0; }
         .v-failure { margin-top: var(--kbq-size-xxs); }
-        .v-ro-tag { cursor: default; }
     `,
 })
 export class QuestionComponent {

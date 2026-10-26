@@ -17,6 +17,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { KbqAlertModule } from '@koobiq/components/alert';
 import { KbqButtonModule, KbqButtonStyles } from '@koobiq/components/button';
 import { KbqButtonToggleModule } from '@koobiq/components/button-toggle';
+import { KbqCodeBlockModule } from '@koobiq/components/code-block';
 import { KbqComponentColors, PopUpPlacements } from '@koobiq/components/core';
 import { KbqDlModule } from '@koobiq/components/dl';
 import { KbqFormFieldModule } from '@koobiq/components/form-field';
@@ -68,7 +69,6 @@ import {
     upsertPart,
     workingText,
 } from './folder.model';
-import { OutlineIconComponent } from '../../shared/outline-icon/outline-icon.component';
 import { planFirst } from '../../shared/agent-order';
 
 interface ViewMessage {
@@ -93,6 +93,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
         KbqAlertModule,
         KbqButtonModule,
         KbqButtonToggleModule,
+        KbqCodeBlockModule,
         KbqDlModule,
         KbqFormFieldModule,
         KbqIconModule,
@@ -106,7 +107,6 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
         ClarifyCardComponent,
         ChatComposerComponent,
         SendButtonComponent,
-        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -150,8 +150,8 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                         <div class="v-content" #scroller>
                             <div class="v-chat">
                                 @if (disconnected()) {
-                                    <kbq-alert class="v-lost" alertStyle="colored" alertColor="warning">
-                                        <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
+                                    <kbq-alert class="v-lost" alertStyle="colored" alertColor="warning" [compact]="true">
+                                        <i kbq-icon="kbq-triangle-exclamation_16"></i>
                                         Связь с агентом потеряна, переподключаемся
                                     </kbq-alert>
                                 }
@@ -159,7 +159,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                     @if (m.role === 'user') {
                                         <v-user-message [text]="m.text" [time]="m.time" />
                                         @if (m.modeline) {
-                                            <div class="v-modeline">{{ m.modeline }}</div>
+                                            <div class="kbq-text-compact v-modeline">{{ m.modeline }}</div>
                                         }
                                     } @else {
                                         <v-bot-message [time]="m.time" [copyText]="m.id === copyId() ? m.text : ''">
@@ -179,7 +179,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                                     }
                                                     @case ('permission') {
                                                         <div class="v-waiting">
-                                                            <v-outline-icon name="lock" class="v-ic_warning" />
+                                                            <i kbq-icon="kbq-lock_16" [color]="colors.Warning" aria-hidden="true"></i>
                                                             Ждёт вашего разрешения
                                                         </div>
                                                     }
@@ -209,8 +209,8 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                     <v-status-line [text]="workingLine()" />
                                 }
                                 @if (failure(); as f) {
-                                    <kbq-alert class="v-failed" alertStyle="colored" alertColor="error">
-                                        <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
+                                    <kbq-alert class="v-failed" alertStyle="colored" alertColor="error" [compact]="true">
+                                        <i kbq-icon="kbq-circle-exclamation_16"></i>
                                         {{ f.text }}
                                         @if (f.code) {
                                             <span class="v-tertiary">{{ f.code }}</span>
@@ -223,53 +223,61 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                             <div class="v-dock">
                                 <div class="v-chat">
                                     @if (phase() === 'permission' && permission(); as p) {
-                                        <div class="v-perm" role="group" aria-label="Валерия просит разрешение на команду">
-                                            <div class="v-perm__head">
-                                                <v-outline-icon name="lock" class="v-ic_warning" />
-                                                <b>Валерия просит разрешение на команду</b>
-                                            </div>
+                                        <kbq-alert
+                                            alertStyle="colored"
+                                            alertColor="warning"
+                                            [compact]="true"
+                                            role="group"
+                                            aria-label="Валерия просит разрешение на команду"
+                                        >
+                                            <i kbq-icon="kbq-lock_16"></i>
+                                            <div kbq-alert-title>Валерия просит разрешение на команду</div>
                                             @if (p.metadata?.command; as cmd) {
-                                                <pre class="v-code">{{ cmd }}</pre>
+                                                <kbq-code-block
+                                                    class="v-perm__code"
+                                                    [files]="[{ content: cmd, language: 'bash' }]"
+                                                    [softWrap]="true"
+                                                />
                                             }
                                             @if (p.metadata?.description; as why) {
                                                 <div class="v-perm__why"><span class="v-secondary">Зачем:</span> {{ why }}</div>
                                             }
-                                            <div class="v-perm__acts">
+                                            <button
+                                                kbq-alert-control
+                                                kbq-button
+                                                type="button"
+                                                [color]="colors.Contrast"
+                                                [disabled]="!!responding()"
+                                                [class.kbq-progress]="responding() === 'once'"
+                                                (click)="respond(p, 'once')"
+                                            >
+                                                Разрешить один раз
+                                            </button>
+                                            @if (alwaysText(); as always) {
                                                 <button
+                                                    kbq-alert-control
                                                     kbq-button
                                                     type="button"
-                                                    [color]="colors.Theme"
-                                                    [disabled]="!!responding()"
-                                                    [class.kbq-progress]="responding() === 'once'"
-                                                    (click)="respond(p, 'once')"
-                                                >
-                                                    Разрешить один раз
-                                                </button>
-                                                @if (alwaysText(); as always) {
-                                                    <button
-                                                        kbq-button
-                                                        type="button"
-                                                        [color]="colors.ContrastFade"
-                                                        [disabled]="!!responding()"
-                                                        [class.kbq-progress]="responding() === 'always'"
-                                                        (click)="respond(p, 'always')"
-                                                    >
-                                                        Всегда разрешать&nbsp;<b>{{ always }}</b>
-                                                    </button>
-                                                }
-                                                <button
-                                                    kbq-button
-                                                    type="button"
-                                                    class="v-reject"
                                                     [color]="colors.ContrastFade"
                                                     [disabled]="!!responding()"
-                                                    [class.kbq-progress]="responding() === 'reject'"
-                                                    (click)="respond(p, 'reject')"
+                                                    [class.kbq-progress]="responding() === 'always'"
+                                                    (click)="respond(p, 'always')"
                                                 >
-                                                    Отклонить
+                                                    Всегда разрешать&nbsp;<b>{{ always }}</b>
                                                 </button>
-                                            </div>
-                                        </div>
+                                            }
+                                            <button
+                                                kbq-alert-control
+                                                kbq-button
+                                                type="button"
+                                                [color]="colors.ContrastFade"
+                                                [disabled]="!!responding()"
+                                                [class.kbq-progress]="responding() === 'reject'"
+                                                (click)="respond(p, 'reject')"
+                                            >
+                                                Отклонить
+                                            </button>
+                                        </kbq-alert>
                                     } @else if (phase() === 'clarify' && pendingQuestion(); as q) {
                                         <v-clarify-card [request]="q" [submit]="reply" />
                                     } @else if (phase() !== 'permission' && phase() !== 'clarify') {
@@ -307,7 +315,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                                                     <kbq-option [value]="m.id">
                                                                         {{ m.id }}
                                                                         @if (m.id === o.default_model) {
-                                                                            <span class="v-hint">по умолчанию</span>
+                                                                            <span class="kbq-text-compact v-hint">по умолчанию</span>
                                                                         }
                                                                     </kbq-option>
                                                                 }
@@ -334,10 +342,10 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                             <kbq-dd class="v-mcp">
                                 @for (s of mcp(); track s.name) {
                                     @if (connected(s)) {
-                                        <span><v-outline-icon name="check-circle" class="v-ic_success" />{{ s.name }}</span>
+                                        <span><i kbq-icon="kbq-circle-check_16" [color]="colors.Success" aria-hidden="true"></i>{{ s.name }}</span>
                                     } @else {
                                         <span
-                                            ><v-outline-icon name="alert-circle" class="v-ic_warning" />{{ s.name }} ·
+                                            ><i kbq-icon="kbq-circle-exclamation_16" [color]="colors.Warning" aria-hidden="true"></i>{{ s.name }} ·
                                             переподключается</span
                                         >
                                     }
@@ -362,18 +370,15 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
         .v-dock {
             flex: none;
             padding: var(--kbq-size-m) var(--kbq-size-xxl) var(--kbq-size-l);
-            border-top: 1px solid var(--kbq-line-contrast-less);
+            border-top: var(--kbq-size-border-width) solid var(--kbq-line-contrast-less);
             background: var(--kbq-background-bg);
         }
         .v-secondary { color: var(--kbq-foreground-contrast-secondary); }
         .v-tertiary { color: var(--kbq-foreground-contrast-tertiary); }
         .v-titleic { display: inline-flex; flex: none; align-items: center; margin-right: var(--kbq-size-s); border-radius: var(--kbq-size-xxs); }
-        .v-titleic .kbq-icon { font-size: 20px; width: 20px; height: 20px; }
-        .v-titleic:focus-visible { outline: 2px solid var(--kbq-states-line-focus-theme); outline-offset: 2px; }
+        .v-titleic:focus-visible { outline: var(--kbq-size-3xs) solid var(--kbq-states-line-focus-theme); outline-offset: var(--kbq-size-3xs); }
         .v-modeline {
             margin: var(--kbq-size-m) 0 calc(-1 * var(--kbq-size-xxs));
-            font-size: 12px;
-            line-height: 16px;
             color: var(--kbq-foreground-contrast-tertiary);
             text-align: right;
         }
@@ -381,38 +386,20 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
             display: flex;
             align-items: center;
             gap: var(--kbq-size-s);
-            margin-top: 10px;
+            margin-top: var(--kbq-size-s);
             color: var(--kbq-foreground-warning);
-            font-weight: 500;
+            font-weight: var(--kbq-typography-text-normal-medium-font-weight);
         }
         .v-planact { display: flex; align-items: center; gap: var(--kbq-size-m); margin-top: var(--kbq-size-m); }
-        .v-lost, .v-failed { display: block; margin: var(--kbq-size-s) 0; }
-        .v-perm {
-            padding: var(--kbq-size-l);
-            border: 1px solid var(--kbq-line-contrast-fade);
-            border-radius: var(--kbq-size-m);
-            background: var(--kbq-background-warning-less);
-        }
-        .v-perm__head { display: flex; align-items: center; gap: var(--kbq-size-s); }
+        .v-lost, .v-failed { margin: var(--kbq-size-s) 0; }
+        .v-perm__code { margin-top: var(--kbq-size-s); }
         .v-perm__why { margin-top: var(--kbq-size-s); }
-        .v-perm__acts { display: flex; flex-wrap: wrap; gap: var(--kbq-size-s); margin-top: var(--kbq-size-m); }
-        .v-code {
-            margin: var(--kbq-size-s) 0 0;
-            padding: var(--kbq-size-m);
-            border-radius: var(--kbq-size-s);
-            background: var(--kbq-background-bg-secondary);
-            font-family: var(--kbq-typography-mono-normal-font-family, monospace);
-            font-size: 12px;
-            line-height: 16px;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
         .v-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--kbq-size-s); margin-top: var(--kbq-size-m); }
         .v-select { width: auto; min-width: 0; max-width: 260px; }
-        .v-hint { margin-left: auto; padding-left: var(--kbq-size-l); color: var(--kbq-foreground-contrast-tertiary); font-size: 12px; }
+        .v-hint { margin-left: auto; padding-left: var(--kbq-size-l); color: var(--kbq-foreground-contrast-tertiary); }
         kbq-dd.v-mono { font-family: var(--kbq-typography-mono-normal-font-family, monospace); word-break: break-all; }
         .v-mcp { display: flex; flex-direction: column; gap: var(--kbq-size-xxs); }
-        .v-mcp span { display: inline-flex; align-items: center; gap: 6px; }
+        .v-mcp span { display: inline-flex; align-items: center; gap: var(--kbq-size-xs); }
     `,
     ],
 })

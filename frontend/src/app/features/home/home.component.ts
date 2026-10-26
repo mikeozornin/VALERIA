@@ -36,7 +36,6 @@ import { SendButtonComponent } from '../../shared/chat-composer/send-button.comp
 import { clockTime, findActiveDuplicate, TaskDef, TaskRun, TemplateDef } from '../../shared/tasks/task.model';
 import { TasksCatalog } from '../../shared/tasks/tasks-catalog.service';
 import { HomeDrafts, HomeMode } from './home-drafts';
-import { OutlineIconComponent } from '../../shared/outline-icon/outline-icon.component';
 import { planFirst } from '../../shared/agent-order';
 
 /** `GET /api/options`: agents and models for «Сделать». */
@@ -75,7 +74,6 @@ const AGENT_LABELS: Record<string, string> = { plan: 'Plan', build: 'Build' };
         KbqTextareaModule,
         KbqToolTipModule,
         SendButtonComponent,
-        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { class: 'v-home', '[attr.inert]': 'underlay() ? "" : null', '[attr.aria-hidden]': 'underlay() || null' },

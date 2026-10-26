@@ -40,7 +40,7 @@ export const WRONG_CREDENTIALS = 'Неверный логин или парол�
                 <div class="v-login__error kbq-text-normal" role="alert">{{ message }}</div>
             }
 
-            <button kbq-button type="submit" class="v-login__submit" [color]="colors.Theme" [disabled]="pending()">
+            <button kbq-button type="submit" class="v-login__submit" [color]="colors.Contrast" [disabled]="pending()">
                 Войти
             </button>
             <p class="v-login__hint kbq-text-compact">Доступ предоставляется администратором</p>
@@ -63,12 +63,12 @@ export const WRONG_CREDENTIALS = 'Неверный логин или парол�
             width: 360px;
             max-width: 100%;
             padding: var(--kbq-size-xxl);
-            border: 1px solid var(--kbq-line-contrast-less);
+            border: var(--kbq-size-border-width) solid var(--kbq-line-contrast-less);
             border-radius: var(--kbq-size-m);
             background: var(--kbq-background-bg);
             box-sizing: border-box;
         }
-        .v-login__brand { display: flex; align-items: center; gap: var(--kbq-size-s); font-weight: 600; color: var(--kbq-foreground-contrast); }
+        .v-login__brand { display: flex; align-items: center; gap: var(--kbq-size-s); font-weight: var(--kbq-typography-text-normal-strong-font-weight); color: var(--kbq-foreground-contrast); }
         .v-login__logo { width: var(--kbq-size-xxl); height: var(--kbq-size-xxl); border-radius: var(--kbq-size-xs); background: var(--kbq-background-theme); }
         .v-login__title { margin: 0; color: var(--kbq-foreground-contrast); }
         .v-login__error { color: var(--kbq-foreground-error); }
