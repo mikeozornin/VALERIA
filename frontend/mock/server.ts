@@ -498,7 +498,9 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
   // -------------------------------------------------------------- queue / jobs
   add("GET", "/api/queue/me", "user", (c) =>
     [...store.jobs.values()].filter((j) => j.effective_user_id === c.user.id)
-      // app.py my_queue: folder jobs and questions only from the current workspace, task runs follow the user.
+      // app.py my_queue: job_kind(job) in allowed_item_kinds(user), so a «Задачи и вопросы» user gets no folder jobs.
+      .filter((j) => !c.user.tasks_only || j.task_id || store.chats.get(j.chat_id)?.consultation)
+      // Folder jobs and questions only from the current workspace, task runs follow the user.
       .filter((j) => j.task_id || store.chats.get(j.chat_id)?.workspace_snapshot === c.user.workspace_path)
       .sort((a, b) => b.sequence - a.sequence).slice(0, 500)
       .map((j) => ({ ...store.jobRow(j), ...(j.task_id ? { chat_title: store.displayTitle(j) } : {}), position: store.position(j) })));

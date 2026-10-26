@@ -127,6 +127,18 @@ describe("tasks_only", () => {
     }
     expect((await c.req("DELETE", "/api/chats/f-planning")).status).toBe(404);
   });
+
+  test("/api/queue/me lists only the kinds the user may use (app.py my_queue: allowed_item_kinds)", async () => {
+    const kind = (j: any) => (j.task_id ? "task" : mock.store.chats.get(j.chat_id)?.consultation ? "question" : "folder");
+    const user = await new Client().as("user");
+    const full = (await user.req("GET", "/api/queue/me")).body;
+    expect(full.some((j: any) => kind(j) === "folder")).toBe(true);
+    const tasks = await new Client().as("tasks");
+    const limited = (await tasks.req("GET", "/api/queue/me")).body;
+    expect(limited.length).toBeGreaterThan(0);
+    expect(limited.every((j: any) => kind(j) !== "folder")).toBe(true);
+    expect(limited.map((j: any) => j.id).sort()).toEqual(full.filter((j: any) => kind(j) !== "folder").map((j: any) => j.id).sort());
+  });
 });
 
 describe("idempotency", () => {
