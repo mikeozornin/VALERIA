@@ -3,8 +3,10 @@
 Start: `~/.bun/bin/bun frontend/mock/server.ts --port 4301 [--speed 4] [--fixed-now]`.
 
 - **`--speed N`** makes lifecycle timers N× faster.
-- **`--fixed-now`** keeps the seed on prototype dates. Prototype "now" is 2026-10-24 14:30 local. Without it, the seed is shifted so that "now" is the real clock.
-- **Tests:** `~/.bun/bin/bun test frontend/mock`.
+- **`--fixed-now`** keeps the seed on prototype dates. Prototype "now" is 2026-10-24 14:30 local. The mock clock starts there and runs on in real time: `now = PROTO_NOW + time since start or last /__mock/reset`. Set the browser clock to PROTO_NOW too (Playwright `page.clock.install({ time: PROTO_NOW })`). Without the flag, the seed is shifted so that "now" is the real clock at reset.
+- **Clock and seed ages:** unfinished seeded jobs (and their chats) keep their age against the mock clock. For example, `r-running` always started 31 min ago, even after the server has run for hours. Unfinished stats runs follow the clock the same way. Jobs freeze once they finish.
+- **Slots (as in `claim_next_job`):** dispatching, running, waiting_permission and cancelling sessions count against the global limit; waiting_question does not. Queue `max_workers` also applies. The seeded override is 4 (the prototype's «3 из 4»). With `feed=all` it is raised to 8 so the extra state fixtures fit. A live job that finds no free slot finishes the oldest frozen seeded running/dispatching job (extra state fixtures first, never jobs started by `/__mock/play`). If no such job exists, it stays `queued` and retries every 500 ms.
+- **Tests:** `cd frontend && ~/.bun/bin/bun test ./mock/` (`./` keeps bun away from `e2e/mock/*.spec.ts`).
 
 Demo password for every seed user: `valeria-demo-2026`.
 
@@ -20,10 +22,10 @@ Demo password for every seed user: `valeria-demo-2026`.
 | `POST /__mock/session {"delay":300,"delay_path":"/api/me/items"}` | Sets a persistent delay, optionally limited to paths containing a substring. |
 | header `x-mock-fail: 503` | Forces this request to fail with `{"detail":"Mock forced error"}`. |
 | `POST /__mock/session {"fail":"/api/tasks","fail_status":500,"fail_times":1}` | Forced-error toggle: matching requests fail `fail_times` times. Use `"*"` to fail every request, and `null` to turn the toggle off. `"fail":"batch:u-pvolkov"` makes that id return `reason:"error"` in a batch. |
-| `GET /__mock/session?as=admin&redirect=/admin` | Switches persona and redirects (a link for the browser). |
+| `GET /__mock/session?as=admin&redirect=/admin` | Switches persona and answers 302 to the redirect with one `ocw_session` cookie (a link for the browser). |
 | `GET /__mock/state` | Returns the profile, scenario, every item id with its status, queue positions, users, tasks and tombstones. |
 | `POST /__mock/reset [{"as":"user"}]` | Reseeds everything and signs in again. |
-| `POST /__mock/emit {...}` | Publishes a raw SSE event. Special forms: `{"type":"chat.updated","chat_id":"q-gcc13","snoozed_until":null}` updates and emits the real item; `{"type":"job.updated","job":"r-queued","status":"running"}` moves a job. |
+| `POST /__mock/emit {...}` | Publishes a raw SSE event. Special forms: `{"type":"chat.updated","chat_id":"q-gcc13","snoozed_until":null}` updates and emits the real item; `{"type":"job.updated","job":"r-queued","status":"running"}` moves a job. A `chat.updated` / `task.title.updated` / `chat.deleted` without `item` needs an existing `chat_id` (404 otherwise) and is delivered as the backend does (owner only, admins get `owner_user_id`, `tasks_only` never gets folders). `{"type":"opencode.disconnected"}` without `workspace` fans out one event per user folder. |
 | `POST /__mock/play {"id":"r-queued"}` | Starts the timed lifecycle of a frozen seeded job or chat. |
 | `POST /__mock/patch {"collection":"tasks","id":"t-ci","set":{"title":"…"},"by":"p.volkov"}` | Simulates another admin's edit: bumps `updated_at` and sets `updated_by`, so your next PATCH gets 409. Add `"delete":true` to get 404 `deleted`. |
 
@@ -87,9 +89,9 @@ The prototype is `valeria-ui/prototype.html` (`STEPS` + `STEPS_FIND`). The setup
 | 35 | users · create | `?as=admin` | `POST /api/admin/users {login, password, workspace_path}` → 201 |
 | 36 | users · create-error «Логин занят» | `?as=admin` | `POST /api/admin/users {"login":"p.volkov","password":"Valeria-2026-tmp",…}` → 409 «Login or Mattermost user already exists» |
 | 37 | atask · list | `?as=admin` | `GET /api/admin/tasks` |
-| 38 | atask · edit «Редактор: черновик» | `?as=admin` | `t-conan` (draft, plan_first, queue `long`, next `t-mr`): `PATCH /api/admin/tasks/t-conan {…, updated_at}`. Conflict: `/__mock/patch` → 409 `{code:"conflict", updated_by}`. Deleted: `PATCH /api/admin/tasks/t-old-notes` → 404 `{code:"deleted", deleted_by:"d.orlov"}` |
+| 38 | atask · edit «Редактор: черновик» | `?as=admin` | `t-conan` is published to 3 users as in the prototype, so first make it a draft: `/__mock/patch {"collection":"tasks","id":"t-conan","set":{"is_published":0}}`. Then (draft, plan_first, queue `long`, next `t-mr`): `PATCH /api/admin/tasks/t-conan {…, updated_at}`. Conflict: `/__mock/patch` → 409 `{code:"conflict", updated_by}`. Deleted: `PATCH /api/admin/tasks/t-old-notes` → 404 `{code:"deleted", deleted_by:"d.orlov"}` |
 | 39 | atask · published | `?as=admin` | `t-ci` (published). Audience: `PUT /api/admin/tasks/t-mr/audience` |
-| 40 | queue · live «Сейчас» | `?as=admin` | `GET /api/admin/queue` (limits, queue rows with active/queued counts, jobs); SSE `job.updated` |
+| 40 | queue · live «Сейчас» | `?as=admin` | `GET /api/admin/queue` (limits, queue rows with active/queued counts, jobs); SSE `job.updated`. `&feed=proto` → limit 4, as in the prototype; `feed=all` → limit 8 |
 | 41 | queue · stop | `?as=admin` | `POST /api/admin/jobs/j-f-volkov-hal/stop` → 202 job row; or `/api/admin/jobs/r-belov-notes/stop` (queued → cancelled at once) |
 | 42 | queue · settings «Очереди и лимиты» | `?as=admin` | `GET /api/admin/queues`, `PATCH /api/admin/settings/concurrency {value}`, `DELETE …/concurrency/override`, `PUT /api/admin/settings/default-chat-queue` |
 | 43 | queue · edit | `?as=admin` | `PATCH /api/admin/queues/:id {name, priority, max_workers, updated_at}` (409/404 as for tasks) |
@@ -101,7 +103,7 @@ The prototype is `valeria-ui/prototype.html` (`STEPS` + `STEPS_FIND`). The setup
 | 49 | aconsult · none (zigbee) | `?as=admin` | `GET /api/admin/requests?q=zigbee` → `[]` |
 | 50 | aconsult · view «Просмотр вопроса» | `?as=admin` | `GET /api/admin/consultations/q-volkov-hal` (audit `consultation.admin_view`); waiting question: `q-nikitina-debug` |
 | 51 | aconsult · view-run «Просмотр запуска» | `?as=admin` | `GET /api/admin/task-runs/r-nikitina-dup/messages` + `GET /api/task-runs/r-nikitina-dup/result` |
-| 52 | audit · list «Журнал» | `?as=admin` | `GET /api/admin/audit?limit=50` → `{items, next_cursor}`; next page `&cursor=<next_cursor>`; filters `from,to,user,action(prefix with "."),q` |
+| 52 | audit · list «Журнал» | `?as=admin` | `GET /api/admin/audit?limit=50` → `{items, next_cursor}`; next page `&cursor=<next_cursor>`; filters `from,to,user,action(prefix with "."),q`. Object ids resolve to fixtures: job `j-f-volkov-hal` (p.volkov's folder), task_run `r-queued` |
 | 53 | audit · detail «Событие» | `?as=admin` | A row from #52 (`metadata_json`, logins) |
 | 54 | audit · none (zigbee) | `?as=admin` | `GET /api/admin/audit?q=zigbee` → `{items:[], next_cursor:null}` |
 
@@ -120,7 +122,7 @@ The prototype is `valeria-ui/prototype.html` (`STEPS` + `STEPS_FIND`). The setup
 | Forced error / retry | `POST /__mock/session {"fail":"/api/me/items","fail_status":503,"fail_times":1}` |
 | Chat actions | `POST /api/chats/:id/{archive,unarchive,snooze,unsnooze}` and `DELETE /api/chats/:id` work for every kind and every role. Snoozed item: `q-gcc13` (until +2 days). Archived: `q-ota-logs`, `q-armv8`, `r-mr1904`, `r-ci46102`, `f-conan-profiles`. Expiry: snooze with `until` a few seconds ahead → SSE `chat.updated` with `snoozed_until:null` |
 | Snooze cleared by attention | A snoozed chat whose job goes to waiting_question/permission is unsnoozed (`chat.updated`) |
-| Live plan_first run | `POST /__mock/patch {"collection":"tasks","id":"t-conan","set":{"is_published":1}}`, then `POST /api/tasks/t-conan/runs` (`?as=user`) → phase `plan` → `build` → completed |
+| Live plan_first run | `POST /api/tasks/t-conan/runs` (`?as=user`) → phase `plan` → `build` → completed |
 | Mattermost profile | `PATCH /api/profile {"mattermost_username":"p.volkov"}` → 409 «Mattermost user is already assigned» |
 
 ## Contract notes (BRIEF §7, §10)

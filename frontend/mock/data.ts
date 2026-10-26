@@ -106,7 +106,9 @@ export const TASKS = [
   { id: "t-conan", title: "Обновление зависимости Conan во всех пакетах прошивки с проверкой сборки на трёх тулчейнах",
     description: "Сначала составит план, затем обновит conanfile.py и проверит сборку на gcc 12, gcc 13 и clang 17.",
     hint: "Пакет и версия, например openssl/3.3.2", model: "anthropic/claude-sonnet-4-5", queue_id: "long",
-    is_published: 0, visibility: "all", audience: [], plan_first: 1, next: ["t-mr"],
+    // Published to 3 users: the prototype's user list has 5 tasks («Все варианты · 8» with 3 templates)
+    // and its publish step says «Её видят 3 пользователя».
+    is_published: 1, visibility: "selected", audience: ["u-isokolova", "u-pvolkov", "u-anikitina"], plan_first: 1, next: ["t-mr"],
     content: "Ты — инженер сборки. Обнови зависимость, указанную пользователем, во всех пакетах репозитория firmware-sdk.\n1. Найди все conanfile.py, где она используется.\n2. Обнови версию и lock-файлы.\n3. Собери каждый пакет в профилях armv8-gcc12, x86_64-gcc13, x86_64-clang17.\nИтог: таблица «пакет → результат сборки», без логов.",
     created_at: protoDate(10, 20), updated_at: protoTime(0, "13:40") },
 ].map((t) => ({ ...t, content: (t as { content?: string }).content ?? t.description + ITOG }));
@@ -213,8 +215,8 @@ export const R = {
 // ---------------------------------------------------------------- audit (prototype AUDIT)
 export const AUDIT = [
   { t: protoTime(0, "14:21"), who: "u-dorlov", as: null, action: "concurrency.update", type: "setting", obj: "max_active_sessions", meta: { value: 4 } },
-  { t: protoTime(0, "14:18"), who: "u-dorlov", as: "u-pvolkov", action: "job.stop.request", type: "job", obj: "j-5521", meta: { job_id: "j-5521", status: "running" } },
-  { t: protoTime(0, "14:15"), who: "u-isokolova", as: null, action: "task.run", type: "task_run", obj: "r-48211", meta: { run_id: "r-48211", queue_id: "tasks" } },
+  { t: protoTime(0, "14:18"), who: "u-dorlov", as: "u-pvolkov", action: "job.stop.request", type: "job", obj: "j-f-volkov-hal", meta: { job_id: "j-f-volkov-hal", status: "running" } },
+  { t: protoTime(0, "14:15"), who: "u-isokolova", as: null, action: "task.run", type: "task_run", obj: "r-queued", meta: { run_id: "r-queued", queue_id: "tasks" } },
   { t: protoTime(0, "13:52"), who: "u-dorlov", as: "u-anikitina", action: "consultation.admin_view", type: "consultation", obj: "q-nikitina-debug", meta: {} },
   { t: protoTime(0, "13:50"), who: "u-isokolova", as: null, action: "auth.login", type: "user", obj: "u-isokolova", meta: {} },
   { t: protoTime(0, "13:40"), who: "u-dorlov", as: null, action: "task.update", type: "task", obj: "t-conan", meta: { fields: ["content", "next_task_ids"] } },

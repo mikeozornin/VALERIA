@@ -29,6 +29,9 @@ const CHAT_COLUMNS = [
 export const ACTIVE = new Set(["dispatching", "running", "waiting_permission", "waiting_question", "cancelling"]);
 export const UNFINISHED = new Set([...ACTIVE, "queued"]);
 export const TERMINAL = new Set(["completed", "failed", "cancelled"]);
+/** Statuses that hold a dispatcher slot (database.claim_next_job); waiting_question does not. */
+export const SLOT = new Set(["dispatching", "running", "waiting_permission", "cancelling"]);
+const CHAT_EVENTS = new Set(["chat.updated", "chat.deleted", "task.title.updated"]);
 
 export const iso = (ms: number) => new Date(ms).toISOString().replace(/\.(\d{3})Z$/, ".$1000+00:00");
 export const parseIso = (s: string | null | undefined) =>
@@ -51,6 +54,7 @@ export class Store {
   fixedNow: boolean;
   quiet: boolean;
   shift = 0;
+  epoch = Date.now();
   seq = 0;
   idCounter = 0;
   users = new Map<string, Json>();
@@ -92,7 +96,8 @@ export class Store {
   }
 
   // ------------------------------------------------------------ time
-  now() { return Date.now(); }
+  /** Mock clock: the real clock, or with --fixed-now the prototype "now" plus the real time since the last reset. */
+  now() { return this.fixedNow ? D.PROTO_NOW + (Date.now() - this.epoch) : Date.now(); }
   nowIso() { return iso(this.now()); }
   at(protoMs: number) { return iso(protoMs + this.shift); }
   newId(prefix: string) { return `${prefix}-${(++this.idCounter).toString(36)}${Math.random().toString(36).slice(2, 7)}`; }
@@ -104,13 +109,35 @@ export class Store {
 
   log(...args: unknown[]) { if (!this.quiet) console.log(...args); }
 
+  /** Make seeded timestamps keep their age against the mock clock (a write turns them back into plain values). */
+  slide(obj: Json, fields: string[]) {
+    const anchor = D.PROTO_NOW + this.shift;
+    for (const f of fields) {
+      const value = obj[f];
+      if (!value) continue;
+      const age = anchor - parseIso(value);
+      Object.defineProperty(obj, f, {
+        enumerable: true, configurable: true,
+        get: () => iso(this.now() - age),
+        set: (v) => Object.defineProperty(obj, f, { value: v, writable: true, enumerable: true, configurable: true }),
+      });
+    }
+  }
+  /** Pin sliding timestamps at their current value. */
+  freeze(obj: Json) {
+    for (const [f, d] of Object.entries(Object.getOwnPropertyDescriptors(obj))) {
+      if (d.get) Object.defineProperty(obj, f, { value: obj[f], writable: true, enumerable: true, configurable: true });
+    }
+  }
+
   // ------------------------------------------------------------ reset / profile
   reset(profile?: Partial<Profile>) {
     for (const t of this.timers) clearTimeout(t);
     for (const t of this.snoozeTimers.values()) clearTimeout(t);
     this.timers.clear();
     this.snoozeTimers.clear();
-    this.shift = this.fixedNow ? 0 : Date.now() - D.PROTO_NOW;
+    this.epoch = Date.now();
+    this.shift = this.fixedNow ? 0 : this.epoch - D.PROTO_NOW;
     for (const m of [this.users, this.queues, this.tasks, this.taskAudience, this.taskNext, this.templates,
       this.chats, this.jobs, this.messages, this.questions, this.permissions, this.mcp, this.taskResults,
       this.answers, this.idem, this.tombstones, this.updatedBy]) m.clear();
@@ -123,6 +150,7 @@ export class Store {
       consultation_queue: D.CONSULTATION_QUEUE, default_chat_queue: D.DEFAULT_CHAT_QUEUE,
     };
     this.seed();
+    this.fitSeedLimit();
     this.profile = { as: "none", folder: true, first: false, feed: "all" };
     if (profile) this.applyProfile({ ...this.profile, ...profile });
   }
@@ -139,6 +167,7 @@ export class Store {
         const uid = D.ACCOUNT[next.as];
         for (const chat of [...this.chats.values()]) if (chat.owner_user_id === uid) this.dropChat(chat.id);
       }
+      this.fitSeedLimit();
     }
     const iso = this.users.get("u-isokolova");
     if (iso) iso.tasks_only = next.as === "tasks" ? 1 : 0;
@@ -151,6 +180,16 @@ export class Store {
       if (user) user.workspace_path = null;
     }
     this.profile = { ...next };
+  }
+
+  /**
+   * The seeded override is the prototype's 4, raised only as far as the seed needs so that slot-holding jobs
+   * never exceed it (feed=all holds 8 sessions at once; feed=proto holds 4). The audit row follows the value.
+   */
+  fitSeedLimit() {
+    this.settings.limit = Math.min(D.HARD_LIMIT, Math.max(D.CURRENT_LIMIT, this.activeSessions()));
+    const row = this.audit.find((a) => a.action === "concurrency.update");
+    if (row) row.metadata_json = JSON.stringify({ value: this.settings.limit });
   }
 
   dropEntity(id: string) {
@@ -180,13 +219,7 @@ export class Store {
         return { type: "consultation.updated", job: pick(job, ["id", "chat_id", "status", "created_at", "finished_at"]) };
       }
     }
-    if (["chat.updated", "chat.deleted", "task.title.updated"].includes(event.type)) {
-      if (user.role === "admin" || event._owner === user.id) {
-        const { _owner, ...rest } = event;
-        return rest;
-      }
-      return null;
-    }
+    if (CHAT_EVENTS.has(event.type)) return this.chatEventForUser(user, event);
     if (event.session_id && [...this.chats.values()].some((c) => c.consultation && c.opencode_session_id === event.session_id)) return null;
     if (!this.canReceive(user, event)) return null;
     if (event.type === "job.updated" && job.task_id) {
@@ -212,13 +245,31 @@ export class Store {
     return payload.type === "server.connected" || event.type === "opencode.disconnected";
   }
 
+  /** Port of items.py chat_event_for_user: owner in the scope where they can open the chat, or an admin. */
+  chatEventForUser(user: Json, event: Json): Json | null {
+    const row = event.item || {};
+    const admin = user.role === "admin";
+    if (!admin) {
+      const kinds = user.tasks_only ? ["question", "task"] : ["question", "task", "folder"];
+      if (row.owner_user_id !== user.id || !kinds.includes(row.kind)) return null;
+      if (row.kind !== "task" && user.workspace_path && row.workspace_snapshot !== user.workspace_path) return null;
+    }
+    const { owner_user_id: _o, workspace_snapshot: _w, ...item } = row;
+    let visible: Json;
+    if (event.type === "chat.deleted") visible = { type: "chat.deleted", chat_id: item.chat_id };
+    else if (event.type === "task.title.updated") {
+      visible = { type: "task.title.updated", run_id: item.id, chat_id: item.chat_id, title: item.title, task: { id: item.id, title: item.title } };
+    } else visible = { type: "chat.updated", ...item };
+    if (admin) visible.owner_user_id = row.owner_user_id;
+    return visible;
+  }
+
   emitJob(job: Json) { this.publish({ type: "job.updated", job: this.jobRow(job) }); }
-  emitChat(chat: Json) {
-    const item = this.item(chat);
-    this.publish({
-      type: "chat.updated", _owner: chat.owner_user_id, chat_id: chat.id, kind: item.kind, title: item.title,
-      archived_at: chat.archived_at, snoozed_until: chat.snoozed_until, status: item.status,
-    });
+  /** items.py chat_item_row: the public item plus the columns the fan-out filters on. */
+  chatEventRow(chat: Json) { return { ...this.item(chat), owner_user_id: chat.owner_user_id, workspace_snapshot: chat.workspace_snapshot }; }
+  /** items.py publish_chat_updated / publish_chat_deleted (+ task.title.updated for task runs). */
+  emitChat(chat: Json, type: "chat.updated" | "chat.deleted" | "task.title.updated" = "chat.updated") {
+    this.publish({ type, item: this.chatEventRow(chat) });
   }
   emitOpencode(chat: Json, type: string, properties: Json) {
     this.publish({
@@ -266,9 +317,14 @@ export class Store {
     };
   }
   publicTask(t: Json) { return { id: t.id, title: t.title, description: t.description, plan_first: t.plan_first, input_hint: t.input_hint ?? null }; }
+  /** `updated_by` column (a user id) from the last editor's login. */
+  updatedById(collection: string, id: string) {
+    const login = this.updatedBy.get(`${collection}:${id}`);
+    return login ? [...this.users.values()].find((u) => u.login === login)?.id ?? null : null;
+  }
   adminTask(t: Json) {
     return {
-      ...t, model: `${t.provider_id}/${t.model_id}`,
+      ...t, updated_by: this.updatedById("tasks", t.id), model: `${t.provider_id}/${t.model_id}`,
       audience_user_ids: [...(this.taskAudience.get(t.id) ?? [])].sort(),
       next_task_ids: this.taskNext.get(t.id) ?? [],
     };
@@ -277,8 +333,11 @@ export class Store {
   chatRowWithOwner(chat: Json) { return { ...this.chatRow(chat), owner_login: this.users.get(chat.owner_user_id)?.login ?? null }; }
   queueRow(q: Json) {
     const jobs = [...this.jobs.values()].filter((j) => j.queue_id === q.id);
-    const busy = new Set(["dispatching", "running", "waiting_permission", "cancelling"]);
-    return { ...q, active: new Set(jobs.filter((j) => busy.has(j.status)).map((j) => j.session_id)).size, queued: jobs.filter((j) => j.status === "queued").length };
+    return { ...q, updated_by: this.updatedById("queues", q.id), active: this.activeSessions((j) => j.queue_id === q.id), queued: jobs.filter((j) => j.status === "queued").length };
+  }
+  /** COUNT(DISTINCT session_id) of slot-holding jobs, optionally filtered. */
+  activeSessions(filter: (job: Json) => boolean = () => true) {
+    return new Set([...this.jobs.values()].filter((j) => SLOT.has(j.status) && filter(j)).map((j) => j.session_id)).size;
   }
 
   chatJobs(chatId: string) { return [...this.jobs.values()].filter((j) => j.chat_id === chatId).sort((a, b) => a.sequence - b.sequence); }
@@ -302,8 +361,8 @@ export class Store {
         const run = this.publicTaskRun(job);
         id = job.id; status = job.status; phase = run.phase; task_id = job.task_id; title = run.title;
       }
-    } else if (kind === "folder" && (status === "completed" || status === "cancelled")) {
-      status = "idle";
+    } else if (kind === "folder" && !UNFINISHED.has(status)) {
+      status = "idle"; // items.py item_status
     }
     return {
       kind, id, chat_id: chat.id, title, status, phase, task_id, created_at: chat.created_at,
@@ -597,6 +656,16 @@ export class Store {
 
     for (const chat of this.chats.values()) if (!this.mcp.has(chat.id) && !chat.consultation && chat.kind === "chat") this.mcp.set(chat.id, { servers: D.MCP_SERVERS });
 
+    // Unfinished seeded work keeps its age against the mock clock, so "running for N min" stays N min
+    // however long the server has been up (and with --fixed-now it continues from the prototype "now").
+    for (const job of this.jobs.values()) {
+      if (!UNFINISHED.has(job.status)) continue;
+      this.slide(job, ["created_at", "started_at"]);
+      const chat = this.chats.get(job.chat_id);
+      if (!chat) continue;
+      this.slide(chat, this.chatJobs(chat.id).every((j) => UNFINISHED.has(j.status)) ? ["created_at", "updated_at"] : ["updated_at"]);
+    }
+
     // ---- audit (prototype AUDIT), oldest first so ids grow with time
     for (const a of [...D.AUDIT].reverse()) this.addAudit(a.who, a.action, { effective: a.as, type: a.type, id: a.obj, meta: a.meta, at: at(a.t) });
 
@@ -627,21 +696,77 @@ export class Store {
   setStatus(job: Json, status: string, extra: Json = {}) {
     if (!this.jobs.has(job.id)) return;
     const now = this.nowIso();
+    const prev = job.status;
     job.status = status;
     if (!job.started_at && ACTIVE.has(status)) job.started_at = now;
-    if (TERMINAL.has(status)) job.finished_at = now;
+    if (TERMINAL.has(status)) { job.finished_at = now; this.freeze(job); }
     Object.assign(job, extra);
     const chat = this.chats.get(job.chat_id);
+    let chatChanged = false;
     if (chat) {
       chat.status = UNFINISHED.has(status) ? status : "idle";
       chat.updated_at = now;
+      if (TERMINAL.has(status)) this.freeze(chat);
+      // dispatcher.py: a new question / permission ends a snooze (any kind) → chat.updated
       if ((status === "waiting_question" || status === "waiting_permission") && chat.snoozed_until) {
         chat.snoozed_until = null;
         this.armSnooze(chat);
-        this.emitChat(chat);
+        chatChanged = true;
       }
+      // dispatcher.py: a folder chat also gets chat.updated on its run/wait transitions and when the job ends.
+      if (this.itemKind(chat) === "folder" && prev !== status
+        && (TERMINAL.has(status) ? !TERMINAL.has(prev) : ["running", "waiting_question", "waiting_permission"].includes(status))) chatChanged = true;
     }
     this.emitJob(job);
+    if (chat && chatChanged) this.emitChat(chat);
+  }
+
+  // -- dispatcher slots (database.claim_next_job): global limit, queue max_workers, user max_active_jobs
+  slotBlocker(job: Json): "global" | "queue" | "user" | null {
+    if (this.activeSessions() >= this.settings.limit) return "global";
+    const queue = this.queues.get(job.queue_id);
+    if (queue?.max_workers != null && this.activeSessions((j) => j.queue_id === job.queue_id) >= queue.max_workers) return "queue";
+    const user = this.users.get(job.effective_user_id);
+    if (user?.max_active_jobs != null && this.activeSessions((j) => j.effective_user_id === job.effective_user_id) >= user.max_active_jobs) return "user";
+    return null;
+  }
+  /**
+   * Take a slot for a queued job. Seeded demo jobs are frozen and would block forever, so when they are what
+   * stands in the way, the oldest one finishes first (state extras before prototype fixtures), as a real
+   * session would. Live jobs are never finished early; then the job waits and retries.
+   */
+  claimSlot(job: Json) {
+    for (let guard = 0; guard < 16; guard++) {
+      const blocker = this.slotBlocker(job);
+      if (!blocker) return true;
+      const extra = (j: Json) => (STATE_EXTRAS.includes(j.id) || STATE_EXTRAS.includes(j.chat_id) ? 0 : 1);
+      const victim = [...this.jobs.values()]
+        .filter((j) => !j._live && !j._played && (j.status === "running" || j.status === "dispatching")
+          && (blocker === "global" || (blocker === "queue" ? j.queue_id === job.queue_id : j.effective_user_id === job.effective_user_id)))
+        .sort((a, b) => extra(a) - extra(b) || parseIso(a.started_at ?? a.created_at) - parseIso(b.started_at ?? b.created_at))[0];
+      if (!victim) return false;
+      this.finishSeeded(victim);
+    }
+    return false;
+  }
+  /** queued → dispatching after `ms`, but only through a free slot; otherwise retry. */
+  dispatchAfter(job: Json, ms: number, start: () => void) {
+    this.step(job, ["queued"], ms, () => {
+      if (!this.claimSlot(job)) { this.dispatchAfter(job, 500, start); return; }
+      start();
+    });
+  }
+  taskResultText(job: Json) {
+    const key = String(job.task_id).replace(/^t-/, "");
+    const text: Record<string, string> = { ci: D.CI_REPORT, mr: D.R.mr1904, dup: D.R.dup2388, notes: D.R.belov412, yt: D.R.otaLogs, conan: D.DONE_OK };
+    return text[key] ?? D.CI_REPORT;
+  }
+  /** Complete a frozen seeded job the way its lifecycle would. */
+  finishSeeded(job: Json) {
+    const chat = this.chats.get(job.chat_id);
+    if (job.task_id) { this.taskResults.set(job.id, this.taskResultText(job)); this.setStatus(job, "completed"); }
+    else if (chat?.consultation) { this.answers.set(job.id, D.ANSWER); this.setStatus(job, "completed"); }
+    else this.folderHooks(job).done(job.agent === "plan" ? D.PLAN : D.DONE_OK);
   }
   /** A step runs only while the job is still in the expected status (stop/delete/reset win). */
   step(job: Json, expect: string[], ms: number, fn: () => void) {
@@ -665,14 +790,14 @@ export class Store {
       });
     };
     if (job.status === "queued") {
-      this.step(job, ["queued"], 1000, () => { this.setStatus(job, "dispatching"); this.step(job, ["dispatching"], 800, () => { this.setStatus(job, "running"); run(); }); });
+      this.dispatchAfter(job, 1000, () => { this.setStatus(job, "dispatching"); this.step(job, ["dispatching"], 800, () => { this.setStatus(job, "running"); run(); }); });
     } else if (job.status === "dispatching") {
       this.step(job, ["dispatching"], 800, () => { this.setStatus(job, "running"); run(); });
     } else if (job.status === "running") run();
   }
   resumeConsultation(job: Json) {
     this.setStatus(job, "queued");
-    this.step(job, ["queued"], 600, () => {
+    this.dispatchAfter(job, 600, () => {
       this.setStatus(job, "running");
       this.step(job, ["running"], 2000, () => { this.answers.set(job.id, D.ANSWER); this.setStatus(job, "completed"); });
     });
@@ -686,9 +811,7 @@ export class Store {
     const waitQuestion = input.includes("#question");
     const finish = () => {
       if (fail) return this.setStatus(job, "failed", { error_code: "assistant_error" });
-      const key = String(job.task_id).replace(/^t-/, "");
-      const text: Record<string, string> = { ci: D.CI_REPORT, mr: D.R.mr1904, dup: D.R.dup2388, notes: D.R.belov412, yt: D.R.otaLogs, conan: D.DONE_OK };
-      this.taskResults.set(job.id, text[key] ?? D.CI_REPORT);
+      this.taskResults.set(job.id, this.taskResultText(job));
       this.setStatus(job, "completed");
     };
     const work = () => {
@@ -716,11 +839,13 @@ export class Store {
       const clean = input.replace(/#\w+/g, "").split(/\s+/).filter(Boolean).join(" ");
       if (chat && clean) {
         chat.title = clean.slice(0, 80);
-        this.publish({ type: "task.title.updated", _owner: chat.owner_user_id, run_id: job.id, chat_id: chat.id, title: this.displayTitle(job) });
+        chat.updated_at = this.nowIso();
+        this.emitChat(chat);
+        this.emitChat(chat, "task.title.updated");
       }
       work();
     };
-    if (job.status === "queued") this.step(job, ["queued"], 2000, () => { this.setStatus(job, "dispatching"); this.step(job, ["dispatching"], 1000, start); });
+    if (job.status === "queued") this.dispatchAfter(job, 2000, () => { this.setStatus(job, "dispatching"); this.step(job, ["dispatching"], 1000, start); });
     else if (job.status === "dispatching") this.step(job, ["dispatching"], 1000, start);
     else if (job.status === "running") work();
   }
@@ -763,7 +888,7 @@ export class Store {
       this.continueFolder(job);
     };
     (job as Json)._folder = { pushAssistant, done };
-    if (job.status === "queued") this.step(job, ["queued"], 800, () => { this.setStatus(job, "dispatching"); this.step(job, ["dispatching"], 700, begin); });
+    if (job.status === "queued") this.dispatchAfter(job, 800, () => { this.setStatus(job, "dispatching"); this.step(job, ["dispatching"], 700, begin); });
     else if (job.status === "dispatching") this.step(job, ["dispatching"], 700, begin);
     else if (job.status === "running") this.continueFolder(job);
   }
@@ -846,6 +971,7 @@ export class Store {
   play(id: string) {
     const job = this.jobs.get(id) ?? [...this.jobs.values()].filter((j) => j.chat_id === id).sort((a, b) => b.sequence - a.sequence)[0];
     if (!job || !UNFINISHED.has(job.status)) return null;
+    job._played = true; // never finished early to free a slot
     const chat = this.chats.get(job.chat_id)!;
     if (job.task_id) this.playTask(job);
     else if (chat.consultation) {
@@ -859,14 +985,15 @@ export class Store {
   statRows() {
     return this.stats.map(({ id, run }) => {
       const taskId = STAT_TASK_ID[run.task];
-      const created = statTime(run.t) + this.shift;
+      // Unfinished runs keep their age against the mock clock; finished ones stay on the reset-time calendar.
+      const created = statTime(run.t) + (run.st === "queued" || run.st === "running" ? this.now() - D.PROTO_NOW : this.shift);
       const started = run.st === "queued" ? null : created + run.wait * 60000;
       const finished = run.st === "queued" || run.st === "running" ? null : (started ?? created) + run.work * 60000;
       const outcome = run.st === "done" ? "completed" : run.st === "failed" ? "failed" : run.st === "cancelled" ? "cancelled" : null;
       return {
         id, kind: run.task === "q" ? "question" : "task", task_id: taskId, task_title: taskId ? this.tasks.get(taskId)?.title ?? null : null,
         created_at: iso(created), started_at: started === null ? null : iso(started), finished_at: finished === null ? null : iso(finished), outcome,
-        _who: run.who,
+        login: run.who,
       };
     });
   }

@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import * as D from "./data";
 import { createMockServer } from "./server";
+import { parseIso, Store } from "./store";
 
 const mock = createMockServer({ port: 0, speed: 40, quiet: true });
 afterAll(() => mock.stop());
@@ -61,8 +62,12 @@ async function collectEvents(client: Client, until: (events: any[]) => boolean, 
   };
 }
 
+/** Seeded jobs may finish early to free a slot for a live one; lifecycle assertions wait for the live job. */
+const SEEDED = new Set(new Store({ quiet: true }).jobs.keys());
+const isLive = (id: string) => !SEEDED.has(id);
+
 beforeEach(async () => {
-  await fetch(`${mock.url}/__mock/reset`, { method: "POST", body: JSON.stringify({ as: "none" }) });
+  await fetch(`${mock.url}/__mock/reset`, { method: "POST", body: JSON.stringify({ as: "none", folder: 1 }) });
 });
 
 describe("auth + CSRF", () => {
@@ -153,7 +158,7 @@ describe("new contract: tasks", () => {
     expect(dup.map((r: any) => r.id)).toEqual(["r-running"]);
     expect(runs.find((r: any) => r.id === "r-failed")).toMatchObject({ error_code: "assistant_error", status: "failed" });
 
-    const stream = await collectEvents(c, (evs) => evs.some((e) => e.type === "task.updated" && e.task.status === "completed"));
+    const stream = await collectEvents(c, (evs) => evs.some((e) => e.type === "task.updated" && e.task.status === "completed" && isLive(e.task.id)));
     const run = (await c.req("POST", "/api/tasks/t-dup/runs", { user_input: "FW-2401 #permission" })).body;
     const statuses = (await stream.finished).filter((e) => e.type === "task.updated" && e.task.id === run.id).map((e) => e.task.status);
     expect(statuses).toContain("waiting_permission");
@@ -174,7 +179,7 @@ describe("new contract: tasks", () => {
 describe("SSE lifecycle", () => {
   test("task run: queued → dispatching → running → completed with title update", async () => {
     const c = await new Client().as("user");
-    const stream = await collectEvents(c, (evs) => evs.some((e) => e.type === "task.updated" && e.task.status === "completed"));
+    const stream = await collectEvents(c, (evs) => evs.some((e) => e.type === "task.updated" && e.task.status === "completed" && isLive(e.task.id)));
     await Bun.sleep(50);
     const run = await c.req("POST", "/api/tasks/t-mr/runs", { user_input: "!1932 — Поддержка TLS 1.3 в HTTP-клиенте" });
     expect(run.status).toBe(202);
@@ -303,5 +308,216 @@ describe("scenario controls", () => {
     expect(performance.now() - t0).toBeGreaterThanOrEqual(290);
     expect(await c.req("GET", "/api/tasks", undefined, { "x-mock-fail": "500" })).toEqual({ status: 500, body: { detail: "Mock forced error" } });
     expect((await c.req("GET", "/api/task-runs/r-nope")).body).toEqual({ detail: "Task run not found" });
+  });
+});
+
+describe("backend alignment", () => {
+  const MIN = 60000;
+  const ageMin = (ts: string, now = Date.now()) => (now - parseIso(ts)) / MIN;
+  const checkSlots = (q: any) => {
+    expect(q.active).toBeLessThanOrEqual(q.limit);
+    for (const row of q.queues) expect(row.active).toBeLessThanOrEqual(row.max_workers);
+  };
+
+  test("seeded unfinished jobs and stats runs keep their age against the mock clock", async () => {
+    const c = await new Client().as("admin");
+    const queue = (await c.req("GET", "/api/admin/queue")).body;
+    const running = queue.jobs.find((j: any) => j.id === "r-running");
+    expect(ageMin(running.started_at)).toBeGreaterThan(30);
+    expect(ageMin(running.started_at)).toBeLessThan(32);
+    // a server that has been up for 33 h still reports minutes, not hours
+    mock.store.now = () => Date.now() + 33 * 3600 * 1000;
+    try {
+      const later = (await c.req("GET", "/api/admin/queue")).body.jobs.find((j: any) => j.id === "r-running");
+      expect(ageMin(later.started_at, mock.store.now())).toBeLessThan(32);
+      const stats = (await c.req("GET", "/api/admin/statistics/runs")).body;
+      const unfinished = stats.items.filter((r: any) => r.outcome === null);
+      expect(unfinished.length).toBeGreaterThan(0);
+      for (const r of unfinished) expect(ageMin(r.created_at, parseIso(stats.generated_at))).toBeLessThan(15);
+    } finally {
+      delete (mock.store as any).now;
+    }
+    // finished seed jobs keep their timestamps; a job that ends stops sliding
+    const done = queue.jobs.find((j: any) => j.id === "r-done");
+    expect(done.finished_at).toBeTruthy();
+  });
+
+  test("--fixed-now: clock continues from the prototype now; runtime rows follow it", async () => {
+    const fixed = createMockServer({ port: 0, speed: 40, quiet: true, fixedNow: true });
+    try {
+      expect(Math.abs(fixed.store.now() - D.PROTO_NOW)).toBeLessThan(2000);
+      await Bun.sleep(120);
+      expect(fixed.store.now() - D.PROTO_NOW).toBeGreaterThanOrEqual(100);
+      const res = await fetch(`${fixed.url}/__mock/reset`, { method: "POST", body: JSON.stringify({ as: "user" }) });
+      const csrf = (await res.json()).csrf_token;
+      const cookie = res.headers.getSetCookie().map((x) => x.split(";")[0]).join("; ");
+      const run = await (await fetch(`${fixed.url}/api/tasks/t-ci/runs`, {
+        method: "POST", headers: { cookie, "x-csrf-token": csrf, "content-type": "application/json" }, body: JSON.stringify({ user_input: "x" }),
+      })).json();
+      expect(Math.abs(parseIso(run.created_at) - D.PROTO_NOW)).toBeLessThan(2000);
+      const runs = await (await fetch(`${fixed.url}/api/task-runs`, { headers: { cookie } })).json();
+      const seeded = runs.find((r: any) => r.id === "r-running");
+      expect(ageMin(seeded.started_at, fixed.store.now())).toBeCloseTo(31, 0);
+    } finally {
+      fixed.stop();
+    }
+  });
+
+  test("active sessions never exceed the limit; a live job waits for a free slot", async () => {
+    const admin = await new Client().as("admin");
+    const seeded = (await admin.req("GET", "/api/admin/queue")).body;
+    checkSlots(seeded);
+    expect(seeded.limit).toBe(8); // feed=all: 8 seeded sessions → override raised to fit
+    await admin.req("POST", "/__mock/session", { as: "admin", feed: "proto" });
+    const proto = (await admin.req("GET", "/api/admin/queue")).body;
+    checkSlots(proto);
+    expect(proto.limit).toBe(D.CURRENT_LIMIT);
+
+    admin.csrf = (await admin.req("POST", "/__mock/reset", { as: "admin" })).body.csrf_token;
+    const user = await new Client().as("user");
+    await user.req("POST", "/api/consultations", { message: "Вопрос #direct" });
+    await user.req("POST", "/api/tasks/t-ci/runs", { user_input: "a" });
+    await user.req("POST", "/api/chats", { message: "Сделай", agent: "plan" });
+    for (let i = 0; i < 8; i++) { checkSlots((await admin.req("GET", "/api/admin/queue")).body); await Bun.sleep(40); }
+
+    // only a waiting_permission seed job left in the way: the live job stays queued until it is stopped
+    admin.csrf = (await admin.req("POST", "/__mock/reset", { as: "admin" })).body.csrf_token;
+    expect((await admin.req("PATCH", "/api/admin/settings/concurrency", { value: 1 })).status).toBe(200);
+    const u2 = await new Client().as("user");
+    const q = (await u2.req("POST", "/api/consultations", { message: "Ждёт слот #direct" })).body;
+    await Bun.sleep(150);
+    const waiting = (await admin.req("GET", "/api/admin/queue")).body;
+    checkSlots(waiting);
+    expect(waiting.jobs.find((j: any) => j.chat_id === q.id).status).toBe("queued");
+    expect(waiting.jobs.find((j: any) => j.id === "j-f-permission-2").status).toBe("waiting_permission");
+    const started = await collectEvents(u2, (evs) => evs.some((e) => e.type === "consultation.updated" && e.job.chat_id === q.id && e.job.status === "running"));
+    await admin.req("POST", "/api/admin/jobs/j-f-permission-2/stop");
+    await started.finished;
+    expect(started.events.some((e) => e.type === "consultation.updated" && e.job.status === "running")).toBe(true);
+  });
+
+  test("chat.updated: backend item shape on folder status changes and the terminal transition", async () => {
+    const user = await new Client().as("user");
+    const admin = await new Client().as("admin");
+    const until = (evs: any[]) => evs.some((e) => e.type === "chat.updated" && e.chat_id === "f-running" && e.status === "idle");
+    const us = await collectEvents(user, until);
+    const as = await collectEvents(admin, until);
+    await Bun.sleep(30);
+    await user.req("POST", "/__mock/play", { id: "f-running" });
+    // f-running → waiting_permission; answer it → running → completed
+    for (let i = 0; i < 40 && !mock.store.permissions.get("f-running")?.length; i++) await Bun.sleep(20);
+    const pid = (await user.req("GET", "/api/chats/f-running/permissions")).body[0].id;
+    await user.req("POST", `/api/chats/f-running/permissions/${pid}`, { response: "once" });
+    const mine = (await us.finished).filter((e) => e.type === "chat.updated" && e.chat_id === "f-running");
+    expect(mine.map((e) => e.status)).toEqual(["waiting_permission", "running", "idle"]);
+    expect(Object.keys(mine[0]).sort()).toEqual(["archived_at", "chat_id", "created_at", "id", "kind", "phase", "snoozed_until", "status", "task_id", "title", "type", "updated_at"]);
+    expect(mine[0]).toMatchObject({ kind: "folder", id: "f-running", phase: null, task_id: null });
+    const adminSeen = (await as.finished).filter((e) => e.type === "chat.updated" && e.chat_id === "f-running");
+    expect(adminSeen.at(-1)).toMatchObject({ status: "idle", owner_user_id: "u-isokolova" });
+    expect(mine.some((e) => "owner_user_id" in e)).toBe(false);
+  });
+
+  test("chat events: tasks_only gets task chats, not folders; other users get nothing", async () => {
+    const tasks = await new Client().as("tasks"); // i.sokolova with tasks_only
+    const admin = await new Client().as("admin");
+    const taskChat = mock.store.jobs.get("r-running").chat_id;
+    const ts = await collectEvents(tasks, (evs) => evs.some((e) => e.chat_id === taskChat), 1500);
+    const nikitina = mock.store.chats.get("f-running");
+    await Bun.sleep(30);
+    await admin.req("POST", "/__mock/emit", { type: "chat.updated", chat_id: "f-running", title: "Папка" });
+    await admin.req("POST", "/__mock/emit", { type: "chat.updated", chat_id: taskChat, title: "Задача" });
+    const got = (await ts.finished).filter((e) => e.type === "chat.updated");
+    expect(got.map((e) => e.chat_id)).toEqual([taskChat]);
+    expect(got[0]).toMatchObject({ kind: "task", id: "r-running" });
+    expect(nikitina.owner_user_id).toBe("u-isokolova");
+    // a folder event of another owner never reaches i.sokolova
+    const user = await new Client().as("user");
+    const us = await collectEvents(user, () => false, 400);
+    const other = [...mock.store.chats.values()].find((c) => c.kind === "chat" && !c.consultation && c.owner_user_id !== "u-isokolova");
+    await Bun.sleep(30);
+    await admin.req("POST", "/__mock/emit", { type: "chat.updated", chat_id: other.id, title: "Чужая" });
+    expect((await us.finished).some((e) => e.type === "chat.updated")).toBe(false);
+  });
+
+  test("chat.questions.updated is {type, workspace, session_id}; never for consultations", async () => {
+    const user = await new Client().as("user");
+    const s = await collectEvents(user, (evs) => evs.filter((e) => e.type === "chat.questions.updated").length >= 1 && evs.some((e) => e.type === "consultation.updated" && e.job.status === "waiting_question"), 5000);
+    await user.req("POST", "/api/consultations", { message: "Уточни" });
+    await user.req("POST", "/api/chats", { message: "Сделай #question", agent: "build" });
+    const evs = await s.finished;
+    const q = evs.filter((e) => e.type === "chat.questions.updated");
+    expect(q).toHaveLength(1);
+    expect(Object.keys(q[0]).sort()).toEqual(["session_id", "type", "workspace"]);
+    const consultations = [...mock.store.chats.values()].filter((c) => c.consultation).map((c) => c.opencode_session_id);
+    expect(consultations).not.toContain(q[0].session_id);
+  });
+
+  test("opencode.disconnected without workspace reaches every workspace's users", async () => {
+    const user = await new Client().as("user");
+    const admin = await new Client().as("admin");
+    const us = await collectEvents(user, (evs) => evs.some((e) => e.type === "opencode.disconnected"), 1500);
+    const as = await collectEvents(admin, (evs) => evs.some((e) => e.type === "opencode.disconnected"), 1500);
+    await Bun.sleep(30);
+    expect((await admin.req("POST", "/__mock/emit", { type: "opencode.disconnected" })).body).toEqual({ published: true });
+    const got = (await us.finished).filter((e) => e.type === "opencode.disconnected");
+    expect(got).toEqual([{ type: "opencode.disconnected", workspace: D.ws("qa/firmware-sdk") }]);
+    expect((await as.finished).some((e) => e.type === "opencode.disconnected")).toBe(true);
+  });
+
+  test("audit objects resolve to fixtures", async () => {
+    const c = await new Client().as("admin");
+    const audit = (await c.req("GET", "/api/admin/audit?limit=500")).body.items;
+    const queue = (await c.req("GET", "/api/admin/queue")).body;
+    const requests = (await c.req("GET", "/api/admin/requests")).body;
+    for (const row of audit.filter((r: any) => r.object_type === "job")) expect(queue.jobs.some((j: any) => j.id === row.object_id)).toBe(true);
+    const runs = audit.filter((r: any) => r.object_type === "task_run");
+    expect(runs.length).toBeGreaterThan(0);
+    for (const row of runs) expect(requests.find((r: any) => r.id === row.object_id)?.title).toBe("Разбор упавшего CI-пайплайна");
+  });
+
+  test("t-conan is published to 3 users (prototype: 5 tasks for i.sokolova)", async () => {
+    const user = await new Client().as("user");
+    expect((await user.req("GET", "/api/tasks")).body.map((t: any) => t.id).sort()).toEqual(["t-ci", "t-conan", "t-dup", "t-mr", "t-notes"]);
+    const admin = await new Client().as("admin");
+    const conan = (await admin.req("GET", "/api/admin/tasks")).body.find((t: any) => t.id === "t-conan");
+    expect(conan).toMatchObject({ is_published: 1, visibility: "selected", audience_user_ids: ["u-anikitina", "u-isokolova", "u-pvolkov"] });
+  });
+
+  test("updated_by (user id) on admin tasks and queues", async () => {
+    const c = await new Client().as("admin");
+    expect((await c.req("GET", "/api/admin/tasks")).body.find((t: any) => t.id === "t-ci").updated_by).toBe("u-dorlov");
+    await c.req("POST", "/__mock/patch", { collection: "tasks", id: "t-ci", set: { title: "Разбор CI" }, by: "p.volkov" });
+    expect((await c.req("GET", "/api/admin/tasks")).body.find((t: any) => t.id === "t-ci").updated_by).toBe("u-pvolkov");
+    const queues = (await c.req("GET", "/api/admin/queues")).body;
+    expect(queues.every((q: any) => "updated_by" in q)).toBe(true);
+    const q = queues.find((x: any) => x.id === "long");
+    const patched = await c.req("PATCH", "/api/admin/queues/long", { name: q.name, priority: q.priority, max_workers: 2, updated_at: q.updated_at });
+    expect(patched.body.updated_by).toBe("u-dorlov");
+    expect((await c.req("GET", "/api/admin/queues")).body.find((x: any) => x.id === "long").updated_by).toBe("u-dorlov");
+    expect((await c.req("GET", "/api/admin/tasks/t-ci")).status).toBe(405); // the backend has no single-task GET (only PATCH/DELETE on the path)
+  });
+
+  test("statistics runs carry login", async () => {
+    const c = await new Client().as("admin");
+    const user = await new Client().as("user");
+    const run = (await user.req("POST", "/api/tasks/t-ci/runs", { user_input: "x" })).body;
+    const items = (await c.req("GET", "/api/admin/statistics/runs")).body.items;
+    expect(items.every((r: any) => typeof r.login === "string")).toBe(true);
+    expect(items.find((r: any) => r.id === run.id).login).toBe("i.sokolova");
+    expect(new Set(items.map((r: any) => r.login)).size).toBeGreaterThan(1);
+  });
+
+  test("GET /__mock/session?redirect= always answers 302 with the session cookie", async () => {
+    for (let i = 0; i < 5; i++) {
+      const res = await fetch(`${mock.url}/__mock/session?as=admin&redirect=/admin/queue`, { redirect: "manual" });
+      expect(res.status).toBe(302);
+      expect(res.headers.get("location")).toBe("/admin/queue");
+      const cookies = res.headers.getSetCookie();
+      expect(cookies.filter((x) => x.startsWith("ocw_session=")).length).toBe(1);
+      const me = await fetch(`${mock.url}/api/auth/me`, { headers: { cookie: cookies.map((x) => x.split(";")[0]).join("; ") } });
+      expect((await me.json()).user.login).toBe("d.orlov");
+    }
+    const json = await fetch(`${mock.url}/__mock/session?as=user`, { redirect: "manual" });
+    expect(json.status).toBe(200);
   });
 });

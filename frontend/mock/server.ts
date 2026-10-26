@@ -269,12 +269,13 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
   add("DELETE", "/api/chats/:id", "csrf", (c) => {
     const chat = anyChatOfOwner(c, c.params.id);
     for (const job of store.chatJobs(chat.id)) if (UNFINISHED.has(job.status)) store.setStatus(job, "cancelled");
+    const row = store.chatEventRow(chat);
     store.addAudit(c.user.id, "chat.delete", { effective: chat.owner_user_id, type: "chat", id: chat.id });
     store.dropChat(chat.id);
     store.tombstones.set(`chats:${chat.id}`, c.user.login);
     const t = store.snoozeTimers.get(chat.id);
     if (t) clearTimeout(t);
-    store.publish({ type: "chat.deleted", _owner: chat.owner_user_id, chat_id: chat.id });
+    store.publish({ type: "chat.deleted", item: row });
     return undefined;
   }, 204);
 
@@ -666,8 +667,9 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     const liveRuns = [...store.jobs.values()].filter((j) => j._live && (j.task_id || store.chats.get(j.chat_id)?.consultation)).map((j) => ({
       id: j.id, kind: j.task_id ? "task" : "question", task_id: j.task_id, task_title: j.task_title, created_at: j.created_at,
       started_at: j.started_at, finished_at: j.finished_at, outcome: TERMINAL.has(j.status) ? j.status : null,
+      login: store.users.get(j.effective_user_id)?.login ?? null,
     }));
-    return [...store.statRows().map(({ _who, ...r }) => r), ...liveRuns];
+    return [...store.statRows(), ...liveRuns];
   };
   add("GET", "/api/admin/statistics", "admin_read", (c) => {
     const tz = c.url.searchParams.get("timezone") || "UTC";
@@ -742,7 +744,7 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     store.queues.set(queue.id, queue);
     store.updatedBy.set(`queues:${queue.id}`, c.user.login);
     store.addAudit(c.user.id, "queue.create", { type: "queue", id: queue.id });
-    return queue;
+    return { ...queue, updated_by: c.user.id };
   }, 201);
   add("PATCH", "/api/admin/queues/:id", "admin", (c) => {
     const queue = store.queues.get(c.params.id) ?? gone("queues", c.params.id);
@@ -753,7 +755,7 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     Object.assign(queue, { name, priority: c.body.priority ?? 0, max_workers: c.body.max_workers, updated_at: nowIso() });
     store.updatedBy.set(`queues:${queue.id}`, c.user.login);
     store.addAudit(c.user.id, "queue.update", { type: "queue", id: queue.id });
-    return { ...queue };
+    return { ...queue, updated_by: c.user.id };
   });
   add("DELETE", "/api/admin/queues/:id", "admin", (c) => {
     const queue = store.queues.get(c.params.id);
@@ -1076,9 +1078,8 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
       if (profile) session = switchPersona(c, profile);
       const redirect = c.url.searchParams.get("redirect");
       if (method === "GET" && redirect) {
-        const h = new Headers({ location: redirect.startsWith("/") ? redirect : "/" });
-        for (const ck of c.cookies) h.append("set-cookie", ck);
-        return new Response(null, { status: 302, headers: h });
+        // Cookies are added once by finish() in handle().
+        return new Response(null, { status: 302, headers: { location: redirect.startsWith("/") ? redirect : "/" } });
       }
       return { ...stateSummary(), csrf_token: session?.csrf ?? null };
     }
@@ -1093,18 +1094,21 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     if (path === "/__mock/emit" && method === "POST") {
       const ev = c.body ?? {};
       if (!ev.type) fail(422, "type is required");
-      if (ev.type === "chat.updated" && ev.chat_id && !("title" in ev)) {
+      if (["chat.updated", "chat.deleted", "task.title.updated"].includes(ev.type) && !ev.item) {
+        // Chat events go through items.py chat_event_for_user, so they are published as {type, item}.
         const chat = store.chats.get(ev.chat_id) ?? fail(404, "Chat not found");
         Object.assign(chat, Object.fromEntries(Object.entries(ev).filter(([k]) => ["snoozed_until", "archived_at", "title"].includes(k))));
-        store.emitChat(chat);
+        store.armSnooze(chat);
+        store.emitChat(chat, ev.type);
       } else if (ev.type === "job.updated" && typeof ev.job === "string") {
         const job = store.jobs.get(ev.job) ?? fail(404, "Job not found");
         if (ev.status) store.setStatus(job, ev.status); else store.emitJob(job);
+      } else if (ev.type === "opencode.disconnected" && !ev.workspace) {
+        // The backend publishes it per OpenCode instance, always with its workspace (opencode_client.py),
+        // and delivers it only to users of that workspace (app.py can_receive_event): fan out per workspace.
+        const workspaces = new Set([...store.users.values()].map((u) => u.workspace_path).filter(Boolean));
+        for (const workspace of workspaces) store.publish({ ...ev, workspace });
       } else {
-        if (["chat.updated", "chat.deleted", "task.title.updated"].includes(ev.type) && !ev._owner) {
-          const chat = store.chats.get(ev.chat_id);
-          ev._owner = chat?.owner_user_id;
-        }
         store.publish(ev);
       }
       return { published: true };
@@ -1161,7 +1165,10 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
           }
         } else c.body = {};
       }
-      if (c.path.startsWith("/__mock/")) return finish(json(200, await control(c)));
+      if (c.path.startsWith("/__mock/")) {
+        const out = await control(c);
+        return finish(out instanceof Response ? out : json(200, out));
+      }
 
       // scenario: ?as= on the request, then Referer query, then x-mock-as header, then cookie
       const cookies = parseCookies(req.headers.get("cookie"));
