@@ -1,7 +1,8 @@
 import { MarkedOptions, Renderer, Tokens } from 'marked';
 
-/** Hrefs we render as links: web, mail and relative/anchor links. Anything else (javascript:, data:, vbscript:) is text. */
-const SAFE_HREF = /^(https?:|mailto:|\/|#|\.{0,2}\/)/i;
+/** Schemes we render as links. Hrefs without a scheme (relative, `/abs`, `?q`, `#anchor`) are links too; any other
+ * scheme (javascript:, data:, vbscript:, ...) is rendered as plain text. */
+const SAFE_SCHEMES = new Set(['http', 'https', 'mailto']);
 
 export function escapeHtml(value: string): string {
     return value
@@ -12,13 +13,34 @@ export function escapeHtml(value: string): string {
         .replace(/'/g, '&#39;');
 }
 
-export function isSafeHref(href: string | null | undefined): boolean {
-    if (!href) return false;
+let entityDecoder: HTMLTextAreaElement | null = null;
+
+/**
+ * Decodes HTML character references (`&colon;`, `&#58;`, `&#x3A;`, `&Tab;`, ...) the way the browser will when it
+ * reads the href attribute. `marked` leaves them as typed, so checking the raw href lets `javascript&colon;` through.
+ * The decoding runs in a `<textarea>` of an inert document: RCDATA, so only character references are interpreted.
+ */
+export function decodeEntities(value: string): string {
+    if (!value.includes('&')) return value;
+    entityDecoder ??= document.implementation.createHTMLDocument('').createElement('textarea');
+    entityDecoder.innerHTML = value;
+    return entityDecoder.value;
+}
+
+/** Href as the browser would resolve it, or null when it is not a web, mail or relative link. */
+export function safeHref(href: string | null | undefined): string | null {
+    if (!href) return null;
+    const decoded = decodeEntities(href);
     // Browsers ignore control chars and whitespace inside the scheme (`java\tscript:`), so strip them before checking.
     // eslint-disable-next-line no-control-regex
-    const compact = href.replace(/[\u0000- \u007f]/g, '');
-    if (!/^[a-z][a-z0-9+.-]*:/i.test(compact)) return true; // no scheme: relative link
-    return SAFE_HREF.test(compact);
+    const compact = decoded.replace(/[\u0000-\u0020\u007f-\u009f\u00a0\u1680\u2000-\u200f\u2028\u2029\u202f\u205f\u3000\ufeff]/g, '');
+    const firstDelimiter = compact.search(/[:/?#]/);
+    if (firstDelimiter === -1 || compact[firstDelimiter] !== ':') return decoded; // no scheme: relative link
+    return SAFE_SCHEMES.has(compact.slice(0, firstDelimiter).toLowerCase()) ? decoded : null;
+}
+
+export function isSafeHref(href: string | null | undefined): boolean {
+    return safeHref(href) !== null;
 }
 
 /**
@@ -27,11 +49,13 @@ export function isSafeHref(href: string | null | undefined): boolean {
  */
 export function createSafeRenderer(): Renderer {
     const renderer = new Renderer();
-    const baseLink = renderer.link.bind(renderer);
     renderer.html = ({ text }: Tokens.HTML | Tokens.Tag) => escapeHtml(text);
-    renderer.link = (token: Tokens.Link) => {
-        if (!isSafeHref(token.href)) return renderer.parser.parseInline(token.tokens);
-        return baseLink(token);
+    renderer.link = ({ href, title, tokens }: Tokens.Link) => {
+        const text = renderer.parser.parseInline(tokens);
+        const target = safeHref(href);
+        if (target === null) return text;
+        const titleAttr = title ? ` title="${escapeHtml(decodeEntities(title))}"` : '';
+        return `<a href="${escapeHtml(target)}"${titleAttr}>${text}</a>`;
     };
     renderer.image = ({ text }: Tokens.Image) => escapeHtml(text);
     return renderer;

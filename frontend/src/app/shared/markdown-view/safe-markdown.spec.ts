@@ -49,3 +49,74 @@ describe('safe markdown renderer', () => {
         expect(isSafeHref(href)).toBe(safe);
     });
 });
+
+describe('safe markdown renderer: entity-encoded and obfuscated schemes', () => {
+    const noJsLink = (html: string) => {
+        expect(html).not.toMatch(/<a\b/i);
+        expect(html).not.toMatch(/href/i);
+    };
+
+    it.each([
+        ['[x](javascript&colon;alert(1))'],
+        ['[x](javascript&#58;alert(1))'],
+        ['[x](javascript&#x3A;alert(1))'],
+        ['[x](javascript&#X3a;alert(1))'],
+        ['[x](javascript&#0000058;alert(1))'],
+        ['[x](JaVaScRiPt:alert(1))'],
+        ['[x](&#106;avascript:alert(1))'],
+        ['[x](java&Tab;script:alert(1))'],
+        ['[x](java&#9;script:alert(1))'],
+        ['[x](java&NewLine;script:alert(1))'],
+        ['[x](<java\tscript:alert(1)>)'],
+        ['[x](data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==)'],
+        ['[x](data&colon;text/html,x)'],
+        ['[x](vbscript:msgbox(1))'],
+        ['[x](vbscript&colon;msgbox(1))'],
+        ['[x][1]\n\n[1]: javascript&colon;alert(1)'],
+        ['[x][1]\n\n[1]: javascript&#58;alert(1)'],
+        ['[x](<javascript&colon;alert(1)>)'],
+        ['<javascript&colon;alert(1)> x'],
+    ])('does not render a link for %j', (md) => {
+        const html = render(md);
+        noJsLink(html);
+        expect(html).toContain('x');
+    });
+
+    it('escapes raw HTML anchors with javascript: hrefs', () => {
+        for (const md of ['<a href=javascript:alert(1)>x</a>', 'text <a href="javascript&colon;alert(1)">x</a>']) {
+            const html = render(md);
+            expect(html).not.toMatch(/<a\b/i);
+            expect(html).toContain('&lt;a');
+        }
+    });
+
+    it('escapes the href attribute of safe links', () => {
+        const html = render('[x](https://a.b/?q="onmouseover=alert(1)")');
+        expect(html).not.toMatch(/href="[^"]*"\s*onmouseover/i);
+        expect(html).toMatch(/<a href="https:\/\/a\.b\/\?q=[^"]*">x<\/a>/);
+    });
+
+    it('keeps relative, anchor and query links', () => {
+        expect(render('[x](/chats/1)')).toContain('<a href="/chats/1">x</a>');
+        expect(render('[x](#top)')).toContain('<a href="#top">x</a>');
+        expect(render('[x](page?a=1:2)')).toContain('<a href="page?a=1:2">x</a>');
+        expect(render('[x](mailto:a@b.c)')).toContain('<a href="mailto:a@b.c">x</a>');
+    });
+
+    it.each([
+        ['javascript&colon;alert(1)', false],
+        ['javascript&#58;alert(1)', false],
+        ['javascript&#x3A;alert(1)', false],
+        ['javascript&#0000058;alert(1)', false],
+        ['JaVaScRiPt:alert(1)', false],
+        ['java\nscript:alert(1)', false],
+        ['  javascript:alert(1)', false],
+        ['data&colon;text/html,x', false],
+        ['ftp://a.b', false],
+        ['HTTPS://a.b', true],
+        ['a/b:c', true],
+        ['?x=a:b', true],
+    ])('isSafeHref(%j) = %s', (href, safe) => {
+        expect(isSafeHref(href)).toBe(safe);
+    });
+});
