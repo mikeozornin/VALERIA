@@ -8,6 +8,8 @@ import {
     byLastLogin,
     AdminUser,
 } from './admin.models';
+import { KbqPipeTypes } from '@koobiq/components/filter-bar';
+import { pipeTrackKey } from './pipe-track';
 import { auditCategoryCodes, auditLabel, AUDIT_ACTIONS } from './audit-labels';
 import { batchToast, BatchResult } from './batch';
 import { formatWhen, plural, formatDay } from './format';
@@ -229,5 +231,22 @@ describe('byLastLogin', () => {
             u('i.sokolova', '2026-10-24T13:50:00Z'),
         ].sort(byLastLogin);
         expect(sorted.map((x) => x.login)).toEqual(['i.sokolova', 'd.orlov', 'a.nikitina', 'youtrack-bot']);
+    });
+});
+
+describe('pipeTrackKey', () => {
+    const pipe = (type: KbqPipeTypes, value: unknown) =>
+        ({ name: 'Задача', id: 'task', type, value, cleanable: true, removable: false, disabled: false }) as never;
+
+    it('changes for a single select once its value label resolves', () => {
+        const before = pipeTrackKey(pipe(KbqPipeTypes.Select, null));
+        const after = pipeTrackKey(pipe(KbqPipeTypes.Select, { name: 'Разбор упавшего CI-пайплайна', value: 't-ci' }));
+        expect(before).toBe('task|');
+        expect(after).toBe('task|Разбор упавшего CI-пайплайна');
+    });
+
+    it('stays stable for multi-select and datetime pipes', () => {
+        expect(pipeTrackKey(pipe(KbqPipeTypes.MultiSelect, [{ name: 'a', value: 'a' }]))).toBe('task');
+        expect(pipeTrackKey(pipe(KbqPipeTypes.Datetime, { start: { days: -30 }, end: null }))).toBe('task');
     });
 });

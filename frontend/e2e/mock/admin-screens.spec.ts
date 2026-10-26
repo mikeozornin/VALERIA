@@ -104,3 +104,36 @@ test('«Очередь» · «Сейчас» renders without errors', async ({ p
     await expect(page.getByRole('button', { name: 'Остановить' }).first()).toBeVisible();
     expect(errors).toEqual([]);
 });
+
+/** Holds `/api/admin/tasks` back so the filter bar renders before the task titles arrive (the deep-link race). */
+async function delayTasks(page: Page): Promise<void> {
+    await page.route('**/api/admin/tasks', async (route) => {
+        await new Promise((r) => setTimeout(r, 800));
+        await route.continue();
+    });
+}
+
+test('«Запросы пользователей»: a `?task=` deep link shows the «Задача» chip with the task title', async ({ page, mock }) => {
+    await mock.reset('admin');
+    await delayTasks(page);
+    await openAs(page, 'admin', '/admin/requests?type=task&period=30d&task=t-ci');
+    await expect(page.getByRole('button', { name: /^Задача\s*Разбор упавшего CI-пайплайна/ })).toBeVisible();
+    await expect(page.locator('table tbody tr')).toHaveCount(4);
+
+    // Clearing and picking the task again still works after the pipe is re-created.
+    const chip = page.getByRole('button', { name: /^Задача\s*Разбор упавшего CI-пайплайна/ });
+    // Pipe order: «Период», «Тип», «Задача» — the last «Очистить» belongs to «Задача».
+    await page.getByRole('button', { name: 'Очистить' }).last().click();
+    await expect(page).not.toHaveURL(/[?&]task=/);
+    await page.getByRole('button', { name: /^Задача/ }).click();
+    await page.locator('.cdk-overlay-container').getByText('Разбор упавшего CI-пайплайна', { exact: true }).click();
+    await expect(page).toHaveURL(/[?&]task=t-ci/);
+    await expect(chip).toBeVisible();
+});
+
+test('«Статистика»: a `?type=<task>` deep link shows the task title in the «Тип» chip', async ({ page, mock }) => {
+    await mock.reset('admin');
+    await delayTasks(page);
+    await openAs(page, 'admin', '/admin/statistics?period=30d&type=t-ci');
+    await expect(page.getByRole('button', { name: /^Тип\s*Разбор упавшего CI-пайплайна/ })).toBeVisible();
+});

@@ -34,6 +34,7 @@ import {
     periodToQuery,
 } from '../shared/period';
 import { KIND_LABEL } from '../shared/requests.helpers';
+import { pipeTrackKey } from '../shared/pipe-track';
 import { requestFilterParams, RequestFilters } from './requests.filters';
 
 const KINDS: ItemKind[] = ['question', 'task', 'folder'];
@@ -67,7 +68,7 @@ const KINDS: ItemKind[] = ['question', 'task', 'folder'];
         <div class="v-content">
             <div class="v-filters">
                 <kbq-filter-bar [filter]="filter()" [pipeTemplates]="templates()" (onChangePipe)="onPipe($event)">
-                    @for (pipe of filter().pipes; track pipe.id) {
+                    @for (pipe of filter().pipes; track pipeKey(pipe)) {
                         <ng-container *kbqPipe="pipe" />
                     }
                     @if (filtered()) {
@@ -174,6 +175,7 @@ export class RequestsComponent {
     protected readonly colors = KbqComponentColors;
     protected readonly badgeColors = KbqBadgeColors;
     protected readonly dash = '—';
+    protected readonly pipeKey = pipeTrackKey;
 
     protected readonly loading = signal(true);
     protected readonly error = signal<unknown>(null);
