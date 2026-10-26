@@ -67,6 +67,7 @@ import {
     upsertPart,
     workingText,
 } from './folder.model';
+import { OutlineIconComponent } from '../../shared/outline-icon/outline-icon.component';
 
 interface ViewMessage {
     id: string;
@@ -103,6 +104,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
         ClarifyCardComponent,
         ChatComposerComponent,
         SendButtonComponent,
+        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -147,7 +149,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                             <div class="v-chat">
                                 @if (disconnected()) {
                                     <kbq-alert class="v-lost" alertStyle="colored" alertColor="warning">
-                                        <i kbq-icon-item="kbq-triangle-exclamation_16"></i>
+                                        <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
                                         Связь с агентом потеряна, переподключаемся
                                     </kbq-alert>
                                 }
@@ -206,7 +208,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                 }
                                 @if (failure(); as f) {
                                     <kbq-alert class="v-failed" alertStyle="colored" alertColor="error">
-                                        <i kbq-icon-item="kbq-circle-exclamation_16"></i>
+                                        <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                                         {{ f.text }}
                                         @if (f.code) {
                                             <span class="v-tertiary">{{ f.code }}</span>

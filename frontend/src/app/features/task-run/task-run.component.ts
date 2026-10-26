@@ -40,6 +40,7 @@ import { TasksCatalog } from '../../shared/tasks/tasks-catalog.service';
 import { HomeDrafts } from '../home/home-drafts';
 import { NOTIFY_TEXT } from '../home/home.component';
 import { canCancel, durationText, minutesText, pluralTasks, runStages, startedText } from './run-view';
+import { OutlineIconComponent } from '../../shared/outline-icon/outline-icon.component';
 
 interface QueueRow {
     id: string | number;
@@ -69,6 +70,7 @@ const FAILED_HINT =
         KbqIconModule,
         MarkdownViewComponent,
         KbqProgressSpinnerModule,
+        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { class: 'v-task-run' },

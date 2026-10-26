@@ -44,6 +44,7 @@ import { MarkdownViewComponent } from '../../shared/markdown-view/markdown-view.
 import { NotFoundComponent } from '../../shared/not-found/not-found.component';
 import { PageStateComponent } from '../../shared/page-state/page-state.component';
 import { ConsultationDetail, QueueJob, queueLine, questionTitle } from './question.model';
+import { OutlineIconComponent } from '../../shared/outline-icon/outline-icon.component';
 
 /** Answers given in this browser session, shown under the question they clarify (the API does not return them). */
 interface Clarified {
@@ -74,6 +75,7 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
         ClarifyCardComponent,
         ChatComposerComponent,
         SendButtonComponent,
+        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -140,7 +142,7 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
                                 <v-clarify-card [request]="q" [submit]="reply" />
                             } @else if (phase() === 'failed') {
                                 <kbq-alert alertStyle="colored" alertColor="error">
-                                    <i kbq-icon-item="kbq-circle-exclamation_16"></i>
+                                    <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                                     <div kbq-alert-title>Не удалось подготовить ответ</div>
                                     Вопрос сохранён. Отправьте его ещё раз.
                                     @if (failure(); as f) {

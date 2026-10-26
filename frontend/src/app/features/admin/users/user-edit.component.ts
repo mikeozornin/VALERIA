@@ -46,6 +46,8 @@ import {
 } from '../shared/admin.models';
 import { ADMIN_FORM_STYLES } from '../shared/admin-styles';
 import { SyncOp, SyncSlowAlertComponent } from '../shared/sync-op';
+import { KbqIconModule } from '@koobiq/components/icon';
+import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 const WS_BUSY = 'Workspace cannot change while jobs are queued or active';
 const MM_TAKEN = 'Mattermost user is already assigned';
@@ -76,6 +78,8 @@ interface FormSnapshot {
         KbqInputModule,
         KbqRadioModule,
         KbqToggleModule,
+        KbqIconModule,
+        OutlineIconComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -95,7 +99,8 @@ interface FormSnapshot {
                     <div class="v-form">
                         <v-sync-slow-alert [op]="op" />
                         @if (conflict(); as c) {
-                            <kbq-alert [alertColor]="alertColors.Error">
+                            <kbq-alert [alertColor]="alertColors.Error" alertStyle="colored">
+                                <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                                 <div kbq-alert-title>{{ conflictTitle(c) }}</div>
                                 @if (c.kind === 'conflict') {
                                     <div kbq-alert-control>
@@ -113,7 +118,8 @@ interface FormSnapshot {
                             </kbq-alert>
                         }
                         @if (wsJobs(); as jobs) {
-                            <kbq-alert [alertColor]="alertColors.Error">
+                            <kbq-alert [alertColor]="alertColors.Error" alertStyle="colored">
+                                <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                                 <div kbq-alert-title>
                                     Папку не сменить, пока у {{ u.login }} есть задания в очереди или в работе
                                 </div>
@@ -127,7 +133,8 @@ interface FormSnapshot {
                             </kbq-alert>
                         }
                         @if (saveError(); as e) {
-                            <kbq-alert [alertColor]="alertColors.Error">
+                            <kbq-alert [alertColor]="alertColors.Error" alertStyle="colored">
+                                <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                                 <div kbq-alert-title>Не удалось сохранить</div>
                                 {{ e }}
                             </kbq-alert>

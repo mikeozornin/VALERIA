@@ -17,8 +17,6 @@
                 [color]="colors.Theme"
                 class="v-nav__newreq"
                 routerLink="/"
-                routerLinkActive="v-nav__newreq_active"
-                [routerLinkActiveOptions]="{ exact: true }"
                 data-nav-home
             >
                 <i kbq-icon="kbq-plus_16"></i>
@@ -108,11 +106,9 @@
                 [attr.aria-label]="user.login + ' · ' + auth.roleLabel()"
             >
                 <span class="v-nav__avatar" aria-hidden="true">{{ initials() }}</span>
-                <!-- SPEC §6.1: «login · роль». A plain span, not kbq-navbar-title: the title slot would move the avatar
-                     after the text and add a submenu chevron. kbq-title shows the full text only when it is cropped. -->
-                <span class="v-nav__user-name" kbq-title
-                    >{{ user.login }}<span class="v-nav__user-role"> · {{ auth.roleLabel() }}</span></span
-                >
+                <!-- The row shows the person only, as in the prototype; the role is in the menu caption. A plain span,
+                     not kbq-navbar-title: the title slot would move the avatar after the text and add a chevron. -->
+                <span class="v-nav__user-name" kbq-title>{{ user.login }}</span>
             </button>
         }
     </kbq-navbar-container>
@@ -144,22 +140,22 @@
                         <!-- Only Активные is coloured (prototype): finished chats get neutral icons, the label tells the outcome. -->
                         @switch (statusMark(item)) {
                             @case ('waiting') {
-                                <i kbq-icon="kbq-circle-exclamation_16" [color]="colors.Warning"></i>
+                                <v-outline-icon name="alert-circle" class="v-ic_warning" />
                             }
                             @case ('running') {
                                 <kbq-progress-spinner mode="indeterminate" />
                             }
                             @case ('success') {
-                                <i kbq-icon="kbq-check-circle_16" [color]="colors.ContrastFade"></i>
+                                <v-outline-icon name="check-circle" class="v-ic_fade" />
                             }
                             @case ('failed') {
-                                <i kbq-icon="kbq-circle-exclamation_16" [color]="colors.ContrastFade"></i>
+                                <v-outline-icon name="alert-circle" class="v-ic_fade" />
                             }
                             @case ('cancelled') {
-                                <i kbq-icon="kbq-xmark-circle_16" [color]="colors.ContrastFade"></i>
+                                <v-outline-icon name="x-circle" class="v-ic_fade" />
                             }
                             @default {
-                                <i kbq-icon="kbq-clock_16" [color]="colors.ContrastFade"></i>
+                                <v-outline-icon name="clock" class="v-ic_fade" />
                             }
                         }
                     </span>

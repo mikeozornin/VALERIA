@@ -199,9 +199,9 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
 
                     <ng-container vFootMain>
                         @if (published()) {
-                            <button type="button" kbq-button [color]="colors.Contrast" [disabled]="submit.pending()" (click)="act('save')">Сохранить</button>
+                            <button type="button" kbq-button [color]="colors.Theme" [disabled]="submit.pending()" (click)="act('save')">Сохранить</button>
                         } @else {
-                            <button type="button" kbq-button [color]="colors.Contrast" [disabled]="submit.pending()" (click)="act('publish')">
+                            <button type="button" kbq-button [color]="colors.Theme" [disabled]="submit.pending()" (click)="act('publish')">
                                 <i kbq-icon="kbq-arrow-up-from-line_16"></i>
                                 Опубликовать
                             </button>

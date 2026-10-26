@@ -156,10 +156,6 @@
         }
     }
 
-    .v-nav__newreq_active.kbq-button {
-        box-shadow: inset 0 0 0 1px var(--kbq-line-theme);
-    }
-
     .v-nav__section {
         flex: none;
         padding: var(--kbq-size-m) var(--kbq-size-l) var(--kbq-size-xxs);
@@ -171,6 +167,13 @@
         display: inline-flex;
         flex: none;
         align-items: center;
+    }
+
+    // Prototype `.v-spin`: the running mark is a 12 px spinner with 2 px side margins.
+    .v-nav__st .kbq-progress-spinner__inner {
+        width: 12px;
+        height: 12px;
+        margin: 0 var(--kbq-size-3xs);
     }
 
     .v-nav__when {
@@ -237,8 +240,10 @@
         white-space: nowrap;
     }
 
-    .v-nav__user-role {
-        color: var(--kbq-foreground-contrast-secondary);
+    // Open user menu: the row keeps the selected-row fill (prototype `.k-navbar__item.is-selected`).
+    .v-nav__user.kbq-pressed::after {
+        display: block;
+        background: var(--kbq-states-background-transparent-active);
     }
 }
 

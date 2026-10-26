@@ -103,8 +103,8 @@
                             </div>
                         }
                         @case ('failed') {
-                            <kbq-alert alertColor="error" alertStyle="colored" [compact]="true">
-                                <i kbq-icon="kbq-circle-exclamation_16" [color]="colors.Error"></i>
+                            <kbq-alert alertColor="error" alertStyle="colored">
+                                <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                                 <div kbq-alert-title>Задача завершилась с ошибкой</div>
                                 {{ errorText().text }} {{ failedHint }}
                                 @if (errorText().code) {
@@ -113,8 +113,8 @@
                             </kbq-alert>
                         }
                         @case ('cancelled') {
-                            <kbq-alert alertStyle="colored" [compact]="true">
-                                <i kbq-icon="kbq-circle-info_16" [color]="colors.Contrast"></i>
+                            <kbq-alert>
+                                <i kbq-icon="" color="contrast-fade"><v-outline-icon name="info" /></i>
                                 <div kbq-alert-title>Запуск отменён в {{ finishedAt() }}</div>
                                 Итога нет. Чтобы начать заново, запустите задачу ещё раз.
                                 <button kbq-alert-control kbq-button [color]="colors.ContrastFade" (click)="rerun()">

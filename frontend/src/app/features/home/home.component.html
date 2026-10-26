@@ -1,7 +1,7 @@
 <div class="v-home__narrow">
     @if (noFolder()) {
-        <kbq-alert class="v-home__nofolder" alertColor="warning" alertStyle="colored" [compact]="true">
-            <i kbq-icon="kbq-triangle-exclamation_16" [color]="colors.Warning"></i>
+        <kbq-alert class="v-home__nofolder" alertColor="warning" alertStyle="colored">
+            <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
             <div kbq-alert-title>{{ noFolderText }}</div>
             Без неё нельзя задать вопрос, запустить задачу или работать в папке. Напишите администратору.
         </kbq-alert>
@@ -55,8 +55,8 @@
             </div>
             <div class="v-home__hint">Текст добавится в конец инструкции задачи.</div>
             @if (duplicate()) {
-                <kbq-alert class="v-home__duplicate" alertColor="warning" alertStyle="colored" [compact]="true">
-                    <i kbq-icon="kbq-triangle-exclamation_16" [color]="colors.Warning"></i>
+                <kbq-alert class="v-home__duplicate" alertColor="warning" alertStyle="colored">
+                    <i kbq-icon="" color="warning"><v-outline-icon name="alert-triangle" /></i>
                     <div kbq-alert-title>Такой запуск уже идёт</div>
                     Эта задача с той же ссылкой выполняется с {{ duplicateTime() }}. Новый запуск не создан.
                     <button kbq-alert-control kbq-button [color]="colors.ContrastFade" (click)="openDuplicate()">

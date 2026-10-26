@@ -55,6 +55,7 @@ import { BatchAction, batchToast, BatchResult } from '../shared/batch';
 import { DASH, formatWhen, plural } from '../shared/format';
 import { statusTextColor } from '../shared/requests.helpers';
 import { SyncOp, SyncSlowAlertComponent } from '../shared/sync-op';
+import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.component';
 
 const RECENT_LIMIT = 20;
 
@@ -86,6 +87,7 @@ const RECENT_LIMIT = 20;
         KbqFormFieldModule,
         KbqInputModule,
         KbqAlertModule,
+        OutlineIconComponent,
     ],
     providers: [KbqActionsPanel],
     changeDetection: ChangeDetectionStrategy.OnPush,
@@ -352,7 +354,8 @@ const RECENT_LIMIT = 20;
             <form class="v-reset" (ngSubmit)="confirmReset()" id="v-reset-form">
                 <v-sync-slow-alert [op]="resetOp" />
                 @if (resetError(); as e) {
-                    <kbq-alert [alertColor]="alertColors.Error">
+                    <kbq-alert [alertColor]="alertColors.Error" alertStyle="colored">
+                        <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                         <div kbq-alert-title>Не удалось сбросить пароль</div>
                         {{ e }}
                     </kbq-alert>
