@@ -308,6 +308,9 @@ describe("scenario controls", () => {
     expect(performance.now() - t0).toBeGreaterThanOrEqual(290);
     expect(await c.req("GET", "/api/tasks", undefined, { "x-mock-fail": "500" })).toEqual({ status: 500, body: { detail: "Mock forced error" } });
     expect((await c.req("GET", "/api/task-runs/r-nope")).body).toEqual({ detail: "Task run not found" });
+    // A reset with a persona starts from the default profile: the folder is assigned again.
+    await c.req("POST", "/__mock/reset", { as: "user" });
+    expect((await c.req("GET", "/api/auth/me")).body.user.workspace_path).not.toBeNull();
   });
 });
 

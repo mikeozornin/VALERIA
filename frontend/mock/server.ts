@@ -1087,7 +1087,8 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
       const profile = store.profile;
       store.reset();
       store.scenario = { delay: 0, delay_path: null, fail: null, fail_status: 503, fail_times: null };
-      const next = profileFrom(new URLSearchParams(Object.entries(c.body ?? {}).map(([k, v]) => [k, String(v)])), profile) ?? profile;
+      // A reset with a persona starts from the default profile (folder assigned) unless the body says otherwise.
+      const next = profileFrom(new URLSearchParams(Object.entries(c.body ?? {}).map(([k, v]) => [k, String(v)])), { ...profile, folder: true }) ?? profile;
       const session = switchPersona(c, next);
       return { ...stateSummary(), csrf_token: session?.csrf ?? null };
     }
