@@ -1545,12 +1545,17 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         principal: Annotated[dict[str, Any], Depends(current_principal)],
         db: Annotated[Database, Depends(database)],
     ) -> list[dict[str, Any]]:
-        kinds = allowed_item_kinds(principal["user"])
+        user = principal["user"]
+        kinds = allowed_item_kinds(user)
+        workspace = user.get("workspace_path")
         positions = db.queue_positions()
         return [
             public_queue_job(job, positions.get(job["id"]))
-            for job in db.list_jobs(principal["user"]["id"])
+            for job in db.list_jobs(user["id"])
             if not job.get("chat_deleted_at") and job_kind(job) in kinds
+            # Like /api/me/items: folder chats and questions belong to one workspace,
+            # task runs follow the user.
+            and (job_kind(job) == "task" or job["workspace_snapshot"] == workspace)
         ]
 
     @app.get("/api/jobs/{job_id}")

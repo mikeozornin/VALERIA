@@ -93,3 +93,28 @@ async def test_queue_me_hides_folder_jobs_from_tasks_only_and_deleted_chats(ui_a
     }
     assert (await t.client.delete(f"/api/chats/{question['chat_id']}")).status_code == 204
     assert await queue_of(t, "tasker") == {}
+
+
+async def test_queue_me_drops_folder_jobs_and_questions_of_an_old_workspace(ui_app, workspace):
+    t = ui_app
+    worker = t.users["worker"]
+    question = await make_question(t, "worker")
+    folder = await make_folder(t, "worker")
+    run = await make_run(t, "worker")
+    for made in (question, folder, run):
+        for job in t.db.unfinished_chat_jobs(made["chat_id"]):
+            t.db.set_job_status(job["id"], "completed")
+    moved = workspace / "moved"
+    moved.mkdir()
+    await login(t.client)
+    response = await t.client.patch(
+        f"/api/admin/users/{worker['id']}", json={"workspace_path": str(moved)}
+    )
+    assert response.status_code == 200, response.text
+
+    rows = await queue_of(t, "worker")
+    assert {row["chat_id"] for row in rows.values()} == {run["chat_id"]}
+
+    fresh = await make_folder(t, "worker", "Новая папка")
+    rows = await queue_of(t, "worker")
+    assert {row["chat_id"] for row in rows.values()} == {run["chat_id"], fresh["chat_id"]}
