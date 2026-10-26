@@ -33,6 +33,11 @@ function setup<T>(component: Type<T>, get: (url: string) => Promise<unknown>, it
     const events = new Subject<ServerEvent>();
     const post = vi.fn().mockResolvedValue({});
     const notify = { error: vi.fn(), success: vi.fn(), warning: vi.fn() };
+    const store = {
+        byChatId: (id: string) => items.find((i) => i.chat_id === id) ?? null,
+        find: (p: (i: unknown) => boolean) => items.find(p) ?? null,
+        patchChat: vi.fn(),
+    };
     TestBed.configureTestingModule({
         providers: [
             provideRouter([]),
@@ -45,14 +50,7 @@ function setup<T>(component: Type<T>, get: (url: string) => Promise<unknown>, it
                     pollWhileDisconnected: () => () => undefined,
                 },
             },
-            {
-                provide: ItemsStore,
-                useValue: {
-                    byChatId: (id: string) => items.find((i) => i.chat_id === id) ?? null,
-                    find: (p: (i: unknown) => boolean) => items.find(p) ?? null,
-                    patchChat: vi.fn(),
-                },
-            },
+            { provide: ItemsStore, useValue: store },
             { provide: NotifyService, useValue: notify },
             { provide: AuthService, useValue: { user: signal(null) } },
             { provide: KbqModalService, useValue: { create: vi.fn() } },
@@ -69,7 +67,7 @@ function setup<T>(component: Type<T>, get: (url: string) => Promise<unknown>, it
         fixture.detectChanges();
         await flush();
     };
-    return { fixture, cmp, events, post, notify, open };
+    return { fixture, cmp, events, post, notify, open, store };
 }
 
 const notFound = () => Promise.reject(new ApiError(404, null, null, null));
@@ -141,6 +139,29 @@ describe('question screen', () => {
     });
 });
 
+describe('question screen: a send that finishes after a chat switch', () => {
+    const detail = (id: string) => ({ id, title: id, status: 'completed', messages: [], created_at: '', updated_at: '' });
+
+    it('does not append the message or the status to the chat opened meanwhile', async () => {
+        const { cmp, post, open, store } = setup(QuestionComponent, (url) =>
+            url.startsWith('/api/consultations/') ? Promise.resolve(detail(url.split('/')[3])) : Promise.resolve([]),
+        );
+        await open('qa');
+        const sent = deferred<unknown>();
+        post.mockReturnValueOnce(sent.promise);
+        const result = cmp.ask('Вопрос для A');
+        await open('qb');
+        store.patchChat.mockClear();
+        sent.resolve({});
+        expect(await result).toBe(true);
+        expect(cmp.detail().id).toBe('qb');
+        expect(cmp.detail().messages).toEqual([]);
+        expect(cmp.detail().status).toBe('completed');
+        expect(store.patchChat).toHaveBeenCalledWith('qa', { status: 'queued' });
+        expect(store.patchChat).not.toHaveBeenCalledWith('qb', expect.anything());
+    });
+});
+
 describe('folder screen', () => {
     const chat = (id: string, status = 'idle') => ({ id, title: id, status, workspace_snapshot: '/w', opencode_session_id: `s-${id}` });
 
@@ -178,6 +199,27 @@ describe('folder screen', () => {
         expect(cmp.permissions()).toEqual([]);
         expect(cmp.mcp()).toEqual([]);
         expect(cmp.job()).toBeNull();
+    });
+
+    it('a send that finishes after a chat switch leaves the chat opened meanwhile alone', async () => {
+        const { cmp, post, open, store } = setup(FolderComponent, (url) => {
+            const m = /^\/api\/chats\/([^/]+)$/.exec(url);
+            if (m) return Promise.resolve(chat(m[1]));
+            return Promise.resolve(url.startsWith('/api/options') ? {} : []);
+        });
+        await open('fa');
+        const sent = deferred<unknown>();
+        post.mockReturnValueOnce(sent.promise);
+        const result = cmp.send('Запусти тесты');
+        await open('fb');
+        store.patchChat.mockClear();
+        sent.resolve({});
+        expect(await result).toBe(true);
+        expect(cmp.chat().id).toBe('fb');
+        expect(cmp.chat().status).toBe('idle');
+        expect(cmp.pendingText()).toBe('');
+        expect(store.patchChat).toHaveBeenCalledWith('fa', { status: 'queued' });
+        expect(store.patchChat).not.toHaveBeenCalledWith('fb', expect.anything());
     });
 
     it('does not reuse the idempotency key of a failed send in another chat', async () => {

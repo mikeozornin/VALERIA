@@ -369,8 +369,9 @@ export class QuestionComponent {
 
     /** Follow-up question. */
     protected readonly ask = async (text: string): Promise<boolean> => {
+        const id = this.id();
         const ok = await this.postMessage(text, this.askAction, 'Не удалось отправить вопрос');
-        if (ok) this.appendUserMessage(text);
+        if (ok) this.appendUserMessage(id, text);
         return ok;
     };
 
@@ -379,8 +380,9 @@ export class QuestionComponent {
         const last = [...(this.detail()?.messages ?? [])].reverse().find((m) => m.role === 'user');
         if (!last || this.retrying()) return;
         this.retrying.set(true);
+        const id = this.id();
         try {
-            if (await this.postMessage(last.text, this.retryAction, 'Не удалось отправить вопрос ещё раз')) {
+            if ((await this.postMessage(last.text, this.retryAction, 'Не удалось отправить вопрос ещё раз')) && id === this.id()) {
                 this.detail.update((d) => (d ? { ...d, status: 'queued' } : d));
                 this.job.set(null);
                 void this.load(true);
@@ -402,6 +404,8 @@ export class QuestionComponent {
                 { idempotencyKey: this.replyAction.keyFor({ chat: id, request: request.id, payload }) },
             );
             this.replyAction.done();
+            // Another chat is open now: its detail is not the one the answers belong to.
+            if (id !== this.id()) return true;
             const lastUser = [...(this.detail()?.messages ?? [])].reverse().find((m) => m.role === 'user');
             const records = request.questions.map((q, i) => ({
                 afterMessageId: lastUser?.id ?? '',
@@ -417,7 +421,7 @@ export class QuestionComponent {
             return true;
         } catch (err) {
             this.notify.error('Не удалось отправить ответ', describeError(err).text);
-            if (err instanceof ApiError && (err.isNotFound || err.isConflict)) void this.load(true);
+            if (id === this.id() && err instanceof ApiError && (err.isNotFound || err.isConflict)) void this.load(true);
             return false;
         }
     };
@@ -436,7 +440,7 @@ export class QuestionComponent {
             if (err instanceof ApiError && err.isConflict) {
                 // «Сначала ответьте на уточняющий вопрос»: Valeria asked something meanwhile.
                 this.notify.error(failTitle, err.detail || 'Сначала ответьте на уточняющий вопрос');
-                void this.load(true);
+                if (id === this.id()) void this.load(true);
             } else {
                 this.notify.error(failTitle, describeError(err).text);
             }
@@ -444,7 +448,10 @@ export class QuestionComponent {
         }
     }
 
-    private appendUserMessage(text: string): void {
+    /** `id` is the chat the message was sent to: after the awaited POST the screen may show another chat. */
+    private appendUserMessage(id: string, text: string): void {
+        this.items.patchChat(id, { status: 'queued' });
+        if (id !== this.id()) return;
         this.detail.update((d) =>
             d
                 ? {
@@ -454,7 +461,6 @@ export class QuestionComponent {
                   }
                 : d,
         );
-        this.items.patchChat(this.id(), { status: 'queued' });
         this.scrollToEnd();
         void this.loadJob();
     }

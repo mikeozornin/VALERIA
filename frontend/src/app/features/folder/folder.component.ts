@@ -715,9 +715,10 @@ export class FolderComponent {
         }
     }
 
-    private setStatus(status: string): void {
-        this.chat.update((c) => (c ? { ...c, status } : c));
-        this.items.patchChat(this.id(), { status });
+    /** `id` is the chat a request was made for: after an awaited request the screen may show another chat. */
+    private setStatus(status: string, id = this.id()): void {
+        this.items.patchChat(id, { status });
+        if (id === this.id()) this.chat.update((c) => (c ? { ...c, status } : c));
     }
 
     private userCountAtSend = Number.POSITIVE_INFINITY;
@@ -740,9 +741,10 @@ export class FolderComponent {
     protected async runPlan(): Promise<void> {
         if (this.building()) return;
         this.building.set(true);
+        const id = this.id();
         try {
             if (await this.postMessage({ message: 'Выполни план', agent: 'build', model: this.model() || undefined }, this.buildAction)) {
-                this.agent.set('build');
+                if (id === this.id()) this.agent.set('build');
             }
         } finally {
             this.building.set(false);
@@ -750,10 +752,15 @@ export class FolderComponent {
     }
 
     private async postMessage(body: { message: string; agent: string; model?: string }, action: IdempotentAction): Promise<boolean> {
+        const id = this.id();
         try {
             // The chat id is part of the key: the same text in another chat is another action.
-            await this.api.post(`${this.base}/messages`, body, { idempotencyKey: action.keyFor({ chat: this.id(), ...body }) });
+            await this.api.post(`${this.base}/messages`, body, { idempotencyKey: action.keyFor({ chat: id, ...body }) });
             action.done();
+            if (id !== this.id()) {
+                this.items.patchChat(id, { status: 'queued' });
+                return true;
+            }
             this.userCountAtSend = this.userCount(this.messages());
             this.pendingText.set(body.message);
             this.job.set(null);
@@ -763,7 +770,7 @@ export class FolderComponent {
         } catch (err) {
             if (err instanceof ApiError && err.isConflict) {
                 this.notify.error('Не удалось отправить сообщение', err.detail || 'Сначала ответьте на вопрос агента');
-                void this.load(true);
+                if (id === this.id()) void this.load(true);
             } else {
                 this.notify.error('Не удалось отправить сообщение', describeError(err).text);
             }
@@ -774,14 +781,16 @@ export class FolderComponent {
     protected async respond(request: PermissionRequest, response: PermissionResponse): Promise<void> {
         if (this.responding()) return;
         this.responding.set(response);
+        const id = this.id();
         try {
             await this.api.post(`${this.base}/permissions/${encodeURIComponent(request.id)}`, { response });
+            if (response !== 'reject') this.setStatus('running', id);
+            if (id !== this.id()) return;
             this.permissions.update((list) => list.filter((p) => p.id !== request.id));
-            if (response !== 'reject') this.setStatus('running');
             void this.load(true);
         } catch (err) {
             this.notify.error('Не удалось ответить на запрос разрешения', describeError(err).text);
-            if (err instanceof ApiError && (err.isNotFound || err.isConflict)) void this.load(true);
+            if (id === this.id() && err instanceof ApiError && (err.isNotFound || err.isConflict)) void this.load(true);
         } finally {
             this.responding.set(null);
         }
@@ -791,18 +800,20 @@ export class FolderComponent {
     protected readonly reply = async (payload: { answers: string[][] }): Promise<boolean> => {
         const request = this.pendingQuestion();
         if (!request) return false;
+        const id = this.id();
         try {
             await this.api.post(`${this.base}/questions/${encodeURIComponent(request.id)}/reply`, payload, {
-                idempotencyKey: this.replyAction.keyFor({ chat: this.id(), request: request.id, payload }),
+                idempotencyKey: this.replyAction.keyFor({ chat: id, request: request.id, payload }),
             });
             this.replyAction.done();
+            this.setStatus('running', id);
+            if (id !== this.id()) return true;
             this.questions.update((list) => list.filter((q) => q.id !== request.id));
-            this.setStatus('running');
             void this.load(true);
             return true;
         } catch (err) {
             this.notify.error('Не удалось отправить ответ', describeError(err).text);
-            if (err instanceof ApiError && (err.isNotFound || err.isConflict)) void this.load(true);
+            if (id === this.id() && err instanceof ApiError && (err.isNotFound || err.isConflict)) void this.load(true);
             return false;
         }
     };
@@ -810,12 +821,13 @@ export class FolderComponent {
     protected async abort(): Promise<void> {
         if (this.aborting()) return;
         this.aborting.set(true);
+        const id = this.id();
         try {
             await this.api.post(`${this.base}/abort`, {});
-            this.setStatus('cancelling');
+            this.setStatus('cancelling', id);
         } catch (err) {
             if (!(err instanceof ApiError && err.isConflict)) this.notify.error('Не удалось остановить агента', describeError(err).text);
-            void this.load(true);
+            if (id === this.id()) void this.load(true);
         } finally {
             this.aborting.set(false);
         }
