@@ -58,6 +58,11 @@ export function createSafeRenderer(): Renderer {
         return `<a href="${escapeHtml(target)}"${titleAttr}>${text}</a>`;
     };
     renderer.image = ({ text }: Tokens.Image) => escapeHtml(text);
+    // After an inline <code>, <pre>, <kbd> or <script> tag marked's lexer is in raw-block mode and flags later text as
+    // `escaped`, which the default renderer copies as is; text can start with `<` when it fails the tag regex.
+    // Always escape (existing character references such as `&copy;` are kept).
+    const defaultText = renderer.text.bind(renderer);
+    renderer.text = (token: Tokens.Text | Tokens.Escape) => defaultText({ ...token, escaped: false } as typeof token);
     return renderer;
 }
 

@@ -120,3 +120,70 @@ describe('safe markdown renderer: entity-encoded and obfuscated schemes', () => 
         expect(isSafeHref(href)).toBe(safe);
     });
 });
+
+/**
+ * An inline `<code>`, `<pre>`, `<kbd>` or `<script>` tag puts marked's lexer into raw-block mode: later text tokens are
+ * marked `escaped` and the default text renderer copies them as is. A fragment that fails marked's tag regex then
+ * arrives as text starting with `<`.
+ */
+describe('safe markdown renderer: text after an inline raw-block tag', () => {
+    it.each([
+        ['a <code> <img/src="x"/onerror=alert(1)>', '<img'],
+        ['a <kbd> <img src=x onerror=alert(1)//', '<img'],
+        ['a <pre> <a/href="//evil">x', '<a'],
+    ])('%s stays text', (md, tag) => {
+        const html = render(md);
+        expect(html).not.toContain(tag);
+        expect(html).toContain('&lt;');
+    });
+
+    it('keeps character references such as &copy; and &amp; as typed', () => {
+        expect(render('&copy; 2026 &amp; <code> &copy;')).toContain('&copy; 2026 &amp; &lt;code&gt; &copy;');
+    });
+});
+
+describe('safe markdown renderer: fuzz', () => {
+    const ALLOWED_ELEMENTS = new Set([
+        'p', 'a', 'code', 'pre', 'em', 'strong', 'del', 'br', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'ul', 'ol', 'li', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input',
+    ]);
+    const ALLOWED_ATTRIBUTES = new Set(['href', 'title', 'align', 'start', 'type', 'checked', 'disabled', 'class']);
+    const PIECES = [
+        '<code>', '</code>', '<pre>', '</pre>', '<kbd>', '<script>', '</script>', '<img/src="x"/onerror=alert(1)>',
+        '<img src=x onerror=alert(1)//', '<a/href="//evil">', '<a href="javascript:alert(1)">', '<svg onload=alert(1)>',
+        '<iframe src=//evil>', '<b onmouseover=x>', '<details open ontoggle=x>', '<!-- c -->', '<', '>', '"', "'", '&',
+        '&lt;', '&#60;', '&copy;', '`', '``', '*', '_', '**', '~~', '[x](javascript:alert(1))', '[y](https://a.b)',
+        '![i](x.png)', '<https://a.b>', '\\<', '\n', '\n\n', '    ', '- ', '1. ', '> ', '# ', '| a | b |\n|---|---|\n',
+        '```\n', 'text', ' ', '/', '=', 'onerror=alert(1)',
+    ];
+
+    /** Deterministic so a failure can be replayed. */
+    function rng(seed: number) {
+        return () => {
+            seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+            return seed / 0x7fffffff;
+        };
+    }
+
+    it('400 random mixes of tags and markdown render only allowed elements and safe attributes', () => {
+        const next = rng(42);
+        const parser = new DOMParser();
+        for (let n = 0; n < 400; n++) {
+            const length = 2 + Math.floor(next() * 12);
+            const md = Array.from({ length }, () => PIECES[Math.floor(next() * PIECES.length)]).join('');
+            const html = render(md);
+            const doc = parser.parseFromString(`<body>${html}</body>`, 'text/html');
+            for (const el of Array.from(doc.body.querySelectorAll('*'))) {
+                const name = el.localName;
+                expect(ALLOWED_ELEMENTS.has(name), `<${name}> from ${JSON.stringify(md)}`).toBe(true);
+                for (const attr of Array.from(el.attributes)) {
+                    const where = `${name}[${attr.name}] from ${JSON.stringify(md)}`;
+                    expect(attr.name.startsWith('on'), where).toBe(false);
+                    expect(ALLOWED_ATTRIBUTES.has(attr.name), where).toBe(true);
+                    if (attr.name === 'href') expect(isSafeHref(attr.value), where).toBe(true);
+                    if (name === 'input') expect(el.getAttribute('type'), where).toBe('checkbox');
+                }
+            }
+        }
+    });
+});
