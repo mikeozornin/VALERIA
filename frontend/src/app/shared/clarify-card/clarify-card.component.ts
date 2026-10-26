@@ -116,10 +116,11 @@ export class ClarifyCardComponent {
     protected readonly payload = computed(() => buildReplyPayload(this.request(), this.selections()));
 
     constructor() {
-        // A new question request resets the choices.
+        // Only a new question request resets the choices: re-fetches of the same request keep half-typed answers.
+        const requestId = computed(() => this.request().id);
         effect(() => {
-            const req = this.request();
-            untracked(() => this.selections.set(req.questions.map(() => emptySelection())));
+            requestId();
+            untracked(() => this.selections.set(this.request().questions.map(() => emptySelection())));
         });
     }
 
