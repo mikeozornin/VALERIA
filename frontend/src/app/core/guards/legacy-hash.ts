@@ -24,7 +24,7 @@ export function legacyHashTarget(hash: string): string | null {
     const m = /^#\/([^?#]*?)\/?(\?.*)?$/.exec(hash);
     if (!m) return null;
     const parts = m[1].split('/');
-    if (parts.length === 1) return SECTIONS[parts[0]] ?? null;
+    if (parts.length === 1) return Object.hasOwn(SECTIONS, parts[0]) ? SECTIONS[parts[0]] : null;
     let id: string;
     try {
         id = encodeURIComponent(decodeURIComponent(parts[parts.length - 1]));
