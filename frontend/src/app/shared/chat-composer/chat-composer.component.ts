@@ -49,7 +49,7 @@ import { SendButtonComponent } from './send-button.component';
         .v-inputbox { position: relative; }
         .v-inputbox kbq-form-field { display: block; width: 100%; }
         .v-inputbox__area { display: block; width: 100%; resize: none; padding-bottom: 44px; box-sizing: border-box; }
-        .v-inputbox__send { position: absolute; right: var(--kbq-size-xxs); bottom: var(--kbq-size-xxs); z-index: 1; }
+        .v-inputbox__send { position: absolute; right: var(--kbq-size-xxs); bottom: var(--kbq-size-xxs); z-index: 4; } /* above a focused kbq-form-field (z-index 3) */
     `,
 })
 export class ChatComposerComponent {
