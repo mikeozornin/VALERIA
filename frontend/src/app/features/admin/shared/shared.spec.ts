@@ -129,7 +129,7 @@ describe('batchToast', () => {
     });
 
     it('partial success names the failed logins', () => {
-        expect(batchToast('block', [r('a.nikitina', true), r('m.belov', true), r('p.volkov', false, 'error')])).toEqual(
+        expect(batchToast('block', [r('a.nikitina', true), r('m.belov', true), r('p.volkov', false, 'invalid')])).toEqual(
             {
                 kind: 'warning',
                 title: 'Заблокированы 2 из 3: не удалось заблокировать p.volkov',
@@ -138,9 +138,20 @@ describe('batchToast', () => {
     });
 
     it('nothing done is an error', () => {
-        expect(batchToast('unblock', [r('p.volkov', false, 'error'), r('m.belov', false, 'not_found')])).toEqual({
+        expect(batchToast('unblock', [r('p.volkov', false, 'invalid'), r('m.belov', false, 'not_found')])).toEqual({
             kind: 'error',
             title: 'Не удалось разблокировать p.volkov, m.belov',
+        });
+    });
+
+    it('a workspace taken by another active user is a failed unblock', () => {
+        expect(batchToast('unblock', [r('a', true), r('p.volkov', false, 'workspace_in_use')])).toEqual({
+            kind: 'warning',
+            title: 'Разблокирован 1 из 2: не удалось разблокировать p.volkov',
+        });
+        expect(batchToast('unblock', [r('p.volkov', false, 'workspace_in_use')])).toEqual({
+            kind: 'error',
+            title: 'Не удалось разблокировать p.volkov',
         });
     });
 

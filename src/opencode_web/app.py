@@ -1903,6 +1903,7 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
         body: UserBatchBody,
         principal: Annotated[dict[str, Any], Depends(admin_principal)],
         db: Annotated[Database, Depends(database)],
+        config: Annotated[Settings, Depends(settings_dep)],
     ) -> dict[str, Any]:
         """Block or unblock several users; each one succeeds or fails on its own."""
         admin_id = principal["user"]["id"]
@@ -1921,6 +1922,15 @@ def create_app(settings: Settings | None = None, *, start_dispatcher: bool = Tru
                 result.update(skipped=True, reason="self")
             elif user["status"] == target:
                 result.update(ok=True, skipped=True, reason="already")
+            elif (
+                target == "active"
+                and user.get("workspace_path")
+                and not config.allow_shared_workspaces
+                and db.workspace_in_use(user["workspace_path"], exclude_user_id=user_id)
+            ):
+                # Same exclusivity rule as the single PATCH (checked_workspace):
+                # an active user may not share a workspace with another active user.
+                result["reason"] = "workspace_in_use"
             else:
                 try:
                     db.update_user(user_id, status=target, actor_id=admin_id)
