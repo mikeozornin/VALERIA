@@ -10,7 +10,8 @@
     "test": "ng test --watch=false",
     "mock": "bun mock/server.ts --port 4301",
     "e2e": "playwright test -c e2e/playwright.config.ts",
-    "e2e:real": "playwright test -c e2e/playwright.real.config.ts"
+    "e2e:real": "playwright test -c e2e/playwright.real.config.ts",
+    "e2e:screens": "playwright test -c e2e/playwright.screens.config.ts"
   },
   "prettier": {
     "printWidth": 120,
