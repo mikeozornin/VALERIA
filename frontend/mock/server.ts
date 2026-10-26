@@ -525,6 +525,9 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
 
   // -------------------------------------------------------------- admin: users
   const userOr404 = (id: string) => store.users.get(id) ?? fail(404, "User not found");
+  /** app.py checked_workspace / batch with ALLOW_SHARED_WORKSPACES off (the default): another active user has the workspace. */
+  const workspaceInUse = (path: string, excludeId: string | null = null) =>
+    [...store.users.values()].some((u) => u.id !== excludeId && u.status === "active" && u.workspace_path === path);
   add("GET", "/api/admin/users", "admin_read", () =>
     [...store.users.values()].sort((a, b) => a.login.localeCompare(b.login)).map((u) => store.userRow(u)));
   add("POST", "/api/admin/users", "admin", (c) => {
@@ -534,13 +537,15 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     const role = c.body.role ?? "user";
     if (!["user", "admin"].includes(role)) fail(422, "Role must be 'user' or 'admin'");
     if (role !== "admin" && !c.body.workspace_path) fail(422, "Workspace is required for a user");
+    const workspace = c.body.workspace_path ? resolveWorkspace(c.body.workspace_path) : null;
+    if (workspace && workspaceInUse(workspace)) fail(409, "Workspace is already assigned");
     const mm = (c.body.mattermost_username ?? "").trim().replace(/^@/, "").toLowerCase() || null;
     if ([...store.users.values()].some((u) => u.login === c.body.login || (mm && u.mattermost_username === mm))) fail(409, "Login or Mattermost user already exists");
     const now = nowIso();
     const user = {
       id: store.newId("u"), login: c.body.login, password: c.body.password, role, tasks_only: c.body.tasks_only ? 1 : 0,
       mattermost_username: mm, mattermost_user_id: mm ? `mm${mm.replace(/\W/g, "")}` : null,
-      workspace_path: c.body.workspace_path ? resolveWorkspace(c.body.workspace_path) : null, status: "active",
+      workspace_path: workspace, status: "active",
       max_active_jobs: null, created_at: now, updated_at: now, last_login_at: null,
     };
     store.users.set(user.id, user);
@@ -556,6 +561,7 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
     const path = c.body.workspace_path != null ? c.body.workspace_path : current.workspace_path;
     if (role !== "admin" && !path) fail(422, "Workspace is required for a user");
     const workspace = path ? resolveWorkspace(path) : null;
+    if (workspace && workspaceInUse(workspace, current.id)) fail(409, "Workspace is already assigned");
     const changed = workspace !== current.workspace_path;
     if (changed && [...store.jobs.values()].some((j) => j.effective_user_id === current.id && UNFINISHED.has(j.status))) {
       fail(409, "Workspace cannot change while jobs are queued or active");
@@ -610,8 +616,7 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
       if (user.id === c.user.id) return { id, login: user.login, ok: false, skipped: true, reason: "self" };
       if (user.status === target) return { id, login: user.login, ok: true, skipped: true, reason: "already" };
       // Same exclusivity rule as the single update: an active user may not share a workspace with another active user.
-      if (target === "active" && user.workspace_path
-        && [...store.users.values()].some((u) => u.id !== user.id && u.status === "active" && u.workspace_path === user.workspace_path)) {
+      if (target === "active" && user.workspace_path && workspaceInUse(user.workspace_path, user.id)) {
         return { id, login: user.login, ok: false, skipped: false, reason: "workspace_in_use" };
       }
       // The backend's only other per-user failure: update_user rejects the change (ValueError).

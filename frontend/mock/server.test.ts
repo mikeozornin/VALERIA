@@ -279,6 +279,24 @@ describe("admin", () => {
     expect((await c.req("POST", "/api/admin/users/batch", { ids: [], status: "gone" })).status).toBe(422);
   });
 
+  test("create and PATCH: a workspace of another active user is 409 «Workspace is already assigned» (app.py checked_workspace)", async () => {
+    const c = await new Client().as("admin");
+    const taken = mock.store.users.get("u-pvolkov").workspace_path;
+    const conflict = { status: 409, body: { detail: "Workspace is already assigned" } };
+    const create = (workspace_path: string) => c.req("POST", "/api/admin/users", { login: "n.new", password: "long-enough-password", workspace_path });
+    expect(await create("fw/hal-stm32")).toEqual(conflict);
+    expect(await create(taken)).toEqual(conflict);
+    const created = await create("new/place");
+    expect(created.status).toBe(201);
+    const id = created.body.id;
+    expect(await c.req("PATCH", `/api/admin/users/${id}`, { workspace_path: taken })).toEqual(conflict);
+    expect(mock.store.users.get(id).workspace_path).toBe(created.body.workspace_path);
+    // The user's own workspace is not a conflict; a disabled user's workspace is free.
+    expect((await c.req("PATCH", "/api/admin/users/u-pvolkov", { tasks_only: true })).status).toBe(200);
+    const free = mock.store.users.get("u-segorova").workspace_path;
+    expect((await c.req("PATCH", `/api/admin/users/${id}`, { workspace_path: free })).status).toBe(200);
+  });
+
   test("batch unblock: a workspace taken by another active user fails; a rejected update is 'invalid'", async () => {
     const c = await new Client().as("admin");
     mock.store.users.get("u-segorova").workspace_path = mock.store.users.get("u-pvolkov").workspace_path;
