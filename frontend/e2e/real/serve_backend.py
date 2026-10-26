@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Real VALERIA backend for the Playwright smoke suite (playwright.real.config.ts).
 
-Starts `uv run opencode-web` on 127.0.0.1 with a temp SQLite database, docs and debug off, and the fake
-OpenCode server from fake-opencode/. Then configures the consultation model, creates the user
-`smoke-user` with a workspace, prints `VALERIA READY` and waits. On SIGTERM/SIGINT it stops the backend
-(and its OpenCode children) and removes the temp dir.
+Starts `uv run opencode-web` on 127.0.0.1 with a temp SQLite database, docs and debug off, and the
+fake OpenCode server from fake-opencode/. Then configures the consultation model, creates the user
+`smoke-user` with a workspace, prints `VALERIA READY` and waits. On SIGTERM/SIGINT it stops the
+backend (and its OpenCode children) and removes the temp dir.
 
 Passwords come from E2E_ADMIN_PASSWORD / E2E_USER_PASSWORD (the Playwright config generates them).
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
 import secrets
 import shutil
@@ -126,10 +127,8 @@ def main() -> int:
                 os.killpg(backend.pid, signal.SIGKILL)
                 backend.wait(10)
         for pid in set(smoke_api.listening_pids(ports).values()):
-            try:
+            with contextlib.suppress(ProcessLookupError):
                 os.kill(pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
         log.close()
         shutil.rmtree(tmp, ignore_errors=True)
     return code

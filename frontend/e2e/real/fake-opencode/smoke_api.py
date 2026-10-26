@@ -8,6 +8,7 @@ at the end (backend, fake OpenCode processes, temp dir with DB and workspaces).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import secrets
@@ -187,7 +188,7 @@ def main() -> int:
                 return False
 
         wait_for("backend health", healthy, 120)
-        step("backend started on 127.0.0.1:%d" % PORT, True)
+        step(f"backend started on 127.0.0.1:{PORT}", True)
         try:
             docs = urllib.request.urlopen(BASE + "/openapi.json", timeout=5).status
         except urllib.error.HTTPError as exc:
@@ -282,10 +283,8 @@ def main() -> int:
         except StepFailed:
             leftovers = listening_pids(ports)
             for pid in set(leftovers.values()):
-                try:
+                with contextlib.suppress(ProcessLookupError):
                     os.kill(pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
         shutil.rmtree(tmp, ignore_errors=True)
         clean = stopped and not leftovers and not tmp.exists()
         print(f"{'PASS' if clean else 'FAIL'}  cleanup (backend stopped gracefully={stopped}, "

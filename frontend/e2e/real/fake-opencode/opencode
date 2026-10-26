@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import itertools
 import json
 import os
@@ -361,7 +362,8 @@ class Handler(BaseHTTPRequestHandler):
                     questions[request_id] = request
                 return self._json(400, {"name": "BadRequest", "data": {"message": "answers"}})
             emit("question.replied", {"sessionID": request["sessionID"], "requestID": request_id})
-            threading.Thread(target=finish_question, args=(request_id, answers), daemon=True).start()
+            reply = (request_id, answers)
+            threading.Thread(target=finish_question, args=reply, daemon=True).start()
             return self._json(200, True)
         if action == "reject":
             with lock:
@@ -437,10 +439,8 @@ def main() -> None:
     server.daemon_threads = True
     threading.Thread(target=watch_parent, args=(os.getppid(),), daemon=True).start()
     log(f"listening on {args.hostname}:{args.port} in {DIRECTORY}")
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         server.serve_forever()
-    except KeyboardInterrupt:
-        pass
 
 
 if __name__ == "__main__":
