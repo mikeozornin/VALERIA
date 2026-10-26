@@ -6,6 +6,7 @@ import { KbqBadgeColors, KbqBadgeModule } from '@koobiq/components/badge';
 import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqComponentColors } from '@koobiq/components/core';
 import { KbqFormFieldModule } from '@koobiq/components/form-field';
+import { FieldErrorDirective } from '../../../shared/field-error/field-error.directive';
 import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqInputModule } from '@koobiq/components/input';
 import { KbqLinkModule } from '@koobiq/components/link';
@@ -38,6 +39,7 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
         KbqBadgeModule,
         KbqButtonModule,
         KbqFormFieldModule,
+        FieldErrorDirective,
         KbqIconModule,
         KbqInputModule,
         KbqLinkModule,
@@ -118,11 +120,9 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
                                                 </span>
                                             } @else {
                                                 <kbq-form-field>
-                                                    <input kbqInput aria-label="Название" [ngModel]="r.name" (ngModelChange)="patchRow(r.key, { name: $event })" />
+                                                    <input kbqInput aria-label="Название" [vFieldError]="shownErrors()[r.key + ':name']" [ngModel]="r.name" (ngModelChange)="patchRow(r.key, { name: $event })" />
+                                                    <kbq-error role="alert">{{ shownErrors()[r.key + ':name'] }}</kbq-error>
                                                 </kbq-form-field>
-                                            }
-                                            @if (shownErrors()[r.key + ':name']; as e) {
-                                                <kbq-hint color="error">{{ e }}</kbq-hint>
                                             }
                                         </td>
                                         <td>
@@ -449,7 +449,7 @@ export class QueueEditComponent implements DirtyAware {
         this.submitted.set(true);
         this.blocked.set(null);
         if (Object.keys(this.errors()).length) {
-            setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.kbq-hint_error, kbq-hint.kbq-error')?.scrollIntoView({ block: 'center' }));
+            setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.kbq-error, kbq-hint[color="error"]')?.scrollIntoView({ block: 'center' }));
             return;
         }
         const res = await this.submit.run(() => this.apply());

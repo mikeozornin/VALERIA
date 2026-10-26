@@ -47,7 +47,6 @@ export const ADMIN_FORM_STYLES = `
     .v-check-group { display: flex; flex-direction: column; gap: 8px; padding-top: 6px; }
     .v-check-sub { display: block; font-size: 12px; line-height: 16px; color: var(--kbq-foreground-contrast-secondary); }
     .v-hint { font-size: 12px; line-height: 16px; color: var(--kbq-foreground-contrast-secondary); }
-    .v-hint--error { color: var(--kbq-foreground-error); }
     .v-mono input, input.v-mono { font-family: var(--kbq-font-family-mono, monospace); }
     .v-formfoot {
         position: sticky; bottom: 0; z-index: 5; margin: auto -24px 0; padding: 12px 24px;

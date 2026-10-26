@@ -17,6 +17,7 @@ import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqCheckboxModule } from '@koobiq/components/checkbox';
 import { KbqComponentColors } from '@koobiq/components/core';
 import { KbqFormFieldModule } from '@koobiq/components/form-field';
+import { FieldErrorDirective } from '../../../shared/field-error/field-error.directive';
 import { KbqInputModule } from '@koobiq/components/input';
 import { KbqRadioModule } from '@koobiq/components/radio';
 import { KbqToggleModule } from '@koobiq/components/toggle';
@@ -71,6 +72,7 @@ interface FormSnapshot {
         KbqButtonModule,
         KbqCheckboxModule,
         KbqFormFieldModule,
+        FieldErrorDirective,
         KbqInputModule,
         KbqRadioModule,
         KbqToggleModule,
@@ -174,12 +176,11 @@ interface FormSnapshot {
                                             kbqInputMonospace
                                             id="v-ws"
                                             formControlName="ws"
+                                            [vFieldError]="fieldError('ws')"
                                             aria-describedby="v-ws-hint"
                                         />
+                                        <kbq-error role="alert">{{ fieldError('ws') }}</kbq-error>
                                     </kbq-form-field>
-                                    @if (fieldError('ws'); as e) {
-                                        <div class="v-hint v-hint--error" role="alert">{{ e }}</div>
-                                    }
                                     <div class="v-hint" id="v-ws-hint">
                                         Путь внутри каталога данных сервера. При смене папки чаты из старой уйдут в
                                         архив пользователя.
@@ -194,14 +195,13 @@ interface FormSnapshot {
                                             kbqInput
                                             id="v-limit"
                                             formControlName="limit"
+                                            [vFieldError]="fieldError('limit')"
                                             inputmode="numeric"
                                             [placeholder]="'Общий: ' + (globalLimit() ?? '—')"
                                             aria-describedby="v-limit-hint"
                                         />
+                                        <kbq-error role="alert">{{ fieldError('limit') }}</kbq-error>
                                     </kbq-form-field>
-                                    @if (fieldError('limit'); as e) {
-                                        <div class="v-hint v-hint--error" role="alert">{{ e }}</div>
-                                    }
                                     <div class="v-hint" id="v-limit-hint">
                                         Сколько задач выполняется одновременно, от 1 до {{ hardLimit() }}. Пусто —
                                         действует общий лимит.
@@ -216,13 +216,12 @@ interface FormSnapshot {
                                             kbqInput
                                             id="v-mm"
                                             formControlName="mm"
+                                            [vFieldError]="fieldError('mm')"
                                             placeholder="Логин без @"
                                             aria-describedby="v-mm-hint"
                                         />
+                                        <kbq-error role="alert">{{ fieldError('mm') }}</kbq-error>
                                     </kbq-form-field>
-                                    @if (fieldError('mm'); as e) {
-                                        <div class="v-hint v-hint--error" role="alert">{{ e }}</div>
-                                    }
                                     <div class="v-hint" id="v-mm-hint">
                                         @if (mmValue().trim()) {
                                             Валерия пишет сюда о готовых ответах и задачах.

@@ -6,6 +6,7 @@ import { KbqAlertColors, KbqAlertModule } from '@koobiq/components/alert';
 import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqComponentColors, PopUpPlacements } from '@koobiq/components/core';
 import { KbqFormFieldModule } from '@koobiq/components/form-field';
+import { FieldErrorDirective } from '../../../shared/field-error/field-error.directive';
 import { KbqInputModule } from '@koobiq/components/input';
 import { KbqRadioModule } from '@koobiq/components/radio';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
@@ -32,6 +33,7 @@ const MIN_PASSWORD = 12;
         KbqAlertModule,
         KbqButtonModule,
         KbqFormFieldModule,
+        FieldErrorDirective,
         KbqInputModule,
         KbqRadioModule,
         KbqToolTipModule,
@@ -60,14 +62,13 @@ const MIN_PASSWORD = 12;
                                     kbqInput
                                     id="v-login"
                                     formControlName="login"
+                                    [vFieldError]="fieldError('login')"
                                     autocomplete="off"
                                     [required]="true"
                                     [attr.aria-invalid]="!!fieldError('login')"
                                 />
+                                <kbq-error role="alert">{{ fieldError('login') }}</kbq-error>
                             </kbq-form-field>
-                            @if (fieldError('login'); as e) {
-                                <div class="v-hint v-hint--error" role="alert">{{ e }}</div>
-                            }
                         </div>
                     </div>
                     <div class="v-frow">
@@ -78,16 +79,15 @@ const MIN_PASSWORD = 12;
                                     kbqInputPassword
                                     id="v-pass"
                                     formControlName="password"
+                                    [vFieldError]="fieldError('password')"
                                     placeholder="Не менее 12 символов"
                                     autocomplete="new-password"
                                     [required]="true"
                                     aria-describedby="v-pass-hint"
                                 />
                                 <kbq-password-toggle />
+                                <kbq-error role="alert">{{ fieldError('password') }}</kbq-error>
                             </kbq-form-field>
-                            @if (fieldError('password'); as e) {
-                                <div class="v-hint v-hint--error" role="alert">{{ e }}</div>
-                            }
                             <div class="v-hint" id="v-pass-hint">
                                 VALERIA его никуда не отправляет, передайте пароль пользователю сами.
                             </div>
@@ -122,13 +122,12 @@ const MIN_PASSWORD = 12;
                                     kbqInputMonospace
                                     id="v-ws"
                                     formControlName="ws"
+                                    [vFieldError]="fieldError('ws')"
                                     placeholder="team/project"
                                     aria-describedby="v-ws-hint"
                                 />
+                                <kbq-error role="alert">{{ fieldError('ws') }}</kbq-error>
                             </kbq-form-field>
-                            @if (fieldError('ws'); as e) {
-                                <div class="v-hint v-hint--error" role="alert">{{ e }}</div>
-                            }
                             <div class="v-hint" id="v-ws-hint">
                                 Путь внутри каталога данных сервера. Если папки нет, она создастся.
                             </div>
@@ -142,13 +141,12 @@ const MIN_PASSWORD = 12;
                                     kbqInput
                                     id="v-mm"
                                     formControlName="mm"
+                                    [vFieldError]="fieldError('mm')"
                                     placeholder="Логин без @"
                                     aria-describedby="v-mm-hint"
                                 />
+                                <kbq-error role="alert">{{ fieldError('mm') }}</kbq-error>
                             </kbq-form-field>
-                            @if (fieldError('mm'); as e) {
-                                <div class="v-hint v-hint--error" role="alert">{{ e }}</div>
-                            }
                             <div class="v-hint" id="v-mm-hint">
                                 Сюда Валерия пишет о готовых ответах и задачах. Можно указать позже.
                             </div>

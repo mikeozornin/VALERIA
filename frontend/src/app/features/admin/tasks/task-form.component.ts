@@ -6,6 +6,7 @@ import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqButtonToggleModule } from '@koobiq/components/button-toggle';
 import { KbqComponentColors } from '@koobiq/components/core';
 import { KbqFormFieldModule } from '@koobiq/components/form-field';
+import { FieldErrorDirective } from '../../../shared/field-error/field-error.directive';
 import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqInputModule } from '@koobiq/components/input';
 import { KbqRadioModule } from '@koobiq/components/radio';
@@ -44,6 +45,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
         KbqButtonModule,
         KbqButtonToggleModule,
         KbqFormFieldModule,
+        FieldErrorDirective,
         KbqIconModule,
         KbqInputModule,
         KbqRadioModule,
@@ -71,11 +73,9 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
                     <fieldset vFsec="Что видит пользователь">
                         <v-frow label="Название" for="t-title" [required]="true">
                             <kbq-form-field>
-                                <input id="t-title" kbqInput [ngModel]="v.title" (ngModelChange)="patch({ title: $event })" />
+                                <input id="t-title" [vFieldError]="shown().title" kbqInput [ngModel]="v.title" (ngModelChange)="patch({ title: $event })" />
+                                <kbq-error role="alert">{{ shown().title }}</kbq-error>
                             </kbq-form-field>
-                            @if (shown().title; as e) {
-                                <kbq-hint color="error">{{ e }}</kbq-hint>
-                            }
                         </v-frow>
                         <v-frow label="Описание" for="t-desc">
                             <kbq-form-field>
@@ -85,11 +85,9 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
                         </v-frow>
                         <v-frow label="Подсказка к дополнению" for="t-hint">
                             <kbq-form-field>
-                                <input id="t-hint" kbqInput [ngModel]="v.input_hint" (ngModelChange)="patch({ input_hint: $event })" />
+                                <input id="t-hint" [vFieldError]="shown().input_hint" kbqInput [ngModel]="v.input_hint" (ngModelChange)="patch({ input_hint: $event })" />
+                                <kbq-error role="alert">{{ shown().input_hint }}</kbq-error>
                             </kbq-form-field>
-                            @if (shown().input_hint; as e) {
-                                <kbq-hint color="error">{{ e }}</kbq-hint>
-                            }
                         </v-frow>
                     </fieldset>
 
@@ -97,7 +95,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
                         <v-frow label="Инструкция" for="t-content" [required]="true">
                             <kbq-form-field>
                                 <textarea
-                                    id="t-content"
+                                    id="t-content" [vFieldError]="shown().content"
                                     class="v-mono"
                                     kbqTextarea
                                     rows="7"
@@ -105,10 +103,8 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
                                     [ngModel]="v.content"
                                     (ngModelChange)="patch({ content: $event })"
                                 ></textarea>
+                                <kbq-error role="alert">{{ shown().content }}</kbq-error>
                             </kbq-form-field>
-                            @if (shown().content; as e) {
-                                <kbq-hint color="error">{{ e }}</kbq-hint>
-                            }
                             <kbq-hint>Пользователь её не видит. Его дополнение добавляется в конец.</kbq-hint>
                         </v-frow>
                     </fieldset>
@@ -340,7 +336,7 @@ export class TaskFormComponent implements DirtyAware {
     protected async act(action: Action): Promise<void> {
         this.submitted.set(true);
         if (Object.keys(this.errors()).length) {
-            setTimeout(() => this.host.nativeElement.querySelector('kbq-hint[color="error"]')?.scrollIntoView({ block: 'center' }));
+            setTimeout(() => this.host.nativeElement.querySelector('.kbq-error, kbq-hint[color="error"]')?.scrollIntoView({ block: 'center' }));
             return;
         }
         this.lastAction = action;
