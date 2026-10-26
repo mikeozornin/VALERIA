@@ -1,11 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { Router } from '@angular/router';
 import { KbqButtonModule } from '@koobiq/components/button';
-import {
-    KbqCodeBlockFile,
-    KbqCodeBlockModule,
-    kbqCodeBlockHighlightJsConfigProvider,
-} from '@koobiq/components/code-block';
 import { KbqComponentColors } from '@koobiq/components/core';
 import { KbqContentPanelModule } from '@koobiq/components/content-panel';
 import { KbqDlModule } from '@koobiq/components/dl';
@@ -67,14 +62,7 @@ interface AuditRow extends AuditEvent {
         KbqEmptyStateModule,
         KbqContentPanelModule,
         KbqDlModule,
-        KbqCodeBlockModule,
         KbqProgressSpinnerModule,
-    ],
-    providers: [
-        kbqCodeBlockHighlightJsConfigProvider({
-            core: () => import('highlight.js/lib/core'),
-            languages: { json: () => import('highlight.js/lib/languages/json') },
-        }),
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -98,8 +86,8 @@ interface AuditRow extends AuditEvent {
                             @for (pipe of filter().pipes; track pipe.id) {
                                 <ng-container *kbqPipe="pipe" />
                             }
-                            @if (pipesFiltered()) {
-                                <kbq-filter-reset (onResetFilter)="resetFilters()" />
+                            @if (filtered()) {
+                                <kbq-filter-reset (onResetFilter)="resetAll()" />
                             }
                         </kbq-filter-bar>
                         <v-admin-search
@@ -202,13 +190,9 @@ interface AuditRow extends AuditEvent {
                             </kbq-dl>
                             <section class="v-csec">
                                 <div class="v-csec__title">Подробности</div>
-                                @if (metaFiles(); as files) {
-                                    <kbq-code-block
-                                        [files]="files"
-                                        [hideTabs]="true"
-                                        [canDownload]="false"
-                                        [softWrap]="true"
-                                    />
+                                @if (metaJson(); as json) {
+                                    <!-- Prototype .k-code: plain grey block, no border, no syntax colours. -->
+                                    <pre class="v-code">{{ json }}</pre>
                                 } @else {
                                     <div class="v-secondary">Подробностей нет</div>
                                 }
@@ -222,6 +206,19 @@ interface AuditRow extends AuditEvent {
     styles: [
         ADMIN_LIST_STYLES,
         `
+            .v-code {
+                margin: 0;
+                padding: 12px;
+                border-radius: 8px;
+                background: var(--kbq-background-bg-secondary);
+                color: var(--kbq-foreground-contrast);
+                font-family: var(--kbq-font-family-mono);
+                font-size: 12px;
+                line-height: 16px;
+                letter-spacing: 0;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
             .v-mt8 {
                 margin-top: 8px;
             }
@@ -301,10 +298,7 @@ export class AuditComponent {
         const id = this.event();
         return id ? (this.allRows().find((a) => a.key === id) ?? null) : null;
     });
-    protected readonly metaFiles = computed<KbqCodeBlockFile[] | null>(() => {
-        const json = auditMetadata(this.selected()?.metadata_json ?? null);
-        return json ? [{ content: json, language: 'json', filename: 'metadata.json' }] : null;
-    });
+    protected readonly metaJson = computed(() => auditMetadata(this.selected()?.metadata_json ?? null));
 
     private readonly userOptions = computed<KbqSelectValue[]>(() => {
         const set = new Set(this.logins());
@@ -498,10 +492,6 @@ export class AuditComponent {
             queryParams: { ...auditFiltersToQuery(s), ...extra },
             queryParamsHandling: 'merge',
         });
-    }
-
-    protected resetFilters(): void {
-        this.navigate({ period: null, user: null, action: null });
     }
 
     protected resetAll(): void {

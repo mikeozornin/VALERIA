@@ -160,13 +160,13 @@
                 </kbq-button-toggle-group>
                 @if (mode() === 'do') {
                     @if (options(); as opts) {
-                        @if (opts.agents.length > 1) {
+                        @if (agentOrder().length > 1) {
                             <kbq-button-toggle-group
                                 aria-label="Агент"
                                 [value]="agent()"
                                 (change)="agent.set($event.value)"
                             >
-                                @for (a of opts.agents; track a) {
+                                @for (a of agentOrder(); track a) {
                                     <kbq-button-toggle [value]="a">{{ agentLabels[a] || a }}</kbq-button-toggle>
                                 }
                             </kbq-button-toggle-group>
@@ -180,8 +180,8 @@
                                 >
                                     <kbq-optgroup label="Модель">
                                         @for (m of opts.models; track m.id) {
-                                            <kbq-option [value]="m.id" [viewValue]="m.name">
-                                                {{ m.name }}
+                                            <kbq-option [value]="m.id" [viewValue]="m.id">
+                                                {{ m.id }}
                                                 @if (isDefaultModel(m.id)) {
                                                     <span class="v-home__hint-inline">по умолчанию</span>
                                                 }

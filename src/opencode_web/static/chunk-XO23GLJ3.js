@@ -1,0 +1,1 @@
+import{Nb as i,S as e,_g as n,va as o}from"./chunk-JHEILOZ2.js";var l=class r{vFieldError=i(null);constructor(){let t=e(n,{self:!0});t.errorStateMatcher={isErrorState:()=>!!this.vFieldError()}}static \u0275fac=function(a){return new(a||r)};static \u0275dir=o({type:r,selectors:[["","vFieldError",""]],inputs:{vFieldError:[1,"vFieldError"]}})};export{l as a};

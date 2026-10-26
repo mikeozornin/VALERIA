@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, TemplateRef, viewChild } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
+import { DateFormatter } from '@koobiq/components/core';
 import { KbqEmptyStateModule } from '@koobiq/components/empty-state';
 import { KbqFilter, KbqFilterBarModule, KbqPipe, KbqPipeTemplate, KbqPipeTypes } from '@koobiq/components/filter-bar';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
@@ -9,7 +10,8 @@ import { AdminConfigApi, AdminTask, StatRunsResponse } from '../config-shared/ad
 import { dur, EMPTY, plural } from '../config-shared/format';
 import { sortByName } from '../config-shared/names';
 import { ControlChartComponent } from './control-chart.component';
-import { ShapeComponent, ShapeName, TASK_SHAPES } from './shape.component';
+import { PeriodChipFormatter } from './period-formatter';
+import { assignTaskShapes, ShapeComponent, ShapeName } from './shape.component';
 import { kpis, parsePeriod, Period, periodParam, periodRange, PERIODS, toChartRun } from './stats-math';
 
 const PERIOD_PIPE = 'Период';
@@ -36,6 +38,7 @@ interface TypeOption {
         ControlChartComponent,
         ShapeComponent,
     ],
+    providers: [{ provide: DateFormatter, useClass: PeriodChipFormatter }],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <v-screen-header title="Статистика" />
@@ -143,15 +146,6 @@ interface TypeOption {
         .v-key { display: inline-flex; align-items: center; gap: 6px; }
         .v-type-opt { display: inline-flex; align-items: center; gap: var(--kbq-size-s); }
         .v-type-opt__gap { width: 12px; flex: none; }
-        /* Koobiq's select pipe has no chevron; the prototype shows one while the optional «Тип» is empty. */
-        :host ::ng-deep kbq-pipe-select.kbq-pipe_empty .kbq-pipe__value_empty::after {
-            content: '\\f5cb'; /* kbq-chevron-down_16 */
-            font-family: 'Koobiq Icons';
-            font-size: 16px;
-            line-height: 1;
-            vertical-align: -3px;
-            color: var(--kbq-icon-contrast-fade);
-        }
         .v-chart__empty { padding: var(--kbq-size-3xl) 0; }
         .v-source {
             margin: var(--kbq-size-3xl) 0 0;
@@ -193,12 +187,11 @@ export class StatisticsComponent {
     });
     protected readonly stats = computed(() => kpis(this.runs()));
 
-    /** Task shapes in a fixed order (by name), so a filter never repaints the survivors; «?» for questions. */
-    protected readonly shapes = computed<Record<string, ShapeName>>(() => {
-        const out: Record<string, ShapeName> = { q: 'question' };
-        this.sortedTasks().forEach((t, i) => (out[t.id] = TASK_SHAPES[i % TASK_SHAPES.length]));
-        return out;
-    });
+    /** Shapes by kind of task (see assignTaskShapes), stable across filters; «?» for questions. */
+    protected readonly shapes = computed<Record<string, ShapeName>>(() => ({
+        q: 'question',
+        ...assignTaskShapes(this.tasks()),
+    }));
     private readonly sortedTasks = computed(() => sortByName(this.tasks(), (t) => t.title));
     private readonly typeOptionTpl = viewChild<TemplateRef<unknown>>('typeOption');
     protected readonly keys = computed(() => {
@@ -206,10 +199,11 @@ export class StatisticsComponent {
         const shapes = this.shapes();
         const q = { shapeKey: 'q', shape: 'question' as ShapeName, label: 'вопрос' };
         const tasks = this.sortedTasks().map((t) => ({ shapeKey: t.id, shape: shapes[t.id], label: lowerFirst(t.title) }));
-        if (!type) return [q, ...tasks];
         if (type === 'question') return [q];
-        if (type === 'task') return tasks;
-        return tasks.filter((t) => t.shapeKey === type);
+        if (type && type !== 'task') return tasks.filter((t) => t.shapeKey === type);
+        // Several types: the key lists only the ones that have marks on the chart.
+        const seen = new Set(this.runs().map((r) => r.shapeKey));
+        return (type ? tasks : [q, ...tasks]).filter((k) => seen.has(k.shapeKey));
     });
 
     private readonly typeOptions = computed<TypeOption[]>(() => [

@@ -108,7 +108,7 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
                                     <v-user-message [text]="m.text" [time]="m.id === firstUserId() ? createdTime() : ''" />
                                     @for (c of clarifiedAfter(m.id); track $index) {
                                         <div class="v-clarified">
-                                            <i kbq-icon="kbq-circle-question_16" class="v-clarified__icon" aria-hidden="true"></i>
+                                            <v-outline-icon name="help-circle" class="v-ic_fade v-clarified__icon" />
                                             <div>
                                                 <div class="v-secondary">{{ c.question }}</div>
                                                 <div>Ваш ответ: <b>{{ c.answer }}</b></div>

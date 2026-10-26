@@ -60,7 +60,7 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
                             <i kbq-icon="" color="error"><v-outline-icon name="alert-circle" /></i>
                             <div kbq-alert-title>{{ b.title }}</div>
                             {{ b.text }}
-                            <a kbq-button kbq-alert-control [color]="colors.ContrastFade" routerLink="/admin/tasks">Настройка задач</a>
+                            <a kbq-button kbq-alert-control class="v-compact" [color]="colors.ContrastFade" routerLink="/admin/tasks">Настройка задач</a>
                         </kbq-alert>
                     }
                     <v-form-alerts [submit]="submit" (overwrite)="overwrite()" />
@@ -231,7 +231,7 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
                             </tbody>
                         </table>
                         @if (!draft()) {
-                            <div>
+                            <div class="v-addq">
                                 <button type="button" kbq-button class="v-compact" [color]="colors.Contrast" kbqStyle="transparent" (click)="startAdd()">
                                     <i kbq-icon="kbq-plus_16"></i>
                                     Добавить очередь
@@ -311,6 +311,10 @@ import { OutlineIconComponent } from '../../../shared/outline-icon/outline-icon.
         .v-actions { text-align: right; white-space: nowrap; }
         .v-actions > * + * { margin-left: var(--kbq-size-xs); }
         .v-pt6 { padding-top: 6px; }
+        /* Prototype: «Добавить очередь» spans the table width, label centred, 8px below the table. */
+        .v-addq { margin-top: var(--kbq-size-s); }
+        .v-addq > .kbq-button { width: 100%; justify-content: center; }
+        .v-addq > .kbq-button ::ng-deep .kbq-button-wrapper { justify-content: center; }
         .v-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     `,
     ],

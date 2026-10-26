@@ -57,6 +57,7 @@ import {
     FolderChat,
     FolderOptions,
     folderPhase,
+    folderStateText,
     isFolderBusy,
     lastAssistant,
     McpServer,
@@ -68,6 +69,7 @@ import {
     workingText,
 } from './folder.model';
 import { OutlineIconComponent } from '../../shared/outline-icon/outline-icon.component';
+import { planFirst } from '../../shared/agent-order';
 
 interface ViewMessage {
     id: string;
@@ -177,7 +179,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                                     }
                                                     @case ('permission') {
                                                         <div class="v-waiting">
-                                                            <i kbq-icon="kbq-lock_16" [color]="colors.Warning"></i>
+                                                            <v-outline-icon name="lock" class="v-ic_warning" />
                                                             Ждёт вашего разрешения
                                                         </div>
                                                     }
@@ -223,7 +225,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                     @if (phase() === 'permission' && permission(); as p) {
                                         <div class="v-perm" role="group" aria-label="Валерия просит разрешение на команду">
                                             <div class="v-perm__head">
-                                                <i kbq-icon="kbq-lock_16" [color]="colors.Warning"></i>
+                                                <v-outline-icon name="lock" class="v-ic_warning" />
                                                 <b>Валерия просит разрешение на команду</b>
                                             </div>
                                             @if (p.metadata?.command; as cmd) {
@@ -332,10 +334,10 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                             <kbq-dd class="v-mcp">
                                 @for (s of mcp(); track s.name) {
                                     @if (connected(s)) {
-                                        <span><i kbq-icon="kbq-check-circle_16" [color]="colors.Success"></i>{{ s.name }}</span>
+                                        <span><v-outline-icon name="check-circle" class="v-ic_success" />{{ s.name }}</span>
                                     } @else {
                                         <span
-                                            ><i kbq-icon="kbq-circle-exclamation_16" [color]="colors.Warning"></i>{{ s.name }} ·
+                                            ><v-outline-icon name="alert-circle" class="v-ic_warning" />{{ s.name }} ·
                                             переподключается</span
                                         >
                                     }
@@ -467,8 +469,10 @@ export class FolderComponent {
         return p ? alwaysLabel(p) : '';
     });
     protected readonly pendingQuestion = computed(() => this.questions()[0] ?? null);
-    protected readonly agents = computed(() => this.options()?.agents ?? ['plan', 'build']);
-    protected readonly stateText = computed(() => statusLabel(this.status(), 'folder'));
+    protected readonly agents = computed(() => planFirst(this.options()?.agents ?? ['plan', 'build']));
+    protected readonly stateText = computed(() =>
+        folderStateText(this.status(), this.messages(), statusLabel(this.status(), 'folder')),
+    );
     protected readonly rwTip = computed(
         () => `Может менять файлы. Агент правит файлы и запускает команды в папке ${this.chat()?.workspace_snapshot ?? ''}.`,
     );
@@ -663,7 +667,8 @@ export class FolderComponent {
     private onOpencode(e: ServerEvent): void {
         if (!this.isMine(e)) return;
         this.disconnected.set(false);
-        const payload = ((e['event'] as { payload?: { type?: string; properties?: Record<string, unknown> } })?.payload ?? {});
+        const payload =
+            (e['event'] as { payload?: { type?: string; properties?: Record<string, unknown> } })?.payload ?? {};
         const props = payload.properties ?? {};
         switch (payload.type) {
             case 'message.updated': {

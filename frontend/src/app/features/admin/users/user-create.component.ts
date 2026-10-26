@@ -81,7 +81,9 @@ const MIN_PASSWORD = 12;
                         <div class="v-frow__ctl">
                             <kbq-form-field class="v-w320">
                                 <input
-                                    kbqInputPassword
+                                    kbqInput
+                                    type="text"
+                                    spellcheck="false"
                                     id="v-pass"
                                     formControlName="password"
                                     [vFieldError]="fieldError('password')"
@@ -90,7 +92,6 @@ const MIN_PASSWORD = 12;
                                     [required]="true"
                                     aria-describedby="v-pass-hint"
                                 />
-                                <kbq-password-toggle />
                                 <kbq-error role="alert">{{ fieldError('password') }}</kbq-error>
                             </kbq-form-field>
                             <div class="v-hint" id="v-pass-hint">

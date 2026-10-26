@@ -70,8 +70,8 @@ const KINDS: ItemKind[] = ['question', 'task', 'folder'];
                     @for (pipe of filter().pipes; track pipe.id) {
                         <ng-container *kbqPipe="pipe" />
                     }
-                    @if (pipesFiltered()) {
-                        <kbq-filter-reset (onResetFilter)="resetFilters()" />
+                    @if (filtered()) {
+                        <kbq-filter-reset (onResetFilter)="resetAll()" />
                     }
                 </kbq-filter-bar>
                 <v-admin-search
@@ -84,7 +84,7 @@ const KINDS: ItemKind[] = ['question', 'task', 'folder'];
 
             <v-page-state [loading]="loading()" [error]="error()" (retry)="load()">
                 @if (rows().length) {
-                    <table kbq-table class="v-table v-mt8">
+                    <table kbq-table class="v-table v-table_lined v-mt8">
                         <thead>
                             <tr>
                                 <th>Запрос</th>
@@ -364,10 +364,6 @@ export class RequestsComponent {
             },
             queryParamsHandling: 'merge',
         });
-    }
-
-    protected resetFilters(): void {
-        this.navigate({ users: [], period: null, types: [], task: null });
     }
 
     protected resetAll(): void {

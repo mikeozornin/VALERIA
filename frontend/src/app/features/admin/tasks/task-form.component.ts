@@ -111,7 +111,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
 
                     <fieldset vFsec="Исполнение">
                         <v-frow label="Режим">
-                            <kbq-button-toggle-group aria-label="Режим" [stretched]="true" [ngModel]="v.agent" (ngModelChange)="patch({ agent: $event })">
+                            <kbq-button-toggle-group class="v-seg" aria-label="Режим" [ngModel]="v.agent" (ngModelChange)="patch({ agent: $event })">
                                 @for (a of agents(); track a) {
                                     <kbq-button-toggle [value]="a">{{ agentLabel(a) }}</kbq-button-toggle>
                                 }
@@ -225,6 +225,8 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
     styles: `
         :host { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
         .v-w320 { width: 320px; }
+        /* Prototype .k-segment in a form row: the track spans the row, segments keep their content width on the left. */
+        kbq-button-toggle-group.v-seg { display: flex; width: 100%; }
         .v-tags { max-width: 560px; }
         .v-mono { font-family: var(--kbq-typography-mono-normal-font-family); }
         .v-radios { flex-direction: row; gap: var(--kbq-size-l); padding-top: 6px; }

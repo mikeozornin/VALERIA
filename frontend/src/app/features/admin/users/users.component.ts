@@ -363,13 +363,14 @@ const RECENT_LIMIT = 20;
                 <kbq-form-field>
                     <kbq-label>Новый временный пароль</kbq-label>
                     <input
-                        kbqInputPassword
+                        kbqInput
+                        type="text"
+                        spellcheck="false"
                         [formControl]="resetPassword"
                         placeholder="Не менее 12 символов"
                         autocomplete="new-password"
                         cdkFocusInitial
                     />
-                    <kbq-password-toggle />
                     <kbq-hint>VALERIA его никуда не отправляет, передайте пароль пользователю сами.</kbq-hint>
                 </kbq-form-field>
                 <p class="v-modal-p v-mt16">

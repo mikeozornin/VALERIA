@@ -81,6 +81,21 @@ export function agentLabel(agent: string): string {
     return agent.charAt(0).toUpperCase() + agent.slice(1);
 }
 
+/**
+ * «Состояние» in the folder aside, worded as in the prototype: «Работает», «Составляет план», «Ждёт вашего сообщения»
+ * after a plan, «Готово». Queue, failure and cancel states keep the common status label (`fallback`).
+ */
+export function folderStateText(status: string, messages: OcMessage[], fallback: string): string {
+    if (status === 'running') return workingText(messages);
+    if (status === 'waiting_permission') return 'Ждёт разрешения';
+    if (status === 'completed' || status === 'idle') {
+        const phase = folderPhase(status, messages);
+        if (phase === 'plan') return 'Ждёт вашего сообщения';
+        if (phase === 'done') return 'Готово';
+    }
+    return fallback;
+}
+
 /** Status line text while the agent works: the plan agent «Составляет план», others «Работает». */
 export function workingText(messages: OcMessage[]): string {
     const last = messages[messages.length - 1];
