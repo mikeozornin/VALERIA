@@ -44,7 +44,7 @@ async function openHeaderMenu(page: Page): Promise<void> {
 
 async function expectMenu(page: Page, caption: string | null, items: string[]): Promise<void> {
     await expect(menuItems(page)).toHaveText(items);
-    const header = menuPanel(page).locator('.kbq-dropdown__group-header');
+    const header = menuPanel(page).locator('.kbq-optgroup-label');
     if (caption) await expect(header).toHaveText([caption]);
     else await expect(header).toHaveCount(0);
 }
@@ -79,6 +79,7 @@ test('snoozed chat: «Вернуть из отложенных», «В архи�
 
     // Same menu in the header of the open snoozed chat.
     await page.keyboard.press('Escape');
+    await expect(menuPanel(page)).toBeHidden();
     await row.click();
     await expect(page).toHaveURL(/\/questions\/q-gcc13$/);
     await openHeaderMenu(page);
@@ -98,6 +99,7 @@ test('archived chat: «Вернуть из архива», «Удалить»; r
     await openRowMenu(page, row);
     await expectMenu(page, null, ['Вернуть из архива', 'Удалить']);
     await page.keyboard.press('Escape');
+    await expect(menuPanel(page)).toBeHidden();
 
     await row.click();
     await expect(page).toHaveURL(/\/questions\/q-ota-logs$/);

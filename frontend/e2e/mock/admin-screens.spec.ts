@@ -137,3 +137,122 @@ test('«Статистика»: a `?type=<task>` deep link shows the task title 
     await openAs(page, 'admin', '/admin/statistics?period=30d&type=t-ci');
     await expect(page.getByRole('button', { name: /^Тип\s*Разбор упавшего CI-пайплайна/ })).toBeVisible();
 });
+
+/** Labels of the filter bar chips, e.g. `['Период', 'Пользователь 2', 'Действие']`. */
+async function chips(page: Page): Promise<string[]> {
+    const names = await page.locator('kbq-filter-bar').getByRole('button').allInnerTexts();
+    return names.map((t) => t.replace(/\s+/g, ' ').trim()).filter((t) => t && t !== 'Сбросить');
+}
+
+/** Opens a pipe and ticks the given options of its multi-select (the panel stays open between picks). */
+async function pick(page: Page, pipe: RegExp, options: string[]): Promise<void> {
+    await page.locator('kbq-filter-bar').getByRole('button', { name: pipe }).click();
+    const overlay = page.locator('.cdk-overlay-container');
+    for (const name of options) {
+        await overlay.getByText(name, { exact: true }).click();
+    }
+    await page.keyboard.press('Escape');
+}
+
+test('«Аудит»: several values per filter are OR, filters are AND, «Сбросить» clears everything', async ({ page, mock }) => {
+    await mock.reset('admin');
+    const errors = watchErrors(page);
+    await openAs(page, 'admin', '/admin/audit');
+    const rows = page.locator('table tbody tr');
+    await expect(rows.first()).toBeVisible();
+
+    await pick(page, /^Действие/, ['Входы', 'Задачи и запуски']);
+    await expect(page).toHaveURL(/[?&]action=auth,tasks(&|$)/);
+    await expect(page.locator('kbq-filter-bar').getByRole('button', { name: /^Действие\s*2$/ })).toBeVisible();
+    // Only «Входы» and «Задачи и запуски» rows, and both kinds of them.
+    await expect
+        .poll(async () => {
+            const codes = await rows.locator('td:nth-child(3)').allInnerTexts();
+            return (
+                codes.length > 0 &&
+                codes.every((c) => /\b(auth\.|task|template\.)/.test(c)) &&
+                codes.some((c) => c.includes('auth.login')) &&
+                codes.some((c) => /\btask/.test(c))
+            );
+        })
+        .toBe(true);
+
+    await pick(page, /^Пользователь/, ['a.nikitina', 'i.sokolova']);
+    await expect(page).toHaveURL(/[?&]user=a\.nikitina,i\.sokolova(&|$)/);
+    // Either login (who acted or on whose behalf), and rows of both.
+    await expect
+        .poll(async () => {
+            const who = await rows.locator('td:nth-child(2)').allInnerTexts();
+            return (
+                who.length > 0 &&
+                who.every((w) => /a\.nikitina|i\.sokolova/.test(w)) &&
+                who.some((w) => w.includes('a.nikitina')) &&
+                who.some((w) => w.includes('i.sokolova'))
+            );
+        })
+        .toBe(true);
+
+    await page.locator('kbq-filter-reset').getByRole('button', { name: 'Сбросить' }).click();
+    await expect(page).toHaveURL(/\/admin\/audit$/);
+    await expect.poll(() => chips(page)).toEqual(['Период', 'Пользователь', 'Действие']);
+    await expect(page.locator('kbq-filter-reset')).toHaveCount(0);
+    // The rows reload unfiltered: actions and people outside the old filters are back.
+    await expect(rows.locator('td:nth-child(3)').filter({ hasText: /\b(user|queue|chat|concurrency)\./ }).first()).toBeVisible();
+    await expect(rows.locator('td:nth-child(2)').filter({ hasText: 'd.orlov' }).first()).toBeVisible();
+    expect(errors).toEqual([]);
+});
+
+test('«Запросы пользователей»: several tasks are OR, «Сбросить» clears every filter', async ({ page, mock }) => {
+    await mock.reset('admin');
+    const errors = watchErrors(page);
+    await openAs(page, 'admin', '/admin/requests');
+    const rows = page.locator('table tbody tr');
+    await expect(rows.first()).toBeVisible();
+
+    await pick(page, /^Тип/, ['Задача']);
+    await expect(page).toHaveURL(/[?&]type=task(&|$)/);
+    await pick(page, /^Задача/, ['Разбор упавшего CI-пайплайна', 'Ревью merge request']);
+    await expect(page).toHaveURL(/[?&]task=t-ci,t-mr(&|$)/);
+    await expect(page.locator('kbq-filter-bar').getByRole('button', { name: /^Задача\s*2$/ })).toBeVisible();
+    await expect
+        .poll(async () => {
+            const kinds = await rows.locator('td:first-child').allInnerTexts();
+            return (
+                kinds.length > 0 &&
+                kinds.every((k) => /Задача · (Разбор упавшего CI-пайплайна|Ревью merge request)/.test(k)) &&
+                kinds.some((k) => k.includes('Разбор упавшего CI-пайплайна')) &&
+                kinds.some((k) => k.includes('Ревью merge request'))
+            );
+        })
+        .toBe(true);
+    await expect(page.locator('v-screen-header kbq-badge')).toContainText(/\d+ из \d+/);
+
+    await page.locator('kbq-filter-reset').getByRole('button', { name: 'Сбросить' }).click();
+    await expect(page).toHaveURL(/\/admin\/requests$/);
+    await expect.poll(() => chips(page)).toEqual(['Пользователь', 'Период', 'Тип']);
+    await expect(page.locator('v-screen-header kbq-badge')).not.toContainText('из');
+    await expect(rows.locator('td:first-child').filter({ hasText: 'Вопрос' }).first()).toBeVisible();
+    expect(errors).toEqual([]);
+});
+
+test('«Статистика»: several types are OR, «Сбросить» brings back the default period and every type', async ({ page, mock }) => {
+    await mock.reset('admin');
+    const errors = watchErrors(page);
+    await openAs(page, 'admin', '/admin/statistics');
+    const kpi = page.locator('.v-kpi__v').first();
+    await expect.poll(async () => Number(await kpi.innerText())).toBeGreaterThan(0);
+    const all = Number(await kpi.innerText());
+
+    await pick(page, /^Тип/, ['Вопросы', 'Разбор упавшего CI-пайплайна']);
+    await expect(page).toHaveURL(/[?&]type=question,t-ci(&|$)/);
+    await expect(page.locator('kbq-filter-bar').getByRole('button', { name: /^Тип\s*2$/ })).toBeVisible();
+    await expect.poll(async () => Number(await kpi.innerText())).toBeLessThan(all);
+    const picked = Number(await kpi.innerText());
+    expect(picked).toBeGreaterThan(0);
+
+    await page.locator('kbq-filter-reset').getByRole('button', { name: 'Сбросить' }).click();
+    await expect(page).toHaveURL(/\/admin\/statistics$/);
+    await expect.poll(() => chips(page)).toEqual(['Период Последние 7 дней', 'Тип']);
+    await expect.poll(async () => Number(await kpi.innerText())).toBeGreaterThan(picked);
+    expect(errors).toEqual([]);
+});

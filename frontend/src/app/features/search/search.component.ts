@@ -89,7 +89,6 @@ export class SearchComponent {
     protected readonly statusBadgeColor = statusBadgeColor;
 
     private readonly input = viewChild<ElementRef<HTMLInputElement>>('input');
-    private readonly head = viewChild.required<TemplateRef<object>>('head');
     private readonly body = viewChild.required<TemplateRef<object>>('body');
     private modalRef?: KbqModalRef;
     /** Set once the palette starts leaving, so Esc, the backdrop and the close button navigate only once. */
@@ -137,8 +136,9 @@ export class SearchComponent {
     }
 
     private openModal(): void {
+        // No title and no footer: Koobiq renders no header, like its confirmation modal, and the search field
+        // with its close button sits at the top of the content.
         this.modalRef = this.modal.create({
-            kbqTitle: this.head(),
             kbqContent: this.body(),
             kbqSize: ModalSize.Medium,
             kbqClosable: false,

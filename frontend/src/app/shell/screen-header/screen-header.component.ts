@@ -99,7 +99,9 @@ export interface Crumb {
     `,
     styles: `
         :host { display: block; flex: none; }
-        .v-screen-header__start { align-items: center; min-width: 0; }
+        /* One height on every screen: the start container is as tall as a button (--kbq-size-3xl), so a header
+           with only a title is as tall as one with actions (stock top bar: 12 + 32 + 12). */
+        .v-screen-header__start { align-items: center; min-width: 0; min-height: var(--kbq-size-3xl); }
         .v-screen-header__crumbs { min-width: 0; }
         .v-screen-header__heading { display: inline-flex; align-items: center; gap: var(--kbq-size-s); min-width: 0; }
         .v-screen-header__title {

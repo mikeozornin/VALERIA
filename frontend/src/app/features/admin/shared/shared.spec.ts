@@ -9,7 +9,7 @@ import {
     AdminUser,
 } from './admin.models';
 import { KbqPipeTypes } from '@koobiq/components/filter-bar';
-import { pipeTrackKey } from './pipe-track';
+import { multiSelectValues, pipeTrackKey, withEpoch } from './pipe-track';
 import { auditCategoryCodes, auditLabel, AUDIT_ACTIONS } from './audit-labels';
 import { batchToast, BatchResult } from './batch';
 import { formatWhen, plural, formatDay } from './format';
@@ -241,12 +241,34 @@ describe('pipeTrackKey', () => {
     it('changes for a single select once its value label resolves', () => {
         const before = pipeTrackKey(pipe(KbqPipeTypes.Select, null));
         const after = pipeTrackKey(pipe(KbqPipeTypes.Select, { name: 'Разбор упавшего CI-пайплайна', value: 't-ci' }));
-        expect(before).toBe('task|');
-        expect(after).toBe('task|Разбор упавшего CI-пайплайна');
+        expect(before).toBe('0|task|');
+        expect(after).toBe('0|task|Разбор упавшего CI-пайплайна');
     });
 
-    it('stays stable for multi-select and datetime pipes', () => {
-        expect(pipeTrackKey(pipe(KbqPipeTypes.MultiSelect, [{ name: 'a', value: 'a' }]))).toBe('task');
-        expect(pipeTrackKey(pipe(KbqPipeTypes.Datetime, { start: { days: -30 }, end: null }))).toBe('task');
+    it('stays stable for multi-select and datetime pipes while their values change', () => {
+        expect(pipeTrackKey(pipe(KbqPipeTypes.MultiSelect, [{ name: 'a', value: 'a' }]))).toBe('0|task');
+        expect(pipeTrackKey(pipe(KbqPipeTypes.MultiSelect, []))).toBe('0|task');
+        expect(pipeTrackKey(pipe(KbqPipeTypes.Datetime, { start: { days: -30 }, end: null }))).toBe('0|task');
+    });
+
+    it('changes for every pipe built in a new epoch (reset, late labels)', () => {
+        const [multi, date] = withEpoch([pipe(KbqPipeTypes.MultiSelect, []), pipe(KbqPipeTypes.Datetime, null)], 2);
+        expect(pipeTrackKey(multi)).toBe('2|task');
+        expect(pipeTrackKey(date)).toBe('2|task');
+    });
+
+    it('keeps the epoch on the pipe object, so a rendered pipe keeps its old key', () => {
+        const old = withEpoch([pipe(KbqPipeTypes.MultiSelect, [])], 1)[0];
+        const fresh = withEpoch([pipe(KbqPipeTypes.MultiSelect, [])], 2)[0];
+        expect(pipeTrackKey(old)).toBe('1|task');
+        expect(pipeTrackKey(fresh)).toBe('2|task');
+    });
+});
+
+describe('multiSelectValues', () => {
+    it('maps picked options to their values; anything else is empty', () => {
+        expect(multiSelectValues([{ name: 'A', value: 'a' }, { name: 'B', value: 2 }])).toEqual(['a', '2']);
+        expect(multiSelectValues([])).toEqual([]);
+        expect(multiSelectValues(null)).toEqual([]);
     });
 });

@@ -181,7 +181,8 @@ export class QueueLiveComponent {
             kbqFooter: [
                 {
                     label: 'Остановить',
-                    type: KbqComponentColors.Error,
+                    // Filled contrast: kbq-button has no error colour, so `Error` rendered a plain grey button.
+                    type: KbqComponentColors.Contrast,
                     onClick: (): void => {
                         ref.close();
                         void this.stop(r);

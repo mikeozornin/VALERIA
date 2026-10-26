@@ -65,11 +65,12 @@ export const CHAT_MENU_LABEL = 'Действия с чатом';
                     </button>
                     <kbq-divider />
                     <button kbq-dropdown-item (click)="actions.confirmRemove(item(), row())">
-                        <i kbq-icon="kbq-trash_16" [color]="colors.Error"></i>Удалить
+                        <i kbq-icon="kbq-trash_16"></i>Удалить
                     </button>
                 }
                 @default {
-                    <div class="kbq-dropdown__group-header">Отложить</div>
+                    <!-- Group caption: the stock kbq-select optgroup label (kbq-optgroup itself only works inside kbq-select). -->
+                    <label class="kbq-optgroup-label">Отложить</label>
                     @if (mode() === 'snoozed') {
                         <button kbq-dropdown-item (click)="actions.unsnooze(item())">
                             <i kbq-icon="kbq-undo_16"></i>Вернуть из отложенных
@@ -85,7 +86,7 @@ export const CHAT_MENU_LABEL = 'Действия с чатом';
                     </button>
                     <kbq-divider />
                     <button kbq-dropdown-item (click)="actions.confirmRemove(item(), row())">
-                        <i kbq-icon="kbq-trash_16" [color]="colors.Error"></i>Удалить
+                        <i kbq-icon="kbq-trash_16"></i>Удалить
                     </button>
                 }
             }

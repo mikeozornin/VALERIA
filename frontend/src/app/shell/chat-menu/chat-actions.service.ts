@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { Router } from '@angular/router';
+import { KbqComponentColors } from '@koobiq/components/core';
 import { KbqModalRef, KbqModalService, ModalSize } from '@koobiq/components/modal';
 import { Subject } from 'rxjs';
 import { Item, itemRoute } from '../../core/items/item.model';
@@ -81,7 +82,8 @@ export class ChatActionsService {
             kbqFooter: [
                 {
                     label: 'Удалить',
-                    type: 'error',
+                    // Filled contrast: kbq-button has no error colour, so 'error' rendered a plain grey button.
+                    type: KbqComponentColors.Contrast,
                     onClick: (): void => {
                         confirmed = true;
                         ref.close();

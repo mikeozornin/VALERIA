@@ -11,6 +11,9 @@ import { NavComponent } from './nav/nav.component';
  * (logout or 401), and turns final status changes into toasts.
  *
  * The routed screen's host is a flex column that fills the content area (see styles.scss).
+ * The content area is its own stacking context: the sticky `kbq-top-bar` carries Koobiq's overlay z-index (1000),
+ * the same as the cdk overlay container, so without it the screen header could stay above modal backdrops and
+ * dropdowns. Isolated, it stays above the screen's content only.
  */
 @Component({
     selector: 'v-shell',
@@ -25,7 +28,7 @@ import { NavComponent } from './nav/nav.component';
     `,
     styles: `
         :host { display: flex; height: 100%; min-height: 0; background: var(--kbq-background-bg); }
-        .v-shell__main { position: relative; display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; }
+        .v-shell__main { position: relative; isolation: isolate; display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; }
     `,
 })
 export class ShellComponent {

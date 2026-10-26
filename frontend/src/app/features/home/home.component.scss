@@ -36,16 +36,9 @@
     margin-bottom: var(--kbq-size-m);
 }
 
-.v-home__bar {
-    margin-top: var(--kbq-size-m);
-}
-
 .v-home__inputbox {
-    position: relative;
-
-    kbq-form-field {
+    .v-composer-box__field {
         display: block;
-        width: 100%;
     }
 
     textarea {
@@ -53,19 +46,11 @@
         width: 100%;
         resize: none;
         min-height: 56px;
-        padding-bottom: 44px;
     }
 }
 
 .v-home__inputbox_preset {
     margin-top: var(--kbq-size-l);
-}
-
-.v-home__send {
-    position: absolute;
-    z-index: 4;
-    right: var(--kbq-size-xs);
-    bottom: var(--kbq-size-xs);
 }
 
 .v-home__desc {
@@ -102,5 +87,6 @@
 
 .v-home__model {
     width: auto;
+    min-width: 0;
     max-width: 260px;
 }

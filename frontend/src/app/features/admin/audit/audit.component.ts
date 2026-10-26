@@ -27,7 +27,9 @@ import { ADMIN_LIST_STYLES } from '../shared/admin-styles';
 import { AUDIT_CATEGORIES, AuditCategory, auditLabel } from '../shared/audit-labels';
 import { DASH, formatWhen } from '../shared/format';
 import { PERIODS, periodFromPipe, periodRange, periodToPipe } from '../shared/period';
+import { multiSelectValues, pipeTrackKey, withEpoch } from '../shared/pipe-track';
 import {
+    AUDIT_NO_FILTERS,
     auditApiParams,
     AuditEvent,
     auditFiltered,
@@ -92,7 +94,7 @@ interface AuditRow extends AuditEvent {
                             [pipeTemplates]="templates()"
                             (onChangePipe)="onPipe($event)"
                         >
-                            @for (pipe of filter().pipes; track pipe.id) {
+                            @for (pipe of filter().pipes; track pipeKey(pipe)) {
                                 <ng-container *kbqPipe="pipe" />
                             }
                             @if (filtered()) {
@@ -247,6 +249,9 @@ export class AuditComponent {
     protected readonly colors = KbqComponentColors;
     protected readonly dash = DASH;
     protected readonly panel = cpanelWidth('audit');
+    /** Bumped after «Сбросить» so the pipes are re-created with the cleared values (see pipeTrackKey). */
+    private readonly pipeEpoch = signal(0);
+    protected readonly pipeKey = pipeTrackKey;
 
     protected readonly loading = signal(true);
     protected readonly loadingMore = signal(false);
@@ -296,18 +301,10 @@ export class AuditComponent {
     protected readonly metaJson = computed(() => auditMetadata(this.selected()?.metadata_json ?? null));
 
     private readonly userOptions = computed<KbqSelectValue[]>(() => {
-        const set = new Set(this.logins());
-        const current = this.state().user;
-        if (current) set.add(current);
-        return [
-            { name: 'Все пользователи', value: null, id: '' },
-            ...[...set].sort().map((l) => ({ name: l, value: l, id: l })),
-        ];
+        const set = new Set([...this.logins(), ...this.state().users]);
+        return [...set].sort().map((l) => ({ name: l, value: l, id: l }));
     });
-    private readonly actionOptions: KbqSelectValue[] = [
-        { name: 'Все действия', value: null, id: '' },
-        ...AUDIT_CATEGORIES.map((c) => ({ name: c.name, value: c.id, id: c.id })),
-    ];
+    private readonly actionOptions: KbqSelectValue[] = AUDIT_CATEGORIES.map((c) => ({ name: c.name, value: c.id, id: c.id }));
 
     protected readonly templates = computed<KbqPipeTemplate[]>(() => [
         {
@@ -322,7 +319,7 @@ export class AuditComponent {
         {
             name: 'Пользователь',
             id: 'user',
-            type: KbqPipeTypes.Select,
+            type: KbqPipeTypes.MultiSelect,
             values: this.userOptions(),
             search: true,
             cleanable: true,
@@ -333,7 +330,7 @@ export class AuditComponent {
         {
             name: 'Действие',
             id: 'action',
-            type: KbqPipeTypes.Select,
+            type: KbqPipeTypes.MultiSelect,
             values: this.actionOptions,
             cleanable: true,
             removable: false,
@@ -343,9 +340,10 @@ export class AuditComponent {
     ]);
 
     protected readonly filter = computed<KbqFilter>(() => {
+        const epoch = this.pipeEpoch();
         const s = this.state();
-        const user = s.user ? (this.userOptions().find((o) => o.value === s.user) ?? null) : null;
-        const action = s.action ? (this.actionOptions.find((o) => o.value === s.action) ?? null) : null;
+        const users = this.userOptions().filter((o) => s.users.includes(o.value as string));
+        const actions = this.actionOptions.filter((o) => s.actions.includes(o.value as AuditCategory));
         const pipes: KbqPipe[] = [
             {
                 name: 'Период',
@@ -359,8 +357,8 @@ export class AuditComponent {
             {
                 name: 'Пользователь',
                 id: 'user',
-                type: KbqPipeTypes.Select,
-                value: user,
+                type: KbqPipeTypes.MultiSelect,
+                value: users,
                 search: true,
                 cleanable: true,
                 removable: false,
@@ -369,14 +367,14 @@ export class AuditComponent {
             {
                 name: 'Действие',
                 id: 'action',
-                type: KbqPipeTypes.Select,
-                value: action,
+                type: KbqPipeTypes.MultiSelect,
+                value: actions,
                 cleanable: true,
                 removable: false,
                 disabled: false,
             },
         ];
-        return { name: '', pipes, readonly: false, disabled: false, changed: false, saved: false };
+        return { name: '', pipes: withEpoch(pipes, epoch), readonly: false, disabled: false, changed: false, saved: false };
     });
 
     private loadSeq = 0;
@@ -476,21 +474,22 @@ export class AuditComponent {
 
     protected onPipe(pipe: KbqPipe): void {
         const s = this.state();
-        const value = (pipe.value as KbqSelectValue | null)?.value ?? null;
-        if (pipe.id === 'period') this.navigate({ ...s, period: periodFromPipe(pipe.value) });
-        else if (pipe.id === 'user') this.navigate({ ...s, user: value ? String(value) : null });
-        else if (pipe.id === 'action') this.navigate({ ...s, action: (value as AuditCategory | null) ?? null });
+        if (pipe.id === 'period') void this.navigate({ ...s, period: periodFromPipe(pipe.value) });
+        else if (pipe.id === 'user') void this.navigate({ ...s, users: multiSelectValues(pipe.value) });
+        else if (pipe.id === 'action')
+            void this.navigate({ ...s, actions: multiSelectValues(pipe.value) as AuditCategory[] });
     }
 
-    private navigate(s: AuditFilters, extra: Record<string, string | null> = {}): void {
-        void this.router.navigate([], {
+    private navigate(s: AuditFilters, extra: Record<string, string | null> = {}): Promise<boolean> {
+        return this.router.navigate([], {
             queryParams: { ...auditFiltersToQuery(s), ...extra },
             queryParamsHandling: 'merge',
         });
     }
 
+    /** «Сбросить»: no filters, no search; the pipes are re-created once the URL is cleared. */
     protected resetAll(): void {
-        this.navigate({ period: null, user: null, action: null }, { q: null });
+        void this.navigate(AUDIT_NO_FILTERS, { q: null }).then(() => this.pipeEpoch.update((n) => n + 1));
     }
 
     protected setQuery(q: string): void {

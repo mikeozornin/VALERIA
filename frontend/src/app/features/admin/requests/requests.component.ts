@@ -34,8 +34,8 @@ import {
     periodToQuery,
 } from '../shared/period';
 import { KIND_LABEL } from '../shared/requests.helpers';
-import { pipeTrackKey } from '../shared/pipe-track';
-import { requestFilterParams, RequestFilters } from './requests.filters';
+import { multiSelectValues, pipeTrackKey, withEpoch } from '../shared/pipe-track';
+import { REQUEST_NO_FILTERS, requestFilterParams, RequestFilters, requestsByTasks } from './requests.filters';
 
 const KINDS: ItemKind[] = ['question', 'task', 'folder'];
 
@@ -175,6 +175,8 @@ export class RequestsComponent {
     protected readonly colors = KbqComponentColors;
     protected readonly badgeColors = KbqBadgeColors;
     protected readonly dash = '—';
+    /** Bumped after «Сбросить» and when task titles arrive, so the pipes are re-created (see pipeTrackKey). */
+    private readonly pipeEpoch = signal(0);
     protected readonly pipeKey = pipeTrackKey;
 
     protected readonly loading = signal(true);
@@ -189,11 +191,11 @@ export class RequestsComponent {
         users: listFromQuery(this.user()),
         period: periodFromQuery(this.period(), this.from(), this.to()),
         types: listFromQuery(this.type()).filter((t): t is ItemKind => (KINDS as string[]).includes(t)),
-        task: this.task() || null,
+        tasks: [...new Set(listFromQuery(this.task()))],
     }));
     protected readonly pipesFiltered = computed(() => {
         const s = this.state();
-        return !!(s.users.length || s.period || s.types.length || s.task);
+        return !!(s.users.length || s.period || s.types.length || s.tasks.length);
     });
     protected readonly filtered = computed(() => this.pipesFiltered() || !!this.q()?.trim());
 
@@ -208,9 +210,12 @@ export class RequestsComponent {
         return [...logins].sort().map((login) => ({ name: login, value: login, id: login }));
     });
     private readonly kindOptions: KbqSelectValue[] = KINDS.map((k) => ({ name: KIND_LABEL[k], value: k, id: k }));
-    private readonly taskOptions = computed<KbqSelectValue[]>(() =>
-        this.tasks().map((t) => ({ name: t.title, value: t.id, id: t.id })),
-    );
+    /** Tasks of the list; ids from the URL that are not (yet) known keep the raw id as the name. */
+    private readonly taskOptions = computed<KbqSelectValue[]>(() => {
+        const options = this.tasks().map((t) => ({ name: t.title, value: t.id, id: t.id }));
+        const unknown = this.state().tasks.filter((id) => !options.some((o) => o.value === id));
+        return [...options, ...unknown.map((id) => ({ name: id, value: id, id }))];
+    });
 
     protected readonly templates = computed<KbqPipeTemplate[]>(() => [
         {
@@ -246,7 +251,7 @@ export class RequestsComponent {
         {
             name: 'Задача',
             id: 'task',
-            type: KbqPipeTypes.Select,
+            type: KbqPipeTypes.MultiSelect,
             values: this.taskOptions(),
             search: true,
             cleanable: true,
@@ -257,6 +262,7 @@ export class RequestsComponent {
     ]);
 
     protected readonly filter = computed<KbqFilter>(() => {
+        const epoch = this.pipeEpoch();
         const s = this.state();
         const users = this.userOptions().filter((o) => s.users.includes(o.value as string));
         const types = this.kindOptions.filter((o) => s.types.includes(o.value as ItemKind));
@@ -291,19 +297,19 @@ export class RequestsComponent {
             },
         ];
         if (s.types.includes('task')) {
-            const task = this.taskOptions().find((o) => o.value === s.task) ?? null;
+            const tasks = this.taskOptions().filter((o) => s.tasks.includes(o.value as string));
             pipes.push({
                 name: 'Задача',
                 id: 'task',
-                type: KbqPipeTypes.Select,
-                value: task,
+                type: KbqPipeTypes.MultiSelect,
+                value: tasks,
                 search: true,
                 cleanable: true,
                 removable: false,
                 disabled: false,
             });
         }
-        return { name: '', pipes, readonly: false, disabled: false, changed: false, saved: false };
+        return { name: '', pipes: withEpoch(pipes, epoch), readonly: false, disabled: false, changed: false, saved: false };
     });
 
     private loadSeq = 0;
@@ -322,7 +328,11 @@ export class RequestsComponent {
             this.api.get<AdminTask[]>('/api/admin/tasks'),
         ]);
         if (all.status === 'fulfilled') this.all.set(all.value);
-        if (tasks.status === 'fulfilled') this.tasks.set(tasks.value);
+        if (tasks.status === 'fulfilled') {
+            this.tasks.set(tasks.value);
+            // A `?task=` deep link: the chip was created with raw ids, re-create it with the titles.
+            if (this.state().tasks.length) this.pipeEpoch.update((n) => n + 1);
+        }
     }
 
     async load(state: RequestFilters = this.state()): Promise<void> {
@@ -332,7 +342,7 @@ export class RequestsComponent {
         try {
             const params = requestFilterParams(state, periodRange(state.period));
             const items = await this.api.get<AdminRequest[]>('/api/admin/requests', { params });
-            if (seq === this.loadSeq) this.items.set(items);
+            if (seq === this.loadSeq) this.items.set(requestsByTasks(items, state));
         } catch (err) {
             if (seq === this.loadSeq) this.error.set(err);
         } finally {
@@ -342,34 +352,30 @@ export class RequestsComponent {
 
     protected onPipe(pipe: KbqPipe): void {
         const s = this.state();
-        const values = (v: unknown): string[] =>
-            Array.isArray(v) ? v.map((o: KbqSelectValue) => String(o.value)) : [];
-        if (pipe.id === 'user') this.navigate({ ...s, users: values(pipe.value) });
-        else if (pipe.id === 'period') this.navigate({ ...s, period: periodFromPipe(pipe.value) });
+        if (pipe.id === 'user') void this.navigate({ ...s, users: multiSelectValues(pipe.value) });
+        else if (pipe.id === 'period') void this.navigate({ ...s, period: periodFromPipe(pipe.value) });
         else if (pipe.id === 'type') {
-            const types = values(pipe.value) as ItemKind[];
-            this.navigate({ ...s, types, task: types.includes('task') ? s.task : null });
-        } else if (pipe.id === 'task') {
-            const v = pipe.value as KbqSelectValue | null;
-            this.navigate({ ...s, task: v ? String(v.value) : null });
-        }
+            const types = multiSelectValues(pipe.value) as ItemKind[];
+            void this.navigate({ ...s, types, tasks: types.includes('task') ? s.tasks : [] });
+        } else if (pipe.id === 'task') void this.navigate({ ...s, tasks: multiSelectValues(pipe.value) });
     }
 
-    private navigate(s: RequestFilters, extra: Record<string, string | null> = {}): void {
-        void this.router.navigate([], {
+    private navigate(s: RequestFilters, extra: Record<string, string | null> = {}): Promise<boolean> {
+        return this.router.navigate([], {
             queryParams: {
                 user: listToQuery(s.users),
                 ...periodToQuery(s.period),
                 type: listToQuery(s.types),
-                task: s.task,
+                task: listToQuery(s.tasks),
                 ...extra,
             },
             queryParamsHandling: 'merge',
         });
     }
 
+    /** «Сбросить»: no filters, no search; the pipes are re-created once the URL is cleared. */
     protected resetAll(): void {
-        this.navigate({ users: [], period: null, types: [], task: null }, { q: null });
+        void this.navigate(REQUEST_NO_FILTERS, { q: null }).then(() => this.pipeEpoch.update((n) => n + 1));
     }
 
     protected setQuery(q: string): void {

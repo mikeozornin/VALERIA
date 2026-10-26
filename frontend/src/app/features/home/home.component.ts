@@ -32,6 +32,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ItemsStore } from '../../core/items/items.store';
 import { NotifyService } from '../../core/notify/notify.service';
 import { failureText, IdempotentAction, isSendShortcut } from '../../shared/chat-composer/send-action';
+import { ComposerBoxComponent } from '../../shared/chat-composer/composer-box.component';
 import { SendButtonComponent } from '../../shared/chat-composer/send-button.component';
 import { clockTime, findActiveDuplicate, TaskDef, TaskRun, TemplateDef } from '../../shared/tasks/task.model';
 import { TasksCatalog } from '../../shared/tasks/tasks-catalog.service';
@@ -73,6 +74,7 @@ const AGENT_LABELS: Record<string, string> = { plan: 'Plan', build: 'Build' };
         KbqTagsModule,
         KbqTextareaModule,
         KbqToolTipModule,
+        ComposerBoxComponent,
         SendButtonComponent,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,

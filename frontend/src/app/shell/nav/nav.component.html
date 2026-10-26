@@ -195,9 +195,10 @@
 
 <kbq-dropdown #userMenu="kbqDropdown" yPosition="above">
     @if (auth.user(); as user) {
-        <div class="kbq-dropdown__group-header">{{ user.login }} · {{ auth.roleLabel() }}</div>
+        <!-- Captions: the stock kbq-select optgroup label (kbq-optgroup itself only works inside kbq-select). -->
+        <label class="kbq-optgroup-label">{{ user.login }} · {{ auth.roleLabel() }}</label>
     }
-    <div class="kbq-dropdown__group-header">Тема</div>
+    <label class="kbq-optgroup-label">Тема</label>
     @for (option of themeOptions; track option.id) {
         <button
             kbq-dropdown-item

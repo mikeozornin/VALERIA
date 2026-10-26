@@ -1,5 +1,7 @@
-import { requestFilterParams } from '../requests/requests.filters';
+import { REQUEST_NO_FILTERS, requestFilterParams, requestsByTasks } from '../requests/requests.filters';
+import { AdminRequest } from '../shared/admin.models';
 import {
+    AUDIT_NO_FILTERS,
     auditApiParams,
     auditFiltered,
     auditFiltersFromQuery,
@@ -19,7 +21,7 @@ const ctx: AuditObjectContext = {
 describe('audit filters ↔ query', () => {
     it('round-trips filters through the URL', () => {
         const f = auditFiltersFromQuery({ period: '7d', user: 'd.orlov', action: 'users' });
-        expect(f).toEqual({ period: { code: '7d' }, user: 'd.orlov', action: 'users' });
+        expect(f).toEqual({ period: { code: '7d' }, users: ['d.orlov'], actions: ['users'] });
         expect(auditFiltersToQuery(f)).toEqual({
             period: '7d',
             from: null,
@@ -30,9 +32,17 @@ describe('audit filters ↔ query', () => {
         expect(auditFiltered(f)).toBe(true);
     });
 
+    it('keeps several users and categories as comma lists', () => {
+        const f = auditFiltersFromQuery({ user: 'd.orlov, p.volkov,d.orlov', action: 'auth,bogus,queues' });
+        expect(f).toEqual({ period: null, users: ['d.orlov', 'p.volkov'], actions: ['auth', 'queues'] });
+        expect(auditFiltersToQuery(f)).toEqual(
+            expect.objectContaining({ user: 'd.orlov,p.volkov', action: 'auth,queues' }),
+        );
+    });
+
     it('ignores unknown categories and empty values', () => {
         const f = auditFiltersFromQuery({ period: 'nope', user: '  ', action: 'bogus' });
-        expect(f).toEqual({ period: null, user: null, action: null });
+        expect(f).toEqual(AUDIT_NO_FILTERS);
         expect(auditFiltered(f)).toBe(false);
         expect(auditFiltersToQuery(f)).toEqual({ period: null, from: null, to: null, user: null, action: null });
     });
@@ -46,11 +56,23 @@ describe('audit filters ↔ query', () => {
 
     it('builds API params with category codes', () => {
         const params = auditApiParams(
-            { period: null, user: 'p.volkov', action: 'auth' },
+            { period: null, users: ['p.volkov'], actions: ['auth'] },
             { from: '2026-10-18T00:00:00.000Z', to: null },
         );
         expect(params).toEqual({ from: '2026-10-18T00:00:00.000Z', user: 'p.volkov', action: 'auth.login' });
-        expect(auditApiParams({ period: null, user: null, action: null }, { from: null, to: null })).toEqual({});
+        expect(auditApiParams(AUDIT_NO_FILTERS, { from: null, to: null })).toEqual({});
+    });
+
+    it('joins several users and the codes of several categories', () => {
+        const params = auditApiParams(
+            { period: null, users: ['p.volkov', 'd.orlov'], actions: ['auth', 'queues'] },
+            { from: null, to: null },
+        );
+        expect(params['user']).toBe('p.volkov,d.orlov');
+        const codes = params['action'].split(',');
+        expect(codes[0]).toBe('auth.login');
+        expect(codes).toContain('queue.update');
+        expect(codes).not.toContain('user.create');
     });
 });
 
@@ -74,10 +96,12 @@ describe('audit object and metadata', () => {
 });
 
 describe('requests filter ↔ API params', () => {
+    const r = (id: string, task_id: string | null) => ({ id, task_id }) as AdminRequest;
+
     it('joins lists and drops empty filters', () => {
         expect(
             requestFilterParams(
-                { users: ['a.nikitina', 'p.volkov'], period: null, types: ['task', 'question'], task: 't-ci' },
+                { users: ['a.nikitina', 'p.volkov'], period: null, types: ['task', 'question'], tasks: ['t-ci'] },
                 { from: '2026-10-18T00:00:00.000Z', to: null },
             ),
         ).toEqual({
@@ -86,17 +110,21 @@ describe('requests filter ↔ API params', () => {
             task: 't-ci',
             from: '2026-10-18T00:00:00.000Z',
         });
-        expect(
-            requestFilterParams({ users: [], period: null, types: [], task: null }, { from: null, to: null }),
-        ).toEqual({});
+        expect(requestFilterParams(REQUEST_NO_FILTERS, { from: null, to: null })).toEqual({});
     });
 
     it('drops the task when tasks are not among the types', () => {
-        expect(
-            requestFilterParams(
-                { users: [], period: null, types: ['question'], task: 't-ci' },
-                { from: null, to: null },
-            ),
-        ).toEqual({ type: 'question' });
+        const f = { ...REQUEST_NO_FILTERS, types: ['question' as const], tasks: ['t-ci'] };
+        expect(requestFilterParams(f, { from: null, to: null })).toEqual({ type: 'question' });
+        expect(requestsByTasks([r('1', null), r('2', 't-mr')], { ...f, tasks: ['t-ci', 't-mr'] })).toHaveLength(2);
+    });
+
+    it('filters several tasks on the client: the API takes one', () => {
+        const f = { ...REQUEST_NO_FILTERS, types: ['task' as const], tasks: ['t-ci', 't-mr'] };
+        expect(requestFilterParams(f, { from: null, to: null })).toEqual({ type: 'task' });
+        const items = [r('1', 't-ci'), r('2', 't-mr'), r('3', 't-notes'), r('4', null)];
+        expect(requestsByTasks(items, f).map((x) => x.id)).toEqual(['1', '2']);
+        // One task is filtered by the API; the client keeps what came back.
+        expect(requestsByTasks(items, { ...f, tasks: ['t-ci'] })).toBe(items);
     });
 });

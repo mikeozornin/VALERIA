@@ -4,20 +4,22 @@ import { KbqFormFieldModule } from '@koobiq/components/form-field';
 import { KbqTextareaModule } from '@koobiq/components/textarea';
 import { UiStateService } from '../../core/state/ui-state.service';
 import { composerState, isSendShortcut } from './send-action';
+import { ComposerBoxComponent } from './composer-box.component';
 import { SendButtonComponent } from './send-button.component';
 
 /**
- * Message input with the send button inside (prototype `.v-inputbox`). The draft lives in sessionStorage per chat.
- * `submit` performs the request and resolves `true` on success; the button shows progress until then and the draft is
- * cleared only after success. Ctrl/⌘ Enter sends. Content projected below is the composer bar (agent, model).
+ * Message input in a `v-composer-box`: the textarea on top, the send button bottom-right inside the same frame.
+ * The draft lives in sessionStorage per chat. `submit` performs the request and resolves `true` on success; the
+ * button shows progress until then and the draft is cleared only after success. Ctrl/⌘ Enter sends. Projected
+ * content is the composer bar (agent, model); it sits bottom-left in the frame, on the send button's row.
  */
 @Component({
     selector: 'v-chat-composer',
-    imports: [FormsModule, KbqFormFieldModule, KbqTextareaModule, SendButtonComponent],
+    imports: [FormsModule, KbqFormFieldModule, KbqTextareaModule, ComposerBoxComponent, SendButtonComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
-        <div class="v-inputbox">
-            <kbq-form-field>
+        <v-composer-box [disabled]="state().locked">
+            <kbq-form-field class="v-composer-box__field" noBorders>
                 <textarea
                     #area
                     kbqTextarea
@@ -33,7 +35,6 @@ import { SendButtonComponent } from './send-button.component';
                 ></textarea>
             </kbq-form-field>
             <v-send-button
-                class="v-inputbox__send"
                 [label]="label()"
                 [disabled]="state().disabled"
                 [sending]="sending()"
@@ -41,15 +42,13 @@ import { SendButtonComponent } from './send-button.component';
                 (pressed)="send()"
                 >{{ label() }}</v-send-button
             >
-        </div>
-        <ng-content />
+            <ng-content />
+        </v-composer-box>
     `,
     styles: `
         :host { display: block; }
-        .v-inputbox { position: relative; }
-        .v-inputbox kbq-form-field { display: block; width: 100%; }
-        .v-inputbox__area { display: block; width: 100%; resize: none; padding-bottom: calc(var(--kbq-size-3xl) + var(--kbq-size-m)); box-sizing: border-box; }
-        .v-inputbox__send { position: absolute; right: var(--kbq-size-xxs); bottom: var(--kbq-size-xxs); z-index: 4; } /* above a focused kbq-form-field (z-index 3) */
+        kbq-form-field { display: block; }
+        .v-inputbox__area { display: block; width: 100%; resize: none; box-sizing: border-box; }
     `,
 })
 export class ChatComposerComponent {

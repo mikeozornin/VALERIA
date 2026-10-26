@@ -29,8 +29,8 @@
             @if (task.description) {
                 <div class="v-home__desc">{{ task.description }}</div>
             }
-            <div class="v-home__inputbox v-home__inputbox_preset">
-                <kbq-form-field>
+            <v-composer-box class="v-home__inputbox v-home__inputbox_preset">
+                <kbq-form-field class="v-composer-box__field" noBorders>
                     <textarea
                         #field
                         kbqTextarea
@@ -44,7 +44,6 @@
                     ></textarea>
                 </kbq-form-field>
                 <v-send-button
-                    class="v-home__send"
                     label="Запустить"
                     [disabled]="!!launchReason()"
                     [reason]="launchReason()"
@@ -52,7 +51,7 @@
                     (pressed)="launch()"
                     ><i kbq-icon="kbq-play_16"></i>Запустить</v-send-button
                 >
-            </div>
+            </v-composer-box>
             <div class="kbq-text-compact v-home__hint">Текст добавится в конец инструкции задачи.</div>
             @if (duplicate()) {
                 <kbq-alert class="v-home__duplicate" alertColor="warning" alertStyle="colored" [compact]="true">
@@ -90,7 +89,7 @@
                 </button>
             }
             <kbq-dropdown #variants="kbqDropdown" [panelMaxWidth]="480">
-                <div class="kbq-dropdown__group-header">Задачи</div>
+                <label class="kbq-optgroup-label">Задачи</label>
                 @for (task of tasks(); track task.id) {
                     <button kbq-dropdown-item (click)="openTask(task)">
                         <b>{{ task.title }}</b>
@@ -101,7 +100,7 @@
                 }
                 @if (templates().length) {
                     <kbq-divider />
-                    <div class="kbq-dropdown__group-header">Шаблоны для «Сделать»</div>
+                    <label class="kbq-optgroup-label">Шаблоны для «Сделать»</label>
                     @for (template of templates(); track template.id) {
                         <button kbq-dropdown-item (click)="useTemplate(template)">
                             <b>{{ template.title }}</b>
@@ -112,8 +111,8 @@
             </kbq-dropdown>
         </div>
 
-        <div class="v-home__inputbox">
-            <kbq-form-field>
+        <v-composer-box class="v-home__inputbox">
+            <kbq-form-field class="v-composer-box__field" noBorders>
                 <textarea
                     #field
                     kbqTextarea
@@ -127,7 +126,6 @@
                 ></textarea>
             </kbq-form-field>
             <v-send-button
-                class="v-home__send"
                 [label]="sendLabel()"
                 [disabled]="!!sendReason()"
                 [reason]="sendReason()"
@@ -135,65 +133,64 @@
                 (pressed)="send()"
                 >{{ sendLabel() }}</v-send-button
             >
-        </div>
-
-        <div class="v-home__bar">
-            @if (tasksOnly()) {
-                <kbq-tag class="v-home__tag">
-                    <i kbq-icon="kbq-eye_16"></i>
-                    Только вопросы
-                </kbq-tag>
-            } @else {
-                <kbq-button-toggle-group
-                    aria-label="Режим"
-                    [value]="mode()"
-                    (change)="setMode($event.value)"
-                >
-                    <kbq-button-toggle value="ask">
-                        <i kbq-icon="kbq-message_16"></i>
-                        Я только спросить
-                    </kbq-button-toggle>
-                    <kbq-button-toggle value="do">
-                        <i kbq-icon="kbq-wrench-badge-play_16"></i>
-                        Сделать
-                    </kbq-button-toggle>
-                </kbq-button-toggle-group>
-                @if (mode() === 'do') {
-                    @if (options(); as opts) {
-                        @if (agentOrder().length > 1) {
-                            <kbq-button-toggle-group
-                                aria-label="Агент"
-                                [value]="agent()"
-                                (change)="agent.set($event.value)"
-                            >
-                                @for (a of agentOrder(); track a) {
-                                    <kbq-button-toggle [value]="a">{{ agentLabels[a] || a }}</kbq-button-toggle>
-                                }
-                            </kbq-button-toggle-group>
-                        }
-                        @if (opts.models.length) {
-                            <kbq-form-field class="v-home__model">
-                                <kbq-select
-                                    aria-label="Модель"
-                                    [value]="model()"
-                                    (selectionChange)="model.set($event.value)"
+            <div class="v-home__bar">
+                @if (tasksOnly()) {
+                    <kbq-tag class="v-home__tag">
+                        <i kbq-icon="kbq-eye_16"></i>
+                        Только вопросы
+                    </kbq-tag>
+                } @else {
+                    <kbq-button-toggle-group
+                        aria-label="Режим"
+                        [value]="mode()"
+                        (change)="setMode($event.value)"
+                    >
+                        <kbq-button-toggle value="ask">
+                            <i kbq-icon="kbq-message_16"></i>
+                            Я только спросить
+                        </kbq-button-toggle>
+                        <kbq-button-toggle value="do">
+                            <i kbq-icon="kbq-wrench-badge-play_16"></i>
+                            Сделать
+                        </kbq-button-toggle>
+                    </kbq-button-toggle-group>
+                    @if (mode() === 'do') {
+                        @if (options(); as opts) {
+                            @if (agentOrder().length > 1) {
+                                <kbq-button-toggle-group
+                                    aria-label="Агент"
+                                    [value]="agent()"
+                                    (change)="agent.set($event.value)"
                                 >
-                                    <kbq-optgroup label="Модель">
-                                        @for (m of opts.models; track m.id) {
-                                            <kbq-option [value]="m.id" [viewValue]="m.id">
-                                                {{ m.id }}
-                                                @if (isDefaultModel(m.id)) {
-                                                    <span class="v-home__hint-inline">по умолчанию</span>
-                                                }
-                                            </kbq-option>
-                                        }
-                                    </kbq-optgroup>
-                                </kbq-select>
-                            </kbq-form-field>
+                                    @for (a of agentOrder(); track a) {
+                                        <kbq-button-toggle [value]="a">{{ agentLabels[a] || a }}</kbq-button-toggle>
+                                    }
+                                </kbq-button-toggle-group>
+                            }
+                            @if (opts.models.length) {
+                                <kbq-form-field class="v-home__model">
+                                    <kbq-select
+                                        aria-label="Модель"
+                                        [value]="model()"
+                                        (selectionChange)="model.set($event.value)"
+                                    >
+                                        <kbq-optgroup label="Модель">
+                                            @for (m of opts.models; track m.id) {
+                                                <kbq-option [value]="m.id" [viewValue]="m.id">
+                                                    {{ m.id }}
+                                                    @if (isDefaultModel(m.id)) {
+                                                        <span class="v-home__hint-inline">по умолчанию</span>
+                                                    }
+                                                </kbq-option>
+                                            }
+                                        </kbq-optgroup>
+                                    </kbq-select>
+                                </kbq-form-field>
+                            }
                         }
                     }
                 }
-            }
-        </div>
+            </div>
+        </v-composer-box>
     }
 </div>

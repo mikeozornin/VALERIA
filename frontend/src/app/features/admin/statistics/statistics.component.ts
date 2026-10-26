@@ -12,7 +12,20 @@ import { sortByName } from '../config-shared/names';
 import { ControlChartComponent } from './control-chart.component';
 import { PeriodChipFormatter } from './period-formatter';
 import { assignTaskShapes, ShapeComponent, ShapeName } from './shape.component';
-import { kpis, parsePeriod, Period, periodParam, periodRange, PERIODS, toChartRun } from './stats-math';
+import { multiSelectValues, pipeTrackKey, withEpoch } from '../shared/pipe-track';
+import {
+    DEFAULT_PERIOD,
+    kpis,
+    parsePeriod,
+    parseTypes,
+    Period,
+    periodParam,
+    periodRange,
+    PERIODS,
+    runsByTypes,
+    toChartRun,
+    typeParam,
+} from './stats-math';
 
 const PERIOD_PIPE = 'Период';
 const TYPE_PIPE = 'Тип';
@@ -20,13 +33,15 @@ const TYPE_PIPE = 'Тип';
 interface TypeOption {
     name: string;
     value: string;
-    /** Mark shape shown before the name in the dropdown; none for «Все типы» / «Все задачи». */
+    id: string;
+    /** Mark shape shown before the name in the dropdown, as on the chart; none for an unknown id. */
     shape: ShapeName | null;
 }
 
 /**
- * «Статистика» (SPEC §10.1, prototype step «stats»): filter bar (period is required, type is optional),
- * four KPIs, the control chart with a histogram, and the data source line. Filters live in `?period=&type=`.
+ * «Статистика» (SPEC §10.1, prototype step «stats»): filter bar (period is required, types are optional and
+ * multiple), four KPIs, the control chart with a histogram, and the data source line. Filters live in
+ * `?period=&type=a,b`; no `type` means every type.
  */
 @Component({
     selector: 'v-statistics',
@@ -34,7 +49,7 @@ interface TypeOption {
         ScreenHeaderComponent,
         PageStateComponent,
         KbqFilterBarModule,
-                KbqEmptyStateModule,
+        KbqEmptyStateModule,
         ControlChartComponent,
         ShapeComponent,
     ],
@@ -45,11 +60,11 @@ interface TypeOption {
         <v-page-state [loading]="loading()" [error]="error()" (retry)="load()">
             <div class="v-content">
                 <kbq-filter-bar [filter]="filter()" [pipeTemplates]="templates()" (onChangePipe)="onPipe($event)">
-                    @for (pipe of filter().pipes; track pipe.name) {
+                    @for (pipe of filter().pipes; track pipeKey(pipe)) {
                         <ng-container *kbqPipe="pipe" />
                     }
-                    @if (type()) {
-                        <kbq-filter-reset (onResetFilter)="setType(null)" />
+                    @if (filtered()) {
+                        <kbq-filter-reset (onResetFilter)="resetAll()" />
                     }
                 </kbq-filter-bar>
 
@@ -109,7 +124,7 @@ interface TypeOption {
                 } @else {
                     <span class="v-type-opt__gap"></span>
                 }
-                {{ option.name }}
+                <span class="v-type-opt__name">{{ option.name }}</span>
             </span>
         </ng-template>
     `,
@@ -145,8 +160,10 @@ interface TypeOption {
             color: var(--kbq-foreground-contrast-secondary);
         }
         .v-key { display: inline-flex; align-items: center; gap: 6px; }
-        .v-type-opt { display: inline-flex; align-items: center; gap: var(--kbq-size-s); }
+        /* Block-level flex: an inline-flex box sits on the text baseline and makes the option taller. */
+        .v-type-opt { display: flex; align-items: center; gap: var(--kbq-size-s); min-width: 0; }
         .v-type-opt__gap { width: 12px; flex: none; }
+        .v-type-opt__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .v-chart__empty { padding: var(--kbq-size-3xl) 0; }
         .v-source {
             margin: var(--kbq-size-3xl) 0 0;
@@ -169,7 +186,14 @@ export class StatisticsComponent {
     protected readonly countText = (n: number) => plural(n, 'запуск', 'запуска', 'запусков');
 
     protected readonly period = computed<Period>(() => parsePeriod(this.query().get('period')));
-    protected readonly type = computed(() => this.query().get('type') || null);
+    protected readonly types = computed(() => parseTypes(this.query().get('type')), { equal: sameList });
+    /** Period other than the default, or any type: «Сбросить» brings both back to the defaults. */
+    protected readonly filtered = computed(
+        () => periodParam(this.period()) !== DEFAULT_PERIOD || this.types().length > 0,
+    );
+    /** Bumped after «Сбросить» and when task titles arrive, so the pipes are re-created (see pipeTrackKey). */
+    private readonly pipeEpoch = signal(0);
+    protected readonly pipeKey = pipeTrackKey;
 
     protected readonly tasks = signal<AdminTask[]>([]);
     protected readonly data = signal<StatRunsResponse | null>(null);
@@ -196,23 +220,28 @@ export class StatisticsComponent {
     private readonly sortedTasks = computed(() => sortByName(this.tasks(), (t) => t.title));
     private readonly typeOptionTpl = viewChild<TemplateRef<unknown>>('typeOption');
     protected readonly keys = computed(() => {
-        const type = this.type();
+        const types = this.types();
         const shapes = this.shapes();
         const q = { shapeKey: 'q', shape: 'question' as ShapeName, label: 'вопрос' };
         const tasks = this.sortedTasks().map((t) => ({ shapeKey: t.id, shape: shapes[t.id], label: lowerFirst(t.title) }));
-        if (type === 'question') return [q];
-        if (type && type !== 'task') return tasks.filter((t) => t.shapeKey === type);
-        // Several types: the key lists only the ones that have marks on the chart.
-        const seen = new Set(this.runs().map((r) => r.shapeKey));
-        return (type ? tasks : [q, ...tasks]).filter((k) => seen.has(k.shapeKey));
+        const all = [q, ...tasks];
+        if (!types.length) return this.withMarks(all);
+        const picked = all.filter((k) =>
+            k === q ? types.includes('question') : types.includes('task') || types.includes(k.shapeKey),
+        );
+        // One picked type keeps its key even without marks; several list only the ones on the chart.
+        return picked.length === 1 ? picked : this.withMarks(picked);
     });
 
-    private readonly typeOptions = computed<TypeOption[]>(() => [
-        { name: 'Все типы', value: '', shape: null },
-        { name: 'Вопросы', value: 'question', shape: 'question' },
-        { name: 'Все задачи', value: 'task', shape: null },
-        ...this.sortedTasks().map((t) => ({ name: t.title, value: t.id, shape: this.shapes()[t.id] })),
-    ]);
+    /** «Вопросы», then every task; ids from the URL that are not (yet) known keep the raw id as the name. */
+    private readonly typeOptions = computed<TypeOption[]>(() => {
+        const options: TypeOption[] = [
+            { name: 'Вопросы', value: 'question', id: 'question', shape: 'question' },
+            ...this.sortedTasks().map((t) => ({ name: t.title, value: t.id, id: t.id, shape: this.shapes()[t.id] ?? null })),
+        ];
+        const unknown = this.types().filter((v) => !options.some((o) => o.value === v));
+        return [...options, ...unknown.map((v) => ({ name: v === 'task' ? 'Все задачи' : v, value: v, id: v, shape: null }))];
+    });
 
     protected readonly templates = computed<KbqPipeTemplate[]>(() => [
         {
@@ -225,7 +254,7 @@ export class StatisticsComponent {
         },
         {
             name: TYPE_PIPE,
-            type: KbqPipeTypes.Select,
+            type: KbqPipeTypes.MultiSelect,
             values: this.typeOptions(),
             valueTemplate: this.typeOptionTpl(),
             compareWith: (a, b) => !!a && !!b && a.value === b.value,
@@ -236,43 +265,42 @@ export class StatisticsComponent {
     ]);
 
     protected readonly filter = computed<KbqFilter>(() => {
+        const epoch = this.pipeEpoch();
         const p = this.period();
-        const type = this.type();
-        return {
-            name: '',
-            readonly: false,
-            disabled: false,
-            changed: false,
-            saved: false,
-            pipes: [
-                {
-                    name: PERIOD_PIPE,
-                    type: KbqPipeTypes.Datetime,
-                    value: 'preset' in p ? { name: p.preset.name, start: p.preset.start, end: null } : { start: p.from, end: p.to },
-                    cleanable: false,
-                    removable: false,
-                    disabled: false,
-                },
-                {
-                    name: TYPE_PIPE,
-                    type: KbqPipeTypes.Select,
-                    value: type ? (this.typeOptions().find((o) => o.value === type) ?? { name: type, value: type, shape: null }) : null,
-                    cleanable: true,
-                    removable: false,
-                    disabled: false,
-                },
-            ],
-        };
+        const types = this.types();
+        const pipes: KbqPipe[] = [
+            {
+                name: PERIOD_PIPE,
+                type: KbqPipeTypes.Datetime,
+                value: 'preset' in p ? { name: p.preset.name, start: p.preset.start, end: null } : { start: p.from, end: p.to },
+                cleanable: false,
+                removable: false,
+                disabled: false,
+            },
+            {
+                name: TYPE_PIPE,
+                type: KbqPipeTypes.MultiSelect,
+                value: this.typeOptions().filter((o) => types.includes(o.value)),
+                cleanable: true,
+                removable: false,
+                disabled: false,
+            },
+        ];
+        return { name: '', pipes: withEpoch(pipes, epoch), readonly: false, disabled: false, changed: false, saved: false };
     });
 
     constructor() {
         this.api.tasks().then(
-            (t) => this.tasks.set(t),
-            () => undefined, // type options degrade to «Вопросы» / «Все задачи»; the runs request reports errors
+            (t) => {
+                this.tasks.set(t);
+                // A `?type=<task>` deep link: the chip was created with the raw id, re-create it with the title.
+                if (this.types().length) this.pipeEpoch.update((n) => n + 1);
+            },
+            () => undefined, // type options degrade to «Вопросы»; the runs request reports errors
         );
         effect(() => {
             this.period();
-            this.type();
+            this.types();
             void this.load();
         });
     }
@@ -281,16 +309,20 @@ export class StatisticsComponent {
 
     async load(): Promise<void> {
         const p = this.period();
-        const type = this.type();
+        const types = this.types();
         const range = periodRange(p, Date.now());
         const seq = ++this.seq;
         this.loading.set(true);
         this.error.set(null);
         try {
-            const res = await this.api.statRuns({ from: new Date(range.from).toISOString(), to: new Date(range.to).toISOString(), type });
+            const res = await this.api.statRuns({
+                from: new Date(range.from).toISOString(),
+                to: new Date(range.to).toISOString(),
+                type: typeParam(types),
+            });
             if (seq !== this.seq) return;
             this.range.set(range);
-            this.data.set(res);
+            this.data.set({ ...res, items: runsByTypes(res.items, types) });
         } catch (err) {
             if (seq === this.seq) this.error.set(err);
         } finally {
@@ -302,20 +334,29 @@ export class StatisticsComponent {
         if (pipe.name === PERIOD_PIPE) {
             const v = pipe.value as { name?: string; start?: string; end?: string } | null;
             const preset = v?.name ? PERIODS.find((p) => p.name === v.name) : undefined;
-            if (preset) this.navigate({ period: periodParam({ preset }) });
-            else if (v?.start && v?.end) this.navigate({ period: periodParam({ from: v.start, to: v.end }) });
+            if (preset) void this.navigate({ period: periodParam({ preset }) });
+            else if (v?.start && v?.end) void this.navigate({ period: periodParam({ from: v.start, to: v.end }) });
         } else if (pipe.name === TYPE_PIPE) {
-            this.setType((pipe.value as TypeOption | null)?.value || null);
+            const types = multiSelectValues(pipe.value);
+            this.navigate({ type: types.length ? types.join(',') : null });
         }
     }
 
-    protected setType(type: string | null): void {
-        this.navigate({ type });
+    /** «Сбросить»: the default period and every type; the pipes are re-created once the URL is cleared. */
+    protected resetAll(): void {
+        void this.navigate({ period: null, type: null }).then(() => this.pipeEpoch.update((n) => n + 1));
     }
 
-    private navigate(params: { period?: string; type?: string | null }): void {
-        void this.router.navigate([], { relativeTo: this.route, queryParams: params, queryParamsHandling: 'merge' });
+    private withMarks<T extends { shapeKey: string }>(keys: T[]): T[] {
+        const seen = new Set(this.runs().map((r) => r.shapeKey));
+        return keys.filter((k) => seen.has(k.shapeKey));
+    }
+
+    private navigate(params: { period?: string | null; type?: string | null }): Promise<boolean> {
+        return this.router.navigate([], { relativeTo: this.route, queryParams: params, queryParamsHandling: 'merge' });
     }
 }
+
+const sameList = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((v, i) => v === b[i]);
 
 const lowerFirst = (s: string) => (s && !/^[A-ZА-ЯЁ]{2}/.test(s) ? s[0].toLocaleLowerCase('ru') + s.slice(1) : s);

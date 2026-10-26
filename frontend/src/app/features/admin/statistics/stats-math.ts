@@ -295,3 +295,21 @@ export function periodRange(p: Period, nowMs: number): { from: number; to: numbe
     if ('preset' in p) return { from: nowMs - p.preset.minutes * MIN, to: nowMs };
     return { from: Date.parse(p.from), to: Date.parse(p.to) };
 }
+
+/** «Тип» values from `?type=a,b`: `question`, a task id, or `task` (any task, older links). */
+export function parseTypes(param: string | null | undefined): string[] {
+    return [...new Set((param ?? '').split(',').map((s) => s.trim()).filter(Boolean))];
+}
+
+/** `type` for `GET /api/admin/statistics/runs`: the API takes one value, several are filtered by {@link runsByTypes}. */
+export function typeParam(types: readonly string[]): string | null {
+    return types.length === 1 ? types[0] : null;
+}
+
+/** The client-side part of the «Тип» filter: runs matching any of several types; empty means all. */
+export function runsByTypes(items: StatRun[], types: readonly string[]): StatRun[] {
+    if (types.length < 2) return items;
+    return items.filter((r) =>
+        r.kind === 'question' ? types.includes('question') : types.includes('task') || types.includes(r.task_id ?? ''),
+    );
+}

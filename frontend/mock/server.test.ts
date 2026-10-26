@@ -388,6 +388,14 @@ describe("admin", () => {
     expect(stops.every((r: any) => r.action.startsWith("job.stop."))).toBe(true);
     const byUser = (await c.req("GET", "/api/admin/audit?user=s.egorova")).body.items;
     expect(byUser.every((r: any) => r.actor_login === "s.egorova" || r.effective_login === "s.egorova")).toBe(true);
+    // Several logins are OR, like the backend's comma list.
+    const two = ["s.egorova", "d.orlov"];
+    const byUsers = (await c.req("GET", `/api/admin/audit?limit=500&user=${two.join(",")}`)).body.items;
+    expect(byUsers.length).toBeGreaterThan(byUser.length);
+    expect(byUsers.every((r: any) => two.includes(r.actor_login) || two.includes(r.effective_login))).toBe(true);
+    const involves = (r: any, login: string) => r.actor_login === login || r.effective_login === login;
+    expect(byUsers.some((r: any) => involves(r, "s.egorova"))).toBe(true);
+    expect(byUsers.some((r: any) => involves(r, "d.orlov") && !involves(r, "s.egorova"))).toBe(true);
   });
 
   test("statistics runs + requests filter", async () => {

@@ -1,13 +1,18 @@
 import { auditCategoryCodes, AuditCategory, isAuditCategory } from '../shared/audit-labels';
-import { periodFromQuery, PeriodState, periodToQuery } from '../shared/period';
+import { listFromQuery, listToQuery, periodFromQuery, PeriodState, periodToQuery } from '../shared/period';
 
-/** «Аудит» filters as they live in the URL: `?period=&from=&to=&user=&action=`. */
+/**
+ * «Аудит» filters as they live in the URL: `?period=&from=&to=&user=a,b&action=auth,users`.
+ * Several values of one filter are OR, filters are AND; an empty list means «all».
+ */
 export interface AuditFilters {
     period: PeriodState;
-    /** Login: matches who acted or on whose behalf. */
-    user: string | null;
-    action: AuditCategory | null;
+    /** Logins: matches who acted or on whose behalf. */
+    users: string[];
+    actions: AuditCategory[];
 }
+
+export const AUDIT_NO_FILTERS: AuditFilters = { period: null, users: [], actions: [] };
 
 export function auditFiltersFromQuery(q: {
     period?: string | null;
@@ -18,16 +23,16 @@ export function auditFiltersFromQuery(q: {
 }): AuditFilters {
     return {
         period: periodFromQuery(q.period, q.from, q.to),
-        user: q.user?.trim() || null,
-        action: isAuditCategory(q.action) ? q.action : null,
+        users: [...new Set(listFromQuery(q.user))],
+        actions: [...new Set(listFromQuery(q.action).filter(isAuditCategory))],
     };
 }
 
 export function auditFiltersToQuery(f: AuditFilters): Record<string, string | null> {
-    return { ...periodToQuery(f.period), user: f.user, action: f.action };
+    return { ...periodToQuery(f.period), user: listToQuery(f.users), action: listToQuery(f.actions) };
 }
 
-/** `GET /api/admin/audit` params (without `cursor`/`limit`). */
+/** `GET /api/admin/audit` params (without `cursor`/`limit`): comma lists, `action` as the categories' codes. */
 export function auditApiParams(
     f: AuditFilters,
     range: { from: string | null; to: string | null },
@@ -35,13 +40,13 @@ export function auditApiParams(
     const params: Record<string, string> = {};
     if (range.from) params['from'] = range.from;
     if (range.to) params['to'] = range.to;
-    if (f.user) params['user'] = f.user;
-    if (f.action) params['action'] = auditCategoryCodes(f.action).join(',');
+    if (f.users.length) params['user'] = f.users.join(',');
+    if (f.actions.length) params['action'] = f.actions.flatMap((a) => auditCategoryCodes(a)).join(',');
     return params;
 }
 
 export function auditFiltered(f: AuditFilters): boolean {
-    return !!(f.period || f.user || f.action);
+    return !!(f.period || f.users.length || f.actions.length);
 }
 
 /** Row of `GET /api/admin/audit`. */

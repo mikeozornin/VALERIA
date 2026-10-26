@@ -394,7 +394,7 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
         .v-lost, .v-failed { margin: var(--kbq-size-s) 0; }
         .v-perm__code { margin-top: var(--kbq-size-s); }
         .v-perm__why { margin-top: var(--kbq-size-s); }
-        .v-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--kbq-size-s); margin-top: var(--kbq-size-m); }
+        .v-bar { display: flex; align-items: center; flex-wrap: wrap; gap: var(--kbq-size-s); }
         .v-select { width: auto; min-width: 0; max-width: 260px; }
         .v-hint { margin-left: auto; padding-left: var(--kbq-size-l); color: var(--kbq-foreground-contrast-tertiary); }
         kbq-dd.v-mono { font-family: var(--kbq-typography-mono-normal-font-family, monospace); word-break: break-all; }

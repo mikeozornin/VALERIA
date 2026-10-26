@@ -1022,7 +1022,7 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
   add("GET", "/api/admin/audit", "admin_read", (c) => {
     const p = c.url.searchParams;
     const from = parseIso(p.get("from")), to = parseIso(p.get("to"));
-    const login = (p.get("user") ?? "").trim();
+    const logins = (p.get("user") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
     const actions = (p.get("action") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
     const tokens = searchTokens(p.get("q"));
     const limit = Math.min(Math.max(parseInt(p.get("limit") ?? "100", 10) || 100, 1), 500);
@@ -1034,7 +1034,7 @@ export function createMockServer(opts: MockOptions & { port?: number; hostname?:
       const t = parseIso(r.created_at);
       if (!Number.isNaN(from) && t < from) return false;
       if (!Number.isNaN(to) && t >= to) return false;
-      if (login && r.actor_login !== login && r.effective_login !== login) return false;
+      if (logins.length && !logins.includes(r.actor_login ?? "") && !logins.includes(r.effective_login ?? "")) return false;
       if (actions.length && !actions.some((a) => (a.endsWith(".") || a.endsWith("*") ? r.action.startsWith(a.replace(/\*$/, "")) : r.action === a))) return false;
       return matchesTokens(tokens, [r.action, r.object_type, r.object_id, r.metadata_json, r.actor_login, r.effective_login]);
     });
