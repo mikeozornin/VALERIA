@@ -1,7 +1,10 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
+import { KbqBreadcrumbsModule } from '@koobiq/components/breadcrumbs';
 import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqComponentColors, PopUpPlacements } from '@koobiq/components/core';
+import { KbqDividerModule } from '@koobiq/components/divider';
 import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
 import { KbqTopBarModule } from '@koobiq/components/top-bar';
@@ -28,19 +31,38 @@ export interface Crumb {
  */
 @Component({
     selector: 'v-screen-header',
-    imports: [KbqTopBarModule, KbqButtonModule, KbqIconModule, KbqToolTipModule, RouterLink, ChatMenuComponent],
+    imports: [
+        NgTemplateOutlet,
+        KbqTopBarModule,
+        KbqBreadcrumbsModule,
+        KbqButtonModule,
+        KbqDividerModule,
+        KbqIconModule,
+        KbqToolTipModule,
+        RouterLink,
+        ChatMenuComponent,
+    ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { class: 'v-screen-header' },
     template: `
         <kbq-top-bar>
             <div kbqTopBarContainer placement="start" class="v-screen-header__start">
                 <ng-content select="[vHeaderBack]" />
-                @for (crumb of crumbs(); track crumb.link) {
-                    <a class="kbq-title v-screen-header__crumb" [routerLink]="crumb.link">{{ crumb.label }}</a>
-                    <i kbq-icon="kbq-chevron-right_16" [color]="colors.ContrastFade" aria-hidden="true"></i>
+                @if (crumbs().length) {
+                    <!-- Stock breadcrumbs; the last (current) item is the screen title with its lead. -->
+                    <nav kbq-breadcrumbs class="v-screen-header__crumbs">
+                        @for (crumb of crumbs(); track crumb.link) {
+                            <kbq-breadcrumb-item [routerLink]="crumb.link" [text]="crumb.label" />
+                        }
+                        <kbq-breadcrumb-item [text]="title()" current>
+                            <ng-template kbqBreadcrumbView>
+                                <ng-container *ngTemplateOutlet="heading" />
+                            </ng-template>
+                        </kbq-breadcrumb-item>
+                    </nav>
+                } @else {
+                    <ng-container *ngTemplateOutlet="heading" />
                 }
-                <ng-content select="[vHeaderLead]" />
-                <h1 class="kbq-title v-screen-header__title">{{ title() }}</h1>
                 <span class="v-screen-header__after"><ng-content select="[vHeaderAfterTitle]" /></span>
             </div>
             <div kbqTopBarSpacer></div>
@@ -66,10 +88,20 @@ export interface Crumb {
                 }
             </div>
         </kbq-top-bar>
+        <kbq-divider />
+
+        <ng-template #heading>
+            <span class="v-screen-header__heading">
+                <ng-content select="[vHeaderLead]" />
+                <h1 class="kbq-title v-screen-header__title">{{ title() }}</h1>
+            </span>
+        </ng-template>
     `,
     styles: `
-        :host { display: block; flex: none; border-bottom: 1px solid var(--kbq-line-contrast-less); }
+        :host { display: block; flex: none; }
         .v-screen-header__start { align-items: center; min-width: 0; }
+        .v-screen-header__crumbs { min-width: 0; }
+        .v-screen-header__heading { display: inline-flex; align-items: center; gap: var(--kbq-size-s); min-width: 0; }
         .v-screen-header__title {
             margin: 0;
             min-width: 0;
@@ -77,13 +109,6 @@ export interface Crumb {
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-        .v-screen-header__crumb {
-            flex: none;
-            color: var(--kbq-foreground-contrast-secondary);
-            text-decoration: none;
-            white-space: nowrap;
-        }
-        .v-screen-header__crumb:hover { color: var(--kbq-foreground-contrast); }
         /* Prototype .v-titlerow: 12px between the title and what follows it (badge, tag, note). */
         .v-screen-header__after { display: inline-flex; flex: none; align-items: center; gap: var(--kbq-size-m); margin-left: var(--kbq-size-m); }
         .v-screen-header__after:empty { display: none; }

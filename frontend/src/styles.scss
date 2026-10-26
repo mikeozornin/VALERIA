@@ -1,12 +1,5 @@
 // Global styles. Colours come only from Koobiq tokens (`--kbq-*`); fonts are self-hosted (angular.json).
 
-@use 'styles/buttons';
-@use 'styles/alerts';
-@use 'styles/spinner';
-@use 'styles/filter-bar';
-@use 'styles/modal';
-@use 'styles/empty-state';
-
 html,
 body {
     height: 100%;
@@ -29,24 +22,4 @@ v-root {
     flex: 1 1 auto;
     flex-direction: column;
     min-height: 0;
-}
-
-// Caption inside a dropdown (prototype `.k-dropdown__caption`: 12/16, secondary), e.g. «Отложить», «Тема».
-// Koobiq's own group header is a bold title; this keeps its paddings and swaps the typography.
-.kbq-dropdown__group-header.v-menu-caption {
-    min-height: 0;
-    padding-bottom: var(--kbq-size-xxs);
-    color: var(--kbq-foreground-contrast-secondary);
-    font-family: var(--kbq-typography-text-compact-font-family);
-    font-size: var(--kbq-typography-text-compact-font-size);
-    font-weight: var(--kbq-typography-text-compact-font-weight);
-    line-height: var(--kbq-typography-text-compact-line-height);
-    letter-spacing: var(--kbq-typography-text-compact-letter-spacing);
-}
-
-// Plain × instead of Koobiq's circled one on the actions-panel close and the search cleaner (prototype `i-x`).
-// Both templates are Koobiq's, so the glyph of `kbq-xmark_16` is swapped in on their own icon.
-.kbq-actions-panel-container__close-button .kbq-circle-xmark_16::before,
-.kbq-cleaner .kbq-circle-xmark_16::before {
-    content: '\f664';
 }

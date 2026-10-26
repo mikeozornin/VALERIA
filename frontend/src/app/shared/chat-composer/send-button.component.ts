@@ -62,7 +62,7 @@ export class SendButtonComponent {
     readonly reason = input('');
     /** Show «⌘ Enter» on the second tooltip line. */
     readonly shortcut = input(true);
-    readonly color = input<KbqComponentColors>(KbqComponentColors.Theme);
+    readonly color = input<KbqComponentColors>(KbqComponentColors.Contrast);
     readonly kbqStyle = input<KbqButtonStyles | string>(KbqButtonStyles.Filled);
     readonly placement = input<PopUpPlacements>(PopUpPlacements.Top);
     readonly pressed = output<void>();

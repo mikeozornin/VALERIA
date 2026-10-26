@@ -18,12 +18,11 @@ const ICONS: Record<StepIcon, string> = {
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         @for (step of steps(); track step.id) {
-            <div class="v-step" [class.v-step_failed]="step.failed">
+            <div class="v-step kbq-text-compact" [class.v-step_failed]="step.failed">
                 <i
                     kbq-icon
                     [class]="icons[step.icon]"
-                    [color]="step.failed ? colors.Error : colors.Contrast"
-                    [class.v-step__icon_fade]="!step.failed"
+                    [color]="step.failed ? colors.Error : colors.ContrastFade"
                     aria-hidden="true"
                 ></i>
                 <span class="v-step__text">{{ step.text }}</span>
@@ -45,15 +44,12 @@ const ICONS: Record<StepIcon, string> = {
             grid-template-columns: subgrid;
             align-items: center;
             gap: var(--kbq-size-s);
-            padding: 6px var(--kbq-size-s);
-            margin: 2px 0;
-            border-radius: 6px;
-            font-size: 13px;
-            line-height: 18px;
+            padding: var(--kbq-size-xs) var(--kbq-size-s);
+            margin: var(--kbq-size-3xs) 0;
+            border-radius: var(--kbq-size-xs);
         }
         .v-step:hover { background: var(--kbq-states-background-transparent-hover); }
         .v-step i { flex: none; }
-        .v-step__icon_fade { color: var(--kbq-icon-contrast-fade); }
         .v-step__text { min-width: 0; overflow-wrap: anywhere; }
         .v-step__sub {
             min-width: 0;

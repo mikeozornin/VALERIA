@@ -20,7 +20,7 @@ export function messageTime(value: string | number | null | undefined): string {
     template: `
         <div class="v-msg__bubble">{{ text() }}</div>
         @if (time()) {
-            <div class="v-msg__meta">{{ time() }}</div>
+            <div class="v-msg__meta kbq-text-compact">{{ time() }}</div>
         }
     `,
     styles: `
@@ -28,16 +28,14 @@ export function messageTime(value: string | number | null | undefined): string {
         .v-msg__bubble {
             max-width: 80%;
             box-sizing: border-box;
-            padding: 10px 14px;
-            border-radius: 12px 12px 4px 12px;
+            padding: var(--kbq-size-s) var(--kbq-size-m);
+            border-radius: var(--kbq-size-m) var(--kbq-size-m) var(--kbq-size-xxs) var(--kbq-size-m);
             background: var(--kbq-background-theme-less);
             white-space: pre-wrap;
             overflow-wrap: anywhere;
         }
         .v-msg__meta {
             margin-top: var(--kbq-size-xxs);
-            font-size: 12px;
-            line-height: 16px;
             color: var(--kbq-foreground-contrast-tertiary);
         }
     `,
@@ -61,10 +59,10 @@ export class UserMessageComponent {
         @if (time() || copyText()) {
             <div class="v-msg__actions">
                 @if (time()) {
-                    <span class="v-msg__time">{{ time() }}</span>
+                    <span class="v-msg__time kbq-text-compact">{{ time() }}</span>
                 }
                 @if (copyText()) {
-                    <button kbq-button kbqStyle="transparent" [color]="colors.Contrast" class="v-copy-btn" (click)="copy()">
+                    <button kbq-button kbqStyle="transparent" [color]="colors.Contrast" (click)="copy()">
                         <i kbq-icon="kbq-square-multiple-o_16"></i>
                         Копировать ответ
                     </button>
@@ -77,33 +75,25 @@ export class UserMessageComponent {
         .v-msg__who {
             display: flex;
             align-items: center;
-            gap: 6px;
-            margin-bottom: 6px;
-            font-weight: 600;
+            gap: var(--kbq-size-xs);
+            margin-bottom: var(--kbq-size-xs);
+            font-weight: var(--kbq-typography-text-normal-strong-font-weight);
         }
         .v-logo {
             display: inline-block;
             flex: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 6px;
+            width: var(--kbq-size-xl);
+            height: var(--kbq-size-xl);
+            border-radius: var(--kbq-size-xs);
             background: var(--kbq-background-theme);
         }
         .v-msg__actions {
             display: flex;
             align-items: center;
             gap: var(--kbq-size-m);
-            min-height: 24px;
             margin-top: var(--kbq-size-s);
         }
-        .v-copy-btn.kbq-button {
-            --kbq-button-size-height: 24px;
-            --kbq-button-size-horizontal-padding: var(--kbq-size-s);
-            --kbq-button-size-border-radius: 6px;
-            font-size: 12px;
-            line-height: 16px;
-        }
-        .v-msg__time { font-size: 12px; line-height: 16px; color: var(--kbq-foreground-contrast-tertiary); }
+        .v-msg__time { color: var(--kbq-foreground-contrast-tertiary); }
     `,
 })
 export class BotMessageComponent {
@@ -141,7 +131,7 @@ export class BotMessageComponent {
     `,
     styles: `
         :host { display: flex; gap: var(--kbq-size-m); align-items: flex-start; padding: var(--kbq-size-s) 0; color: var(--kbq-foreground-contrast); }
-        .v-status__spinner { flex: none; margin-top: 2px; }
+        .v-status__spinner { flex: none; margin-top: var(--kbq-size-3xs); }
         .v-status__sub { color: var(--kbq-foreground-contrast-secondary); }
     `,
 })

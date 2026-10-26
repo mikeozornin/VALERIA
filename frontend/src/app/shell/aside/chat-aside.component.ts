@@ -52,7 +52,7 @@ import { effectivePanelWidth, panelMaxWidth, ViewportService } from './panel-wid
             top: 0;
             bottom: 0;
             left: 0;
-            width: 6px;
+            width: var(--kbq-size-xs);
             cursor: ew-resize;
         }
         .v-chat-aside__resizer:hover,

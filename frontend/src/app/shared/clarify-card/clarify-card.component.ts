@@ -9,7 +9,6 @@ import { KbqTextareaModule } from '@koobiq/components/textarea';
 import { SendButtonComponent } from '../chat-composer/send-button.component';
 import { isSendShortcut } from '../chat-composer/send-action';
 import { allowsCustom, buildReplyPayload, emptySelection, QuestionRequest, QuestionSelection } from './clarify.model';
-import { OutlineIconComponent } from '../outline-icon/outline-icon.component';
 
 const CUSTOM = '\u0000custom';
 
@@ -19,12 +18,12 @@ const CUSTOM = '\u0000custom';
  */
 @Component({
     selector: 'v-clarify-card',
-    imports: [FormsModule, KbqRadioModule, KbqCheckboxModule, KbqFormFieldModule, KbqTextareaModule, KbqIconModule, SendButtonComponent, OutlineIconComponent],
+    imports: [FormsModule, KbqRadioModule, KbqCheckboxModule, KbqFormFieldModule, KbqTextareaModule, KbqIconModule, SendButtonComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
     host: { role: 'group', 'aria-label': 'Валерия уточняет', '(keydown)': 'onKeydown($event)' },
     template: `
         <div class="v-qcard__head">
-            <v-outline-icon name="help-circle" class="v-ic_theme" />
+            <i kbq-icon="kbq-circle-question_16" [color]="colors.Theme"></i>
             Валерия уточняет
         </div>
         @for (q of request().questions; track $index; let i = $index) {
@@ -97,12 +96,11 @@ const CUSTOM = '\u0000custom';
             border-radius: var(--kbq-size-m);
             background: var(--kbq-background-bg);
         }
-        .v-qcard__head { display: flex; align-items: center; gap: var(--kbq-size-s); font-weight: 600; }
+        .v-qcard__head { display: flex; align-items: center; gap: var(--kbq-size-s); font-weight: var(--kbq-typography-text-normal-strong-font-weight); }
         .v-qcard__question { margin: 0; }
         .v-qcard__options { display: flex; flex-direction: column; gap: var(--kbq-size-s); margin-top: var(--kbq-size-s); }
         .v-qcard__options kbq-radio-group { display: flex; flex-direction: column; gap: var(--kbq-size-s); }
         .v-qcard__custom { display: block; width: 100%; }
-        .v-qcard__custom textarea { resize: none; }
         .v-qcard__actions { margin-top: var(--kbq-size-l); }
     `,
 })
