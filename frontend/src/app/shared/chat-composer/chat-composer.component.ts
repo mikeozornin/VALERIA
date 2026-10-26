@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, signal, untracked, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, ElementRef, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { KbqFormFieldModule } from '@koobiq/components/form-field';
 import { KbqTextareaModule } from '@koobiq/components/textarea';
@@ -12,6 +12,7 @@ import { SendButtonComponent } from './send-button.component';
  * The draft lives in sessionStorage per chat. `submit` performs the request and resolves `true` on success; the
  * button shows progress until then and the draft is cleared only after success. Ctrl/⌘ Enter sends. Projected
  * content is the composer bar (agent, model); it sits bottom-left in the frame, on the send button's row.
+ * While the chat works, `stoppable` swaps the send button for «Остановить», which emits `stop`.
  */
 @Component({
     selector: 'v-chat-composer',
@@ -34,14 +35,25 @@ import { SendButtonComponent } from './send-button.component';
                     (keydown)="onKeydown($event)"
                 ></textarea>
             </kbq-form-field>
-            <v-send-button
-                [label]="label()"
-                [disabled]="state().disabled"
-                [sending]="sending()"
-                [reason]="state().reason"
-                (pressed)="send()"
-                >{{ label() }}</v-send-button
-            >
+            @if (stoppable()) {
+                <v-send-button
+                    label="Остановить"
+                    icon="kbq-stop-circle_16"
+                    [shortcut]="false"
+                    [sending]="stopping()"
+                    (pressed)="stop.emit()"
+                    >Остановить</v-send-button
+                >
+            } @else {
+                <v-send-button
+                    [label]="label()"
+                    [disabled]="state().disabled"
+                    [sending]="sending()"
+                    [reason]="state().reason"
+                    (pressed)="send()"
+                    >{{ label() }}</v-send-button
+                >
+            }
             <ng-content />
         </v-composer-box>
     `,
@@ -60,6 +72,11 @@ export class ChatComposerComponent {
     readonly busyReason = input('');
     readonly emptyReason = input('');
     readonly submit = input.required<(text: string) => Promise<boolean>>();
+    /** Show «Остановить» in place of the send button. */
+    readonly stoppable = input(false);
+    /** The stop request is in flight. */
+    readonly stopping = input(false);
+    readonly stop = output<void>();
 
     private readonly ui = inject(UiStateService);
     private readonly area = viewChild<ElementRef<HTMLTextAreaElement>>('area');

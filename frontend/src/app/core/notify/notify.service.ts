@@ -62,7 +62,7 @@ export class NotifyService {
     }
 
     /**
-     * Final result from SSE (SPEC §7): «Ответ готов: …», «Задача завершена: …», «Валерия ждёт вашего ответа: …»
+     * Final result from SSE (SPEC §7): «Ответ готов: …», «Задача завершена: …», «Valeria ждёт вашего ответа: …»
      * with «Открыть». Nothing when the user is already on that chat.
      */
     finalResult(item: Item): void {
@@ -70,7 +70,7 @@ export class NotifyService {
         if (this.isOn(route)) return;
         const open = () => void this.router.navigateByUrl(route);
         if (isWaiting(item.status)) {
-            this.withOpen(KbqToastStyle.Warning, `Валерия ждёт вашего ответа: ${item.title}`, undefined, open);
+            this.withOpen(KbqToastStyle.Warning, `Valeria ждёт вашего ответа: ${item.title}`, undefined, open);
         } else if (item.status === 'failed') {
             this.withOpen(KbqToastStyle.Error, `${statusLabel('failed')}: ${item.title}`, undefined, open);
         } else if (item.status === 'completed' || item.status === 'idle') {

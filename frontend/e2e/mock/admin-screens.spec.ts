@@ -25,7 +25,7 @@ test('«Запросы пользователей»: list renders with Russian d
     const errors = watchErrors(page);
     await openAs(page, 'admin', '/admin/requests');
     await expect(page.locator('h1.v-screen-header__title')).toHaveText('Запросы пользователей');
-    const created = page.locator('table tbody tr td:last-child');
+    const created = page.locator('.ag-center-cols-container .ag-row [col-id="created"]');
     await expect(created.first()).toHaveText(RU_DATE);
     // Older requests use the day + Russian month form.
     const texts = await created.allInnerTexts();
@@ -50,7 +50,7 @@ test('request opened from the list renders without errors', async ({ page, mock 
     await mock.reset('admin');
     const errors = watchErrors(page);
     await openAs(page, 'admin', '/admin/requests');
-    await page.locator('table tbody tr').first().click();
+    await page.locator('.ag-center-cols-container .ag-row').first().click();
     await expect(page).toHaveURL(/\/admin\/requests\/[^/?]+/);
     await expect(page.getByText('Ответить или написать от его имени отсюда нельзя')).toBeVisible();
     await expect(page.locator('main')).not.toContainText(EN_MONTH);
@@ -62,12 +62,12 @@ test('«Аудит»: list and event panel render with Russian dates, no errors'
     const errors = watchErrors(page);
     await openAs(page, 'admin', '/admin/audit');
     await expect(page.locator('h1.v-screen-header__title')).toHaveText('Аудит');
-    const times = page.locator('table tbody tr td:first-child');
+    const times = page.locator('.ag-center-cols-container .ag-row [col-id="time"]');
     await expect(times.first()).toHaveText(RU_DATE);
     const texts = await times.allInnerTexts();
     for (const t of texts) expect(t.trim()).toMatch(RU_DATE);
     expect(texts.some((t) => RU_DATE_OLD.test(t)), `an older date with a Russian month among: ${texts.join(' | ')}`).toBe(true);
-    await page.locator('table tbody tr').first().click();
+    await page.locator('.ag-center-cols-container .ag-row').first().click();
     await expect(page.locator('kbq-content-panel')).toContainText(RU_DATE);
     await expect(page.locator('main')).not.toContainText(EN_MONTH);
     expect(errors).toEqual([]);
@@ -100,7 +100,7 @@ test('«Очередь» · «Сейчас» renders without errors', async ({ p
     await expect(page.locator('h1.v-screen-header__title')).toHaveText('Очередь');
     await expect(page.getByRole('link', { name: 'Сейчас' })).toBeVisible();
     await expect(page.getByText('Активные сессии')).toBeVisible();
-    await expect(page.locator('table tbody tr').first()).toBeVisible();
+    await expect(page.locator('.ag-center-cols-container .ag-row').first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Остановить' }).first()).toBeVisible();
     expect(errors).toEqual([]);
 });
@@ -118,7 +118,7 @@ test('«Запросы пользователей»: a `?task=` deep link shows 
     await delayTasks(page);
     await openAs(page, 'admin', '/admin/requests?type=task&period=30d&task=t-ci');
     await expect(page.getByRole('button', { name: /^Задача\s*Разбор упавшего CI-пайплайна/ })).toBeVisible();
-    await expect(page.locator('table tbody tr')).toHaveCount(4);
+    await expect(page.locator('.ag-center-cols-container .ag-row')).toHaveCount(4);
 
     // Clearing and picking the task again still works after the pipe is re-created.
     const chip = page.getByRole('button', { name: /^Задача\s*Разбор упавшего CI-пайплайна/ });
@@ -158,7 +158,7 @@ test('«Аудит»: several values per filter are OR, filters are AND, «Сб�
     await mock.reset('admin');
     const errors = watchErrors(page);
     await openAs(page, 'admin', '/admin/audit');
-    const rows = page.locator('table tbody tr');
+    const rows = page.locator('.ag-center-cols-container .ag-row');
     await expect(rows.first()).toBeVisible();
 
     await pick(page, /^Действие/, ['Входы', 'Задачи и запуски']);
@@ -167,7 +167,7 @@ test('«Аудит»: several values per filter are OR, filters are AND, «Сб�
     // Only «Входы» and «Задачи и запуски» rows, and both kinds of them.
     await expect
         .poll(async () => {
-            const codes = await rows.locator('td:nth-child(3)').allInnerTexts();
+            const codes = await rows.locator('[col-id="action"]').allInnerTexts();
             return (
                 codes.length > 0 &&
                 codes.every((c) => /\b(auth\.|task|template\.)/.test(c)) &&
@@ -182,7 +182,7 @@ test('«Аудит»: several values per filter are OR, filters are AND, «Сб�
     // Either login (who acted or on whose behalf), and rows of both.
     await expect
         .poll(async () => {
-            const who = await rows.locator('td:nth-child(2)').allInnerTexts();
+            const who = await rows.locator('[col-id="actor"]').allInnerTexts();
             return (
                 who.length > 0 &&
                 who.every((w) => /a\.nikitina|i\.sokolova/.test(w)) &&
@@ -197,8 +197,8 @@ test('«Аудит»: several values per filter are OR, filters are AND, «Сб�
     await expect.poll(() => chips(page)).toEqual(['Период', 'Пользователь', 'Действие']);
     await expect(page.locator('kbq-filter-reset')).toHaveCount(0);
     // The rows reload unfiltered: actions and people outside the old filters are back.
-    await expect(rows.locator('td:nth-child(3)').filter({ hasText: /\b(user|queue|chat|concurrency)\./ }).first()).toBeVisible();
-    await expect(rows.locator('td:nth-child(2)').filter({ hasText: 'd.orlov' }).first()).toBeVisible();
+    await expect(rows.locator('[col-id="action"]').filter({ hasText: /\b(user|queue|chat|concurrency)\./ }).first()).toBeVisible();
+    await expect(rows.locator('[col-id="actor"]').filter({ hasText: 'd.orlov' }).first()).toBeVisible();
     expect(errors).toEqual([]);
 });
 
@@ -206,7 +206,7 @@ test('«Запросы пользователей»: several tasks are OR, «С�
     await mock.reset('admin');
     const errors = watchErrors(page);
     await openAs(page, 'admin', '/admin/requests');
-    const rows = page.locator('table tbody tr');
+    const rows = page.locator('.ag-center-cols-container .ag-row');
     await expect(rows.first()).toBeVisible();
 
     await pick(page, /^Тип/, ['Задача']);
@@ -216,7 +216,7 @@ test('«Запросы пользователей»: several tasks are OR, «С�
     await expect(page.locator('kbq-filter-bar').getByRole('button', { name: /^Задача\s*2$/ })).toBeVisible();
     await expect
         .poll(async () => {
-            const kinds = await rows.locator('td:first-child').allInnerTexts();
+            const kinds = await rows.locator('[col-id="title"]').allInnerTexts();
             return (
                 kinds.length > 0 &&
                 kinds.every((k) => /Задача · (Разбор упавшего CI-пайплайна|Ревью merge request)/.test(k)) &&
@@ -231,7 +231,7 @@ test('«Запросы пользователей»: several tasks are OR, «С�
     await expect(page).toHaveURL(/\/admin\/requests$/);
     await expect.poll(() => chips(page)).toEqual(['Пользователь', 'Период', 'Тип']);
     await expect(page.locator('v-screen-header kbq-badge')).not.toContainText('из');
-    await expect(rows.locator('td:first-child').filter({ hasText: 'Вопрос' }).first()).toBeVisible();
+    await expect(rows.locator('[col-id="title"]').filter({ hasText: 'Вопрос' }).first()).toBeVisible();
     expect(errors).toEqual([]);
 });
 

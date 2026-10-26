@@ -59,7 +59,7 @@ The prototype is `valeria-ui/prototype.html` (`STEPS` + `STEPS_FIND`). The setup
 | 5 | home · first «Первый вход» | `?as=user&first=1` | `GET /api/me/items` → `[]`, `/api/task-runs` → `[]` |
 | 6 | ask · queued | `?as=user` | `q-queued`: `GET /api/consultations/q-queued` status `queued`; `/api/queue/me` position 3. Live: `POST /__mock/play {"id":"q-queued"}` |
 | 7 | ask · running «Готовит ответ» | `?as=user` | `q-running` (status `running`). Live: a new `POST /api/consultations` goes queued → dispatching → running over SSE `consultation.updated` |
-| 8 | ask · clarify «Валерия уточняет» | `?as=user` | `q-clarify` waiting_question: `GET /api/consultations/q-clarify/questions`, then reply `POST …/questions/:qid/reply {answers:[["OTA прошивки устройства"]]}` → resume → completed |
+| 8 | ask · clarify «Valeria уточняет» | `?as=user` | `q-clarify` waiting_question: `GET /api/consultations/q-clarify/questions`, then reply `POST …/questions/:qid/reply {answers:[["OTA прошивки устройства"]]}` → resume → completed |
 | 9 | ask · answer «Ответ готов» | `?as=user` | `q-answer` (completed; `messages` include the assistant answer) |
 | 10 | ask · failed | `?as=user` | `q-failed` (failed). Live: `POST /api/consultations {"message":"… #fail"}` |
 | 11 | run · queued | `?as=user` | `r-queued` (`GET /api/task-runs/r-queued`; `/api/queue/me` position 3) |

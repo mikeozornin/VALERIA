@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import { Router } from '@angular/router';
 import { KbqButtonModule } from '@koobiq/components/button';
 import { kbqCodeBlockHighlightJsConfigProvider, KbqCodeBlockModule } from '@koobiq/components/code-block';
-import { KbqComponentColors } from '@koobiq/components/core';
+import { KbqComponentColors, KbqHighlightModule } from '@koobiq/components/core';
 import { KbqContentPanelModule } from '@koobiq/components/content-panel';
 import { KbqDlModule } from '@koobiq/components/dl';
 import { KbqEmptyStateModule } from '@koobiq/components/empty-state';
@@ -15,14 +15,14 @@ import {
     KbqSelectValue,
 } from '@koobiq/components/filter-bar';
 import { KbqProgressSpinnerModule } from '@koobiq/components/progress-spinner';
-import { KbqTableModule } from '@koobiq/components/table';
 import { ApiService } from '../../../core/api/api.service';
 import { matches, tokenize } from '../../../core/search/search';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
 import { cpanelWidth, CpanelWidthDirective } from '../../../shell/aside/panel-width';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { AdminRequest, AdminTask, AdminUser } from '../shared/admin.models';
-import { AdminSearchComponent } from '../shared/admin-search.component';
+import { ADMIN_GRID } from '../shared/admin-grid';
+import { ADMIN_SEARCH_PIPE_ID, adminSearchPipe, adminSearchQuery } from '../shared/admin-search';
 import { ADMIN_LIST_STYLES } from '../shared/admin-styles';
 import { AUDIT_CATEGORIES, AuditCategory, auditLabel } from '../shared/audit-labels';
 import { DASH, formatWhen } from '../shared/format';
@@ -65,10 +65,10 @@ interface AuditRow extends AuditEvent {
         KbqCodeBlockModule,
         ScreenHeaderComponent,
         PageStateComponent,
-        AdminSearchComponent,
+        ADMIN_GRID,
         CpanelWidthDirective,
         KbqFilterBarModule,
-        KbqTableModule,
+        KbqHighlightModule,
         KbqButtonModule,
         KbqEmptyStateModule,
         KbqContentPanelModule,
@@ -101,57 +101,44 @@ interface AuditRow extends AuditEvent {
                                 <kbq-filter-reset (onResetFilter)="resetAll()" />
                             }
                         </kbq-filter-bar>
-                        <v-admin-search
-                            class="v-search"
-                            placeholder="Действие, логин или объект"
-                            [value]="q()"
-                            (valueChange)="setQuery($event)"
-                        />
                     </div>
 
                     <v-page-state class="v-mt8" [loading]="loading()" [error]="error()" (retry)="reload()">
                         @if (rows().length) {
-                            <table kbq-table class="v-table">
-                                <thead>
-                                    <tr>
-                                        <th>Время</th>
-                                        <th>Кто</th>
-                                        <th>Действие</th>
-                                        @if (!selected()) {
-                                            <th>Объект</th>
-                                        }
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @for (a of rows(); track a.key) {
-                                        <tr
-                                            tabindex="0"
-                                            [class.v-selected]="a.key === event()"
-                                            [attr.aria-selected]="a.key === event()"
-                                            (click)="openEvent(a)"
-                                            (keydown.enter)="openEvent(a)"
-                                        >
-                                            <td class="v-secondary v-nowrap">{{ when(a.created_at) }}</td>
-                                            <td class="v-nowrap">
-                                                <span class="v-mono">{{ a.actor_login || dash }}</span>
-                                                @if (a.effective_login && a.effective_login !== a.actor_login) {
-                                                    <span class="v-sub">за {{ a.effective_login }}</span>
-                                                }
-                                            </td>
-                                            @if (selected()) {
-                                                <td>
-                                                    {{ a.label }}<span class="v-sub">{{ a.object }}</span>
-                                                </td>
-                                            } @else {
-                                                <td>
-                                                    {{ a.label }}<span class="v-sub v-mono">{{ a.action }}</span>
-                                                </td>
-                                                <td>{{ a.object }}</td>
-                                            }
-                                        </tr>
+                            <v-admin-grid
+                                [rows]="rows()"
+                                [rowId]="rowId"
+                                [current]="event()"
+                                openable
+                                (rowOpen)="openEvent($event)"
+                            >
+                                <ng-template vCol="time" header="Время" kind="nowrap" let-a>
+                                    <span class="v-secondary">{{ when(a.created_at) }}</span>
+                                </ng-template>
+                                <ng-template vCol="actor" header="Кто" kind="nowrap" let-a>
+                                    <span [innerHTML]="a.actor_login || dash | kbqHighlightBackground: tokens() : true"></span>
+                                    @if (a.effective_login && a.effective_login !== a.actor_login) {
+                                        <span
+                                            class="v-sub"
+                                            [innerHTML]="'за ' + a.effective_login | kbqHighlightBackground: tokens() : true"
+                                        ></span>
                                     }
-                                </tbody>
-                            </table>
+                                </ng-template>
+                                <ng-template vCol="action" header="Действие" [flex]="1" [minWidth]="200" let-a>
+                                    <span [innerHTML]="a.label | kbqHighlightBackground: tokens() : true"></span>
+                                    @if (selected()) {
+                                        <span class="v-sub" [innerHTML]="a.object | kbqHighlightBackground: tokens() : true"></span>
+                                    } @else {
+                                        <span
+                                            class="v-sub v-mono"
+                                            [innerHTML]="a.action | kbqHighlightBackground: tokens() : true"
+                                        ></span>
+                                    }
+                                </ng-template>
+                                <ng-template vCol="object" header="Объект" [flex]="1" [minWidth]="200" [hidden]="!!selected()" let-a>
+                                    <span [innerHTML]="a.object | kbqHighlightBackground: tokens() : true"></span>
+                                </ng-template>
+                            </v-admin-grid>
                             @if (loadingMore()) {
                                 <div class="v-more"><kbq-progress-spinner mode="indeterminate" size="compact" /></div>
                             }
@@ -183,14 +170,10 @@ interface AuditRow extends AuditEvent {
                                 <kbq-dt>Когда</kbq-dt>
                                 <kbq-dd>{{ when(a.created_at) }}</kbq-dd>
                                 <kbq-dt>Кто</kbq-dt>
-                                <kbq-dd
-                                    ><span class="v-mono">{{ a.actor_login || dash }}</span></kbq-dd
-                                >
+                                <kbq-dd>{{ a.actor_login || dash }}</kbq-dd>
                                 @if (a.effective_login && a.effective_login !== a.actor_login) {
                                     <kbq-dt>За кого</kbq-dt>
-                                    <kbq-dd
-                                        ><span class="v-mono">{{ a.effective_login }}</span></kbq-dd
-                                    >
+                                    <kbq-dd>{{ a.effective_login }}</kbq-dd>
                                 }
                                 <kbq-dt>Объект</kbq-dt>
                                 <kbq-dd class="v-break-word">{{ a.object }}</kbq-dd>
@@ -199,14 +182,12 @@ interface AuditRow extends AuditEvent {
                                     ><span class="v-mono">{{ a.action }}</span></kbq-dd
                                 >
                             </kbq-dl>
-                            <section class="v-csec">
-                                <div class="v-csec__title">Подробности</div>
-                                @if (metaJson(); as json) {
+                            @if (metaJson(); as json) {
+                                <section class="v-csec">
+                                    <div class="v-csec__title">Подробности</div>
                                     <kbq-code-block [files]="[{ content: json, language: 'json' }]" [softWrap]="true" [canCopy]="false" />
-                                } @else {
-                                    <div class="v-secondary">Подробностей нет</div>
-                                }
-                            </section>
+                                </section>
+                            }
                         </kbq-content-panel-body>
                     }
                 </kbq-content-panel>
@@ -218,10 +199,6 @@ interface AuditRow extends AuditEvent {
         `
             .v-mt8 {
                 margin-top: var(--kbq-size-s);
-            }
-            .v-search {
-                width: 240px;
-                margin-left: auto;
             }
             .v-more {
                 display: flex;
@@ -288,8 +265,11 @@ export class AuditComponent {
             object: auditObjectLabel(e, ctx),
         }));
     });
+    /** Search tokens: filter the rows and are highlighted in the cells. */
+    protected readonly tokens = computed(() => tokenize(this.q() ?? ''));
+    protected readonly rowId = (a: AuditRow): string => a.key;
     protected readonly rows = computed(() => {
-        const tokens = tokenize(this.q() ?? '');
+        const tokens = this.tokens();
         return this.allRows().filter((a) =>
             matches([a.label, a.action, a.actor_login, a.effective_login, a.object], tokens),
         );
@@ -345,6 +325,8 @@ export class AuditComponent {
         const users = this.userOptions().filter((o) => s.users.includes(o.value as string));
         const actions = this.actionOptions.filter((o) => s.actions.includes(o.value as AuditCategory));
         const pipes: KbqPipe[] = [
+            // Read once when the pipe is created; typing must not rebuild the filter.
+            adminSearchPipe('Действие, логин или объект', untracked(() => this.q())),
             {
                 name: 'Период',
                 id: 'period',
@@ -474,7 +456,8 @@ export class AuditComponent {
 
     protected onPipe(pipe: KbqPipe): void {
         const s = this.state();
-        if (pipe.id === 'period') void this.navigate({ ...s, period: periodFromPipe(pipe.value) });
+        if (pipe.id === ADMIN_SEARCH_PIPE_ID) this.setQuery(adminSearchQuery(pipe.value));
+        else if (pipe.id === 'period') void this.navigate({ ...s, period: periodFromPipe(pipe.value) });
         else if (pipe.id === 'user') void this.navigate({ ...s, users: multiSelectValues(pipe.value) });
         else if (pipe.id === 'action')
             void this.navigate({ ...s, actions: multiSelectValues(pipe.value) as AuditCategory[] });

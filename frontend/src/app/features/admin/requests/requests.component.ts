@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, input, si
 import { Router } from '@angular/router';
 import { KbqBadgeColors, KbqBadgeModule } from '@koobiq/components/badge';
 import { KbqButtonModule } from '@koobiq/components/button';
-import { KbqComponentColors } from '@koobiq/components/core';
+import { KbqComponentColors, KbqHighlightModule } from '@koobiq/components/core';
 import { KbqEmptyStateModule } from '@koobiq/components/empty-state';
 import {
     KbqFilter,
@@ -13,14 +13,14 @@ import {
     KbqSelectValue,
 } from '@koobiq/components/filter-bar';
 import { KbqIconModule } from '@koobiq/components/icon';
-import { KbqTableModule } from '@koobiq/components/table';
 import { ApiService } from '../../../core/api/api.service';
 import { matches, tokenize } from '../../../core/search/search';
 import { ItemKind, KIND_ICON, adminStatusLabel, statusBadgeColor } from '../../../core/status/status';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { AdminRequest, AdminTask } from '../shared/admin.models';
-import { AdminSearchComponent } from '../shared/admin-search.component';
+import { ADMIN_GRID } from '../shared/admin-grid';
+import { ADMIN_SEARCH_PIPE_ID, adminSearchPipe, adminSearchQuery } from '../shared/admin-search';
 import { ADMIN_LIST_STYLES } from '../shared/admin-styles';
 import { formatWhen } from '../shared/format';
 import {
@@ -45,9 +45,9 @@ const KINDS: ItemKind[] = ['question', 'task', 'folder'];
     imports: [
         ScreenHeaderComponent,
         PageStateComponent,
-        AdminSearchComponent,
+        ADMIN_GRID,
         KbqFilterBarModule,
-        KbqTableModule,
+        KbqHighlightModule,
         KbqBadgeModule,
         KbqButtonModule,
         KbqIconModule,
@@ -75,49 +75,28 @@ const KINDS: ItemKind[] = ['question', 'task', 'folder'];
                         <kbq-filter-reset (onResetFilter)="resetAll()" />
                     }
                 </kbq-filter-bar>
-                <v-admin-search
-                    class="v-search"
-                    placeholder="Текст запроса или логин"
-                    [value]="q()"
-                    (valueChange)="setQuery($event)"
-                />
             </div>
 
             <v-page-state [loading]="loading()" [error]="error()" (retry)="load()">
                 @if (rows().length) {
-                    <table kbq-table [border]="true" class="v-table v-mt8">
-                        <thead>
-                            <tr>
-                                <th>Запрос</th>
-                                <th>Пользователь</th>
-                                <th>Статус</th>
-                                <th>Создан</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @for (r of rows(); track r.kind + r.id) {
-                                <tr tabindex="0" (click)="open(r)" (keydown.enter)="open(r)">
-                                    <td>
-                                        <span class="v-title">{{ r.title }}</span>
-                                        <span class="v-sub">
-                                            <i
-                                                kbq-icon
-                                                class="v-subic"
-                                                [class]="kindIcon(r.kind)"
-                                                aria-hidden="true"
-                                            ></i>
-                                            {{ kindLabel(r.kind) }}{{ r.task_title ? ' · ' + r.task_title : '' }}
-                                        </span>
-                                    </td>
-                                    <td class="v-mono v-nowrap">{{ r.user.login || dash }}</td>
-                                    <td>
-                                        <kbq-badge [badgeColor]="badgeColor(r)">{{ status(r) }}</kbq-badge>
-                                    </td>
-                                    <td class="v-secondary v-nowrap">{{ when(r.created_at) }}</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
+                    <v-admin-grid class="v-mt8" [rows]="rows()" [rowId]="rowId" openable (rowOpen)="open($event)">
+                        <ng-template vCol="title" header="Запрос" [flex]="1" [minWidth]="240" let-r>
+                            <span class="v-title" [innerHTML]="r.title | kbqHighlightBackground: tokens() : true"></span>
+                            <span class="v-sub">
+                                <i kbq-icon class="v-subic" [class]="kindIcon(r.kind)" aria-hidden="true"></i>
+                                <span [innerHTML]="kindSub(r) | kbqHighlightBackground: tokens() : true"></span>
+                            </span>
+                        </ng-template>
+                        <ng-template vCol="user" header="Пользователь" kind="nowrap" let-r>
+                            <span [innerHTML]="r.user.login || dash | kbqHighlightBackground: tokens() : true"></span>
+                        </ng-template>
+                        <ng-template vCol="status" header="Статус" kind="line" let-r>
+                            <kbq-badge [badgeColor]="badgeColor(r)">{{ status(r) }}</kbq-badge>
+                        </ng-template>
+                        <ng-template vCol="created" header="Создан" kind="nowrap" let-r>
+                            <span class="v-secondary">{{ when(r.created_at) }}</span>
+                        </ng-template>
+                    </v-admin-grid>
                 } @else {
                     <kbq-empty-state class="v-empty">
                         <div kbq-empty-state-title>Запросов не нашли</div>
@@ -145,11 +124,8 @@ const KINDS: ItemKind[] = ['question', 'task', 'folder'];
             .v-mt8 {
                 margin-top: 8px;
             }
-            .v-search {
-                width: 240px;
-                margin-left: auto;
-            }
             .v-title {
+                display: block;
                 color: var(--kbq-foreground-contrast);
             }
             .v-subic {
@@ -199,10 +175,13 @@ export class RequestsComponent {
     });
     protected readonly filtered = computed(() => this.pipesFiltered() || !!this.q()?.trim());
 
+    /** Search tokens: filter the rows and are highlighted in the cells. */
+    protected readonly tokens = computed(() => tokenize(this.q() ?? ''));
     protected readonly rows = computed(() => {
-        const tokens = tokenize(this.q() ?? '');
+        const tokens = this.tokens();
         return this.items().filter((r) => matches([r.title, r.user.login, KIND_LABEL[r.kind], r.task_title], tokens));
     });
+    protected readonly rowId = (r: AdminRequest): string => r.kind + r.id;
 
     private readonly userOptions = computed<KbqSelectValue[]>(() => {
         const logins = new Set<string>(this.state().users);
@@ -267,6 +246,8 @@ export class RequestsComponent {
         const users = this.userOptions().filter((o) => s.users.includes(o.value as string));
         const types = this.kindOptions.filter((o) => s.types.includes(o.value as ItemKind));
         const pipes: KbqPipe[] = [
+            // Read once when the pipe is created; typing must not rebuild the filter.
+            adminSearchPipe('Текст запроса или логин', untracked(() => this.q())),
             {
                 name: 'Пользователь',
                 id: 'user',
@@ -352,7 +333,8 @@ export class RequestsComponent {
 
     protected onPipe(pipe: KbqPipe): void {
         const s = this.state();
-        if (pipe.id === 'user') void this.navigate({ ...s, users: multiSelectValues(pipe.value) });
+        if (pipe.id === ADMIN_SEARCH_PIPE_ID) this.setQuery(adminSearchQuery(pipe.value));
+        else if (pipe.id === 'user') void this.navigate({ ...s, users: multiSelectValues(pipe.value) });
         else if (pipe.id === 'period') void this.navigate({ ...s, period: periodFromPipe(pipe.value) });
         else if (pipe.id === 'type') {
             const types = multiSelectValues(pipe.value) as ItemKind[];
@@ -396,6 +378,10 @@ export class RequestsComponent {
 
     protected kindLabel(kind: ItemKind): string {
         return KIND_LABEL[kind] ?? kind;
+    }
+
+    protected kindSub(r: AdminRequest): string {
+        return this.kindLabel(r.kind) + (r.task_title ? ' · ' + r.task_title : '');
     }
 
     protected status(r: AdminRequest): string {

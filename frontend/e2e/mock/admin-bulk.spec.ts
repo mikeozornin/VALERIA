@@ -5,8 +5,8 @@ import { expect, openAs, test } from '../fixtures';
 // SPEC §16 item 11 — bulk block in «Пользователи» with partial success (SPEC §10.2, §11.1 «Массовые операции — атомарность»).
 
 const row = (page: Page, login: string): Locator =>
-    page.locator('table tbody tr').filter({ has: page.locator('.v-mono', { hasText: new RegExp(`^${login.replace('.', '\\.')}$`) }) });
-const check = (page: Page, login: string) => row(page, login).locator('kbq-checkbox').click();
+    page.locator('.ag-center-cols-container .ag-row').filter({ has: page.locator('.v-login', { hasText: new RegExp(`^${login.replace('.', '\\.')}$`) }) });
+const check = (page: Page, login: string) => row(page, login).locator('.ag-selection-checkbox input').click();
 const blockedBadge = (page: Page, login: string) => row(page, login).locator('kbq-badge', { hasText: 'Заблокирован' });
 const actionsPanel = (page: Page) => page.getByRole('toolbar', { name: 'Действия с отмеченными' });
 const blockModal = (page: Page) => page.locator('.kbq-modal-container');

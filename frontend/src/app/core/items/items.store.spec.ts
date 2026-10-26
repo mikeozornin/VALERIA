@@ -28,21 +28,22 @@ function item(id: string, status: string, updatedMin: number, extra: Partial<Ite
 }
 
 describe('groupItems', () => {
-    it('puts waiting first, then working, each newest first; the rest is Done newest first', () => {
+    it('puts waiting and working into Active, newest created first; the rest is Done by last activity', () => {
+        const created = (minutes: number) => ({ created_at: iso(minutes) });
         const items = [
-            item('run-old', 'running', -50),
-            item('wait-old', 'waiting_question', -40),
+            item('run-old', 'running', -1, created(-500)),
+            item('wait-old', 'waiting_question', -2, created(-400)),
             item('done-old', 'completed', -30),
-            item('queued-new', 'queued', -5),
-            item('perm-new', 'waiting_permission', -1),
+            item('queued-new', 'queued', -5, created(-50)),
+            item('perm-new', 'waiting_permission', -1, created(-100)),
             item('failed-new', 'failed', -2),
-            item('cancel', 'cancelling', -20),
-            item('dispatch', 'dispatching', -10),
+            item('cancel', 'cancelling', -20, created(-10)),
+            item('dispatch', 'dispatching', -10, created(-300)),
             item('idle', 'idle', -60, { kind: 'folder' }),
             item('cancelled', 'cancelled', -3),
         ];
         const g = groupItems(items, T0);
-        expect(g.active.map((i) => i.id)).toEqual(['perm-new', 'wait-old', 'queued-new', 'dispatch', 'cancel', 'run-old']);
+        expect(g.active.map((i) => i.id)).toEqual(['cancel', 'queued-new', 'perm-new', 'dispatch', 'wait-old', 'run-old']);
         expect(g.done.map((i) => i.id)).toEqual(['failed-new', 'cancelled', 'done-old', 'idle']);
         expect(g.snoozed).toEqual([]);
         expect(g.archive).toEqual([]);

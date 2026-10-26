@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import { afterNextRender, ChangeDetectionStrategy, Component, computed, ElementRef, inject, input, output } from '@angular/core';
 import { KbqAlertModule, KbqAlertColors, KbqAlertStyles } from '@koobiq/components/alert';
 import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqLinkModule } from '@koobiq/components/link';
@@ -16,6 +16,7 @@ import { SLOW_TITLE, SyncSubmit } from './sync-submit';
  *   <ng-container vFootExtra>…</ng-container>
  * </v-form-page>
  * ```
+ * The first field of the form gets the focus when the page opens (see {@link focusFirstField}).
  */
 @Component({
     selector: 'v-form-page',
@@ -68,6 +69,27 @@ import { SLOW_TITLE, SyncSubmit } from './sync-submit';
 export class FormPageComponent {
     /** 960px instead of 880px. */
     readonly wide = input(false);
+
+    constructor() {
+        const host: HTMLElement = inject(ElementRef).nativeElement;
+        afterNextRender(() => focusFirstField(host));
+    }
+}
+
+/**
+ * The first control in the form sections: a text field, a select, a toggle, or the checked option of a radio group.
+ * Alerts above the sections and the footer are skipped.
+ */
+const FIRST_FIELD = [
+    'fieldset input:not([type="radio"]):not(:disabled)',
+    'fieldset input[type="radio"]:checked:not(:disabled)',
+    'fieldset textarea:not(:disabled)',
+    'fieldset kbq-select:not(.kbq-disabled)',
+].join(', ');
+
+/** Focuses the first field of a form page; does nothing when the form has none. */
+export function focusFirstField(root: HTMLElement): void {
+    root.querySelector<HTMLElement>(FIRST_FIELD)?.focus();
 }
 
 /** Form section (prototype `fsec`): `<fieldset vFsec="Исполнение">`. */

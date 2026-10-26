@@ -16,6 +16,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { KbqBadgeColors, KbqBadgeModule } from '@koobiq/components/badge';
 import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqComponentColors, PopUpPlacements } from '@koobiq/components/core';
 import { KbqDividerModule } from '@koobiq/components/divider';
@@ -35,6 +36,7 @@ import { AppThemeService, THEME_OPTIONS } from '../../core/theme/theme.service';
 import { snoozeNavLabel } from '../../core/time/snooze';
 import { ChatActionsService } from '../chat-menu/chat-actions.service';
 import { ChatMenuComponent } from '../chat-menu/chat-menu.component';
+import { searchShortcutAria, searchShortcutHint } from '../search-shortcut';
 
 /** Admin sections of the «Система» submenu (SPEC §6.1 item 9, prototype `SYS`). */
 export const SYSTEM_ENTRIES: readonly { link: string; label: string; icon: string }[] = [
@@ -64,6 +66,7 @@ export function initialsOf(login: string): string {
         NgTemplateOutlet,
         RouterLink,
         RouterLinkActive,
+        KbqBadgeModule,
         KbqNavbarModule,
         KbqButtonModule,
         KbqIconModule,
@@ -90,6 +93,9 @@ export class NavComponent {
     private readonly ui = inject(UiStateService);
 
     protected readonly colors = KbqComponentColors;
+    protected readonly badgeColors = KbqBadgeColors;
+    protected readonly searchShortcutHint = searchShortcutHint();
+    protected readonly searchShortcutAria = searchShortcutAria();
     protected readonly placements = PopUpPlacements;
     protected readonly systemEntries = SYSTEM_ENTRIES;
     protected readonly themeOptions = THEME_OPTIONS;

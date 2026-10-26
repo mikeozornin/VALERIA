@@ -2,7 +2,7 @@ import { isWaiting, isWorking } from '../status/status';
 import { Item } from './item.model';
 
 export interface ItemGroups {
-    /** Waiting for the user first, then working; each by last activity, newest first. */
+    /** Waiting for the user or working, newest created first. */
     active: Item[];
     /** Finished chats, newest first. */
     done: Item[];
@@ -26,25 +26,22 @@ export function isSnoozed(item: Item, now: number): boolean {
  * back into Active/Done.
  */
 export function groupItems(items: readonly Item[], now: number): ItemGroups {
-    const waiting: Item[] = [];
-    const working: Item[] = [];
+    const active: Item[] = [];
     const done: Item[] = [];
     const snoozed: Item[] = [];
     const archive: Item[] = [];
     for (const item of items) {
         if (item.archived_at) archive.push(item);
         else if (isSnoozed(item, now)) snoozed.push(item);
-        else if (isWaiting(item.status)) waiting.push(item);
-        else if (isWorking(item.status)) working.push(item);
+        else if (isWaiting(item.status) || isWorking(item.status)) active.push(item);
         else done.push(item);
     }
     const newest = (a: Item, b: Item) => lastActivity(b) - lastActivity(a);
-    waiting.sort(newest);
-    working.sort(newest);
+    active.sort((a, b) => (toTime(b.created_at) ?? 0) - (toTime(a.created_at) ?? 0));
     done.sort(newest);
     snoozed.sort((a, b) => (toTime(a.snoozed_until) ?? 0) - (toTime(b.snoozed_until) ?? 0));
     archive.sort((a, b) => (toTime(b.archived_at) ?? 0) - (toTime(a.archived_at) ?? 0));
-    return { active: [...waiting, ...working], done, snoozed, archive };
+    return { active, done, snoozed, archive };
 }
 
 /** The nearest future snooze return, to schedule a regroup. */

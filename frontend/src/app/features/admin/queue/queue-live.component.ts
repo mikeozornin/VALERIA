@@ -4,7 +4,6 @@ import { KbqBadgeModule } from '@koobiq/components/badge';
 import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqComponentColors } from '@koobiq/components/core';
 import { KbqModalRef, KbqModalService, ModalSize } from '@koobiq/components/modal';
-import { KbqTableModule } from '@koobiq/components/table';
 import { EventsService } from '../../../core/events/events.service';
 import { NotifyService } from '../../../core/notify/notify.service';
 import { describeError } from '../../../core/status/error-codes';
@@ -12,6 +11,7 @@ import { PageStateComponent } from '../../../shared/page-state/page-state.compon
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { AdminConfigApi, QueueOverview } from '../config-shared/admin-config.api';
 import { escapeHtml } from '../config-shared/format';
+import { ADMIN_GRID } from '../shared/admin-grid';
 import { LiveRow, liveRows, liveStats, stopText, stopTitle } from './queue-live';
 import { QueueTabsComponent } from './queue-tabs.component';
 
@@ -21,7 +21,7 @@ export const POLL_MS = 5000;
 /** «Очередь» → «Сейчас» (SPEC §10.3): load, three counters and the unfinished jobs with «Остановить» / «Отменить». */
 @Component({
     selector: 'v-queue-live',
-    imports: [ScreenHeaderComponent, PageStateComponent, QueueTabsComponent, KbqTableModule, KbqBadgeModule, KbqButtonModule],
+    imports: [ScreenHeaderComponent, PageStateComponent, QueueTabsComponent, ADMIN_GRID, KbqBadgeModule, KbqButtonModule],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <v-screen-header title="Очередь" />
@@ -47,52 +47,37 @@ export const POLL_MS = 5000;
                         </div>
                     </div>
                 }
-                <table kbq-table [border]="true" class="v-jobs">
-                    <thead>
-                        <tr>
-                            <th>№</th>
-                            <th>Пользователь</th>
-                            <th>Задание</th>
-                            <th>Очередь</th>
-                            <th>Статус</th>
-                            <th>Время</th>
-                            <th><span class="v-sr">Действия</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (r of rows(); track r.id) {
-                            <tr>
-                                <td class="v-secondary">{{ r.n }}</td>
-                                <td class="v-mono">{{ r.login }}</td>
-                                <td>
-                                    {{ r.title }}
-                                    <span class="v-sub">{{ r.kindLabel }}</span>
-                                </td>
-                                <td class="v-nowrap">{{ r.queue }}</td>
-                                <td><kbq-badge [badgeColor]="r.badge">{{ r.statusLabel }}</kbq-badge></td>
-                                <td class="v-nowrap" [class.v-warning]="r.long" [class.v-secondary]="!r.long">{{ r.time }}</td>
-                                <td class="v-actions">
-                                    @if (r.action === 'cancel') {
-                                        <button kbq-button [color]="colors.ContrastFade" [disabled]="busy().has(r.id)" (click)="cancel(r)">Отменить</button>
-                                    } @else if (r.action === 'stop') {
-                                        <button
-                                            kbq-button
-                                            [color]="colors.ContrastFade"
-                                            [disabled]="busy().has(r.id)"
-                                            (click)="askStop(r)"
-                                        >
-                                            Остановить
-                                        </button>
-                                    }
-                                </td>
-                            </tr>
-                        } @empty {
-                            <tr>
-                                <td colspan="7" class="v-secondary v-empty">Сейчас ничего не выполняется и никто не ждёт</td>
-                            </tr>
+                <v-admin-grid
+                    class="v-jobs"
+                    [rows]="rows()"
+                    [rowId]="rowId"
+                    noRowsText="Сейчас ничего не выполняется и никто не ждёт"
+                >
+                    <ng-template vCol="n" header="№" kind="nowrap" let-r>
+                        <span class="v-secondary">{{ r.n }}</span>
+                    </ng-template>
+                    <ng-template vCol="user" header="Пользователь" kind="nowrap" let-r>{{ r.login }}</ng-template>
+                    <ng-template vCol="task" header="Задание" [flex]="2" [minWidth]="200" let-r>
+                        {{ r.title }}
+                        <span class="v-sub">{{ r.kindLabel }}</span>
+                    </ng-template>
+                    <ng-template vCol="queue" header="Очередь" [flex]="1" [minWidth]="120" let-r>{{ r.queue }}</ng-template>
+                    <ng-template vCol="status" header="Статус" kind="line" let-r>
+                        <kbq-badge [badgeColor]="r.badge">{{ r.statusLabel }}</kbq-badge>
+                    </ng-template>
+                    <ng-template vCol="time" header="Время" [flex]="1" [minWidth]="140" let-r>
+                        <span [class.v-warning]="r.long" [class.v-secondary]="!r.long">{{ r.time }}</span>
+                    </ng-template>
+                    <ng-template vCol="actions" header="Действия" kind="action" [width]="136" let-r>
+                        @if (r.action === 'cancel') {
+                            <button kbq-button [color]="colors.ContrastFade" [disabled]="busy().has(r.id)" (click)="cancel(r)">Отменить</button>
+                        } @else if (r.action === 'stop') {
+                            <button kbq-button [color]="colors.ContrastFade" [disabled]="busy().has(r.id)" (click)="askStop(r)">
+                                Остановить
+                            </button>
                         }
-                    </tbody>
-                </table>
+                    </ng-template>
+                </v-admin-grid>
             </div>
         </v-page-state>
     `,
@@ -114,21 +99,9 @@ export const POLL_MS = 5000;
             font-weight: var(--kbq-typography-headline-font-weight);
         }
         .v-stat__s { color: var(--kbq-foreground-contrast-tertiary); }
-        .v-jobs { width: 100%; margin-top: var(--kbq-size-l); }
-        .v-jobs td { vertical-align: middle; }
-        .v-sub {
-            display: block;
-            font-size: var(--kbq-typography-text-compact-font-size);
-            line-height: var(--kbq-typography-text-compact-line-height);
-            color: var(--kbq-foreground-contrast-secondary);
-        }
-        .v-mono { font-family: var(--kbq-typography-mono-normal-font-family); }
-        .v-nowrap { white-space: nowrap; }
+        .v-jobs { margin-top: var(--kbq-size-l); }
         .v-secondary { color: var(--kbq-foreground-contrast-secondary); }
         .v-warning { color: var(--kbq-foreground-warning); }
-        .v-actions { text-align: right; white-space: nowrap; padding-top: var(--kbq-size-xxs); padding-bottom: var(--kbq-size-xxs); }
-        .v-empty { text-align: center; padding: var(--kbq-size-xxl) 0; }
-        .v-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
     `,
     ],
 })
@@ -143,6 +116,7 @@ export class QueueLiveComponent {
     protected readonly now = signal(Date.now());
     protected readonly busy = signal<ReadonlySet<string>>(new Set());
     protected readonly rows = computed(() => (this.data() ? liveRows(this.data()!, this.now()) : []));
+    protected readonly rowId = (r: LiveRow): string => r.id;
     protected readonly stats = computed(() => (this.data() ? liveStats(this.data()!, this.now()) : null));
 
     private seq = 0;

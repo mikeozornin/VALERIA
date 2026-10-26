@@ -28,15 +28,25 @@ import { ChangeDetectionStrategy, Component, ElementRef, inject, input, signal }
     `,
     styles: `
         :host {
+            position: relative;
+            isolation: isolate;
             display: block;
             box-sizing: border-box;
             border: var(--kbq-size-border-width) solid var(--kbq-line-contrast-fade);
             border-radius: var(--kbq-size-border-radius);
             background: var(--kbq-background-bg);
         }
-        :host(.v-composer-box_focused) {
-            border-color: var(--kbq-states-line-focus-theme);
+        :host(.v-composer-box_focused) { border-color: var(--kbq-states-line-focus-theme); }
+        /* The inner line of the ring (the stock form-field focus shadow) is drawn on a layer above the content:
+           as an inset shadow of the host it would sit under the field's own background and show only along the bar. */
+        :host(.v-composer-box_focused)::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            border-radius: calc(var(--kbq-size-border-radius) - var(--kbq-size-border-width));
             box-shadow: inset 0 0 0.1px 1px var(--kbq-states-line-focus-theme);
+            pointer-events: none;
         }
         /* The disabled field tints itself (translucent), so only the bar gets the same tint here, not the whole box. */
         :host(.v-composer-box_disabled) { border-color: var(--kbq-states-line-disabled); }

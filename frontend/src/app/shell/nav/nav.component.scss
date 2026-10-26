@@ -1,6 +1,6 @@
 // Side menu. Encapsulation is off because the rules reach into the Koobiq navbar; every selector is scoped by
 // `.v-nav`. Rows, brand, divider and menus are stock Koobiq. Unlike the prototype (whole menu scrolls), only the
-// chat list scrolls; the brand block and the user block are pinned (product decision).
+// chat list scrolls; the brand block and the bottom block (folds, «Система», user) are pinned (product decision).
 
 .v-nav-host {
     display: flex;
@@ -11,7 +11,7 @@
 .v-nav.kbq-vertical-navbar {
     height: 100%;
 
-    // Three containers: the top (brand, search, «Новый запрос») and the bottom («Система», user) stay pinned,
+    // Three containers: the top (brand, search, «Новый запрос») and the bottom (folds, «Система», user) stay pinned,
     // only the list between them scrolls. Koobiq's vertical navbar sets the column direction but no display.
     .kbq-navbar-container.v-nav__top,
     .kbq-navbar-container.v-nav__list,
@@ -20,20 +20,51 @@
         flex-direction: column;
     }
 
-    .kbq-navbar-container.v-nav__top,
-    .kbq-navbar-container.v-nav__bottom {
+    .kbq-navbar-container.v-nav__top {
         flex: none;
     }
 
+    // Koobiq pads every container after the first (24px above, 8px below) as if it were a separate group; here the
+    // three containers are one column, so the list starts right under «Новый запрос» and the folds right under it.
     .kbq-navbar-container.v-nav__list {
-        flex: 1 1 auto;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    .kbq-navbar-container.v-nav__bottom {
+        padding-top: 0;
+    }
+
+    // «Отложенные» / «Архив» are pinned here above «Система» and the user. Open, they take up to half of the menu;
+    // past that their own rows scroll and the rest of the block stays put.
+    .kbq-navbar-container.v-nav__bottom {
+        flex: 0 1 auto;
+        min-height: 0;
+        max-height: 50%;
+    }
+
+    .v-nav__folds {
+        display: flex;
+        flex: 0 1 auto;
+        flex-direction: column;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    // Zero basis: the list takes whatever the pinned blocks leave and scrolls inside it.
+    .kbq-navbar-container.v-nav__list {
+        flex: 1 1 0;
         min-height: 0;
         overflow-y: auto;
         overscroll-behavior: contain;
     }
 
     // Rows keep their stock height while the list scrolls instead of shrinking to fit.
-    .kbq-navbar-container > .kbq-navbar-item {
+    .kbq-navbar-container > .kbq-navbar-item,
+    .kbq-navbar-container > .kbq-navbar-divider,
+    .v-nav__folds > .kbq-navbar-item,
+    .v-nav__folds > .kbq-navbar-divider {
         flex: none;
     }
 
@@ -51,12 +82,26 @@
         flex: none;
     }
 
-    .v-nav__newreq.kbq-button {
+    .v-nav__newreq.kbq-button,
+    .v-nav__search.kbq-button {
         width: 100%;
     }
 
-    .v-nav__spacer {
-        flex: 1 1 0;
+    // Search looks like a search field (prototype `.v-search`): an outline button on the field background with
+    // secondary text, icon and title from the left, the shortcut badge (button suffix) on the right
+    .v-nav__search.kbq-button {
+        --kbq-button-outline-contrast-fade-on-background: var(--kbq-background-bg);
+        --kbq-button-outline-contrast-fade-on-foreground: var(--kbq-foreground-contrast-secondary);
+        --kbq-button-outline-contrast-fade-on-states-hover-foreground: var(--kbq-foreground-contrast-secondary);
+    }
+
+    .v-nav__search .kbq-button-wrapper {
+        flex: 1;
+    }
+
+    .v-nav__search .kbq-button-text {
+        flex: 1;
+        text-align: left;
     }
 
     .v-nav__section {

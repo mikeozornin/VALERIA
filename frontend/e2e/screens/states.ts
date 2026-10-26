@@ -43,8 +43,8 @@ const paletteInput = (page: Page) =>
     palette(page).getByRole('combobox', { name: 'Найти чат или выбрать команду' });
 const userRow = (page: Page, login: string): Locator =>
     page
-        .locator('table tbody tr')
-        .filter({ has: page.locator('.v-mono', { hasText: new RegExp(`^${login.replace('.', '\\.')}$`) }) });
+        .locator('.ag-center-cols-container .ag-row')
+        .filter({ has: page.locator('.v-login', { hasText: new RegExp(`^${login.replace('.', '\\.')}$`) }) });
 const card = (page: Page) => page.locator('kbq-content-panel');
 
 async function openPalette(page: Page): Promise<void> {
@@ -53,7 +53,7 @@ async function openPalette(page: Page): Promise<void> {
 }
 
 async function checkUsers(page: Page, logins: string[]): Promise<void> {
-    for (const login of logins) await userRow(page, login).locator('kbq-checkbox').click();
+    for (const login of logins) await userRow(page, login).locator('.ag-selection-checkbox input').click();
     await expect(page.getByRole('toolbar', { name: 'Действия с отмеченными' })).toContainText(
         `Выбрано: ${logins.length}`,
     );
@@ -113,7 +113,7 @@ const userStart: ScreenState[] = [
             await open(page, mock, 'user', '/new/t-ci');
             const addition = page.getByRole('textbox', { name: 'Дополнение к задаче' });
             await addition.fill(CI_URL);
-            await expect(page.getByText('Текст добавится в конец инструкции задачи.')).toBeVisible();
+            await expect(addition).toHaveValue(CI_URL);
         },
     },
     {
@@ -291,7 +291,7 @@ const adminPeople: ScreenState[] = [
         how: '`/admin/audit`, click the 2nd row (prototype `arow: 1`)',
         run: async ({ page, mock }) => {
             await open(page, mock, 'admin', '/admin/audit');
-            await page.locator('table tbody tr').nth(1).click();
+            await page.locator('.ag-center-cols-container .ag-row').nth(1).click();
             await expect(page).toHaveURL(/[?&]event=/);
             await expect(card(page)).toBeVisible();
         },
@@ -327,7 +327,7 @@ const adminConfig: ScreenState[] = [
         run: async ({ page, mock }) => {
             await open(page, mock, 'admin', '/admin/queue');
             await page
-                .locator('table tbody tr')
+                .locator('.ag-center-cols-container .ag-row')
                 .filter({ hasText: 'p.volkov' })
                 .first()
                 .getByRole('button', { name: 'Остановить' })
@@ -354,7 +354,7 @@ const adminConfig: ScreenState[] = [
         run: async ({ page, mock }) => {
             await open(page, mock, 'admin', '/admin/queue/settings/edit');
             await page
-                .locator('table tbody tr')
+                .locator('.ag-center-cols-container .ag-row')
                 .filter({ hasText: 'Задачи' })
                 .first()
                 .getByRole('button', { name: 'Архивировать' })

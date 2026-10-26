@@ -89,10 +89,10 @@ const MIN_PASSWORD = 12;
                                 aria-describedby="v-pass-hint"
                             />
                             <kbq-error role="alert">{{ fieldError('password') }}</kbq-error>
+                            <kbq-hint id="v-pass-hint">
+                                VALERIA его никуда не отправляет, передайте пароль пользователю сами.
+                            </kbq-hint>
                         </kbq-form-field>
-                        <kbq-hint id="v-pass-hint">
-                            VALERIA его никуда не отправляет, передайте пароль пользователю сами.
-                        </kbq-hint>
                     </v-frow>
                     <v-frow label="Тип учётки" labelId="v-type-label">
                         <kbq-radio-group
@@ -101,7 +101,10 @@ const MIN_PASSWORD = 12;
                         >
                             @for (t of types; track t.id) {
                                 <kbq-radio-button [value]="t.id">
-                                    {{ t.label }}<kbq-hint>{{ t.hint }}</kbq-hint>
+                                    {{ t.label }}
+                                    @if (t.hint) {
+                                        <kbq-hint>{{ t.hint }}</kbq-hint>
+                                    }
                                 </kbq-radio-button>
                             }
                         </kbq-radio-group>
@@ -121,10 +124,8 @@ const MIN_PASSWORD = 12;
                                 aria-describedby="v-ws-hint"
                             />
                             <kbq-error role="alert">{{ fieldError('ws') }}</kbq-error>
+                            <kbq-hint id="v-ws-hint">Путь внутри каталога данных сервера. Если папки нет, она создастся</kbq-hint>
                         </kbq-form-field>
-                        <kbq-hint id="v-ws-hint">
-                            Путь внутри каталога данных сервера. Если папки нет, она создастся.
-                        </kbq-hint>
                     </v-frow>
                     <v-frow label="Mattermost" for="v-mm">
                         <kbq-form-field class="v-w320">
@@ -137,10 +138,10 @@ const MIN_PASSWORD = 12;
                                 aria-describedby="v-mm-hint"
                             />
                             <kbq-error role="alert">{{ fieldError('mm') }}</kbq-error>
+                            <kbq-hint id="v-mm-hint">
+                                Сюда Valeria пишет о готовых ответах и задачах. Можно указать позже.
+                            </kbq-hint>
                         </kbq-form-field>
-                        <kbq-hint id="v-mm-hint">
-                            Сюда Валерия пишет о готовых ответах и задачах. Можно указать позже.
-                        </kbq-hint>
                     </v-frow>
                 </fieldset>
 

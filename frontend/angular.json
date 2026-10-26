@@ -46,6 +46,11 @@
               "node_modules/@koobiq/design-tokens/web/css-tokens-light.css",
               "node_modules/@koobiq/design-tokens/web/css-tokens-dark.css",
               "node_modules/@koobiq/components/prebuilt-themes/theme.css",
+              {
+                "input": "src/app/features/admin/shared/admin-grid.scss",
+                "bundleName": "admin-grid",
+                "inject": false
+              },
               "src/styles.scss"
             ],
             "allowedCommonJsDependencies": [

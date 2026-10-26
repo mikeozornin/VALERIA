@@ -48,10 +48,10 @@ test('ask on home → clarification → answer → follow-up, menu follows over 
     await expect(page.getByText(question, { exact: true }).first()).toBeVisible();
     await expect(page.getByText('Только чтение', { exact: true })).toBeVisible();
 
-    // «Валерия уточняет»: the chat waits for the user, the menu shows it in «Активные».
+    // «Valeria уточняет»: the chat waits for the user, the menu shows it in «Активные».
     const card = page.locator('v-clarify-card');
     await expect(card).toBeVisible(LIVE);
-    await expect(card.getByText('Валерия уточняет')).toBeVisible();
+    await expect(card.getByText('Valeria уточняет')).toBeVisible();
     await expect(card.getByText(CLARIFY_QUESTION)).toBeVisible();
     const row = navRow(page, href);
     await expectInMenu(row, 'Активные', 'Ждёт вашего ответа');

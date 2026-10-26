@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
+import {
+    afterNextRender,
+    ChangeDetectionStrategy,
+    Component,
+    ElementRef,
+    inject,
+    input,
+    signal,
+    viewChild,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { KbqButtonModule } from '@koobiq/components/button';
@@ -28,7 +37,7 @@ export const WRONG_CREDENTIALS = 'Неверный логин или парол�
 
             <kbq-form-field>
                 <kbq-label>Логин</kbq-label>
-                <input kbqInput formControlName="login" autocomplete="username" autofocus />
+                <input #loginField kbqInput formControlName="login" autocomplete="username" />
             </kbq-form-field>
 
             <kbq-form-field>
@@ -90,6 +99,12 @@ export class LoginComponent {
         login: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
         password: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     });
+    private readonly loginField = viewChild.required<ElementRef<HTMLInputElement>>('loginField');
+
+    constructor() {
+        // The `autofocus` attribute works on page load only, not when the router renders the screen.
+        afterNextRender(() => this.loginField().nativeElement.focus());
+    }
 
     async submit(): Promise<void> {
         if (this.pending()) return;

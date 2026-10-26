@@ -133,7 +133,7 @@ const KIND_OBJECT: Record<AdminRequest['kind'], string> = {
                                 } @else {
                                     <div class="v-msg">
                                         <div class="v-msg__who">
-                                            <span class="v-logo" aria-hidden="true"></span>Валерия
+                                            <span class="v-logo" aria-hidden="true"></span>Valeria
                                         </div>
                                         <v-markdown-view [text]="m.text" />
                                     </div>

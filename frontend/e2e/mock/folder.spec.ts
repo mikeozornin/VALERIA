@@ -52,7 +52,7 @@ test('«Сделать» with Plan → plan → Build → permission allowed onc
     await expect(page.getByText('Выполни план', { exact: true })).toBeVisible();
 
     // The agent asks a permission: the card replaces the composer.
-    const perm = page.getByRole('group', { name: 'Валерия просит разрешение на команду' });
+    const perm = page.getByRole('group', { name: 'Valeria просит разрешение на команду' });
     await expect(perm).toBeVisible(LIVE);
     await expect(perm.getByText(COMMAND, { exact: true })).toBeVisible();
     await expect(perm.getByText('Зачем:')).toBeVisible();
@@ -72,9 +72,23 @@ test('«Сделать» with Plan → plan → Build → permission allowed onc
 
 test('a seeded permission (f-permission) rejected → the "denied" ending', async ({ page, mock: _mock }) => {
     await openAs(page, 'user', '/folder/f-permission');
-    const perm = page.getByRole('group', { name: 'Валерия просит разрешение на команду' });
+    const perm = page.getByRole('group', { name: 'Valeria просит разрешение на команду' });
     await expect(perm.getByText(COMMAND, { exact: true })).toBeVisible();
     await perm.getByRole('button', { name: 'Отклонить' }).click();
     await expect(page.getByText('Файлы обновлены. Сборку я не проверила', { exact: false })).toBeVisible(LIVE);
     await expectInMenu(navRow(page, '/folder/f-permission'), 'Готово', 'Готово');
+});
+
+test('a working folder chat offers «Остановить» in place of «Отправить», not in the header', async ({ page, mock: _mock }) => {
+    await openAs(page, 'user', '/folder/f-running');
+
+    const composer = page.locator('v-chat-composer');
+    const stop = composer.getByRole('button', { name: 'Остановить' });
+    await expect(stop).toBeVisible(LIVE);
+    await expect(composer.getByRole('button', { name: 'Отправить' })).toHaveCount(0);
+    await expect(page.locator('v-screen-header').getByRole('button', { name: 'Остановить' })).toHaveCount(0);
+
+    await stop.click();
+    await expect(composer.getByRole('button', { name: 'Отправить' })).toBeVisible(LIVE);
+    await expect(stop).toHaveCount(0);
 });

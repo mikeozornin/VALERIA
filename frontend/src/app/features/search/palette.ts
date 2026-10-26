@@ -27,7 +27,7 @@ export function paletteCommands(tasksOnly: boolean, workspace: string | null | u
         id: 'ask',
         icon: KIND_ICON.question,
         title: 'Спросить',
-        sub: 'Новый вопрос. Валерия только читает',
+        sub: 'Новый вопрос. Valeria только читает',
         keys: 'новый вопрос',
     };
     if (tasksOnly) return [ask];

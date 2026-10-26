@@ -15,7 +15,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { KbqAlertModule } from '@koobiq/components/alert';
-import { KbqButtonModule, KbqButtonStyles } from '@koobiq/components/button';
+import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqButtonToggleModule } from '@koobiq/components/button-toggle';
 import { KbqCodeBlockModule } from '@koobiq/components/code-block';
 import { KbqComponentColors, PopUpPlacements } from '@koobiq/components/core';
@@ -123,22 +123,6 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                     <i [kbq-icon]="folderIcon" [color]="colors.Theme"></i>
                 </span>
             }
-            @if (working()) {
-                <button
-                    vHeaderActions
-                    kbq-button
-                    type="button"
-                    [kbqStyle]="styles.Transparent"
-                    [color]="colors.Contrast"
-                    [disabled]="aborting()"
-                    [class.kbq-progress]="aborting()"
-                    kbqTooltip="Остановить"
-                    aria-label="Остановить"
-                    (click)="abort()"
-                >
-                    <i kbq-icon="kbq-stop-circle_16"></i>
-                </button>
-            }
         </v-screen-header>
 
         @if (notFound()) {
@@ -187,11 +171,11 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                                         <div class="v-planact">
                                                             <v-send-button
                                                                 label="Выполнить план в режиме Build"
+                                                                icon="kbq-play_16"
                                                                 [shortcut]="false"
                                                                 [sending]="building()"
                                                                 (pressed)="runPlan()"
                                                             >
-                                                                <i kbq-icon="kbq-play_16"></i>
                                                                 Выполнить план в режиме Build
                                                             </v-send-button>
                                                             <span class="v-secondary">или напишите, что поправить</span>
@@ -228,10 +212,10 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                             alertColor="warning"
                                             [compact]="true"
                                             role="group"
-                                            aria-label="Валерия просит разрешение на команду"
+                                            aria-label="Valeria просит разрешение на команду"
                                         >
                                             <i kbq-icon="kbq-lock_16"></i>
-                                            <div kbq-alert-title>Валерия просит разрешение на команду</div>
+                                            <div kbq-alert-title>Valeria просит разрешение на команду</div>
                                             @if (p.metadata?.command; as cmd) {
                                                 <kbq-code-block
                                                     class="v-perm__code"
@@ -289,6 +273,9 @@ const BUSY_REASON = 'Агент ещё работает, дождитесь от
                                             [busyReason]="busyReason"
                                             emptyReason="Напишите сообщение"
                                             [submit]="send"
+                                            [stoppable]="working()"
+                                            [stopping]="aborting() || status() === 'cancelling'"
+                                            (stop)="abort()"
                                         >
                                             <div class="v-bar">
                                                 <kbq-button-toggle-group
@@ -415,7 +402,6 @@ export class FolderComponent {
     private readonly scroller = viewChild<ElementRef<HTMLElement>>('scroller');
 
     protected readonly colors = KbqComponentColors;
-    protected readonly styles = KbqButtonStyles;
     protected readonly placements = PopUpPlacements;
     protected readonly folderIcon = KIND_ICON.folder;
     protected readonly busyReason = BUSY_REASON;

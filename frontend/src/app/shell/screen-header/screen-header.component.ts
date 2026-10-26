@@ -28,6 +28,8 @@ export interface Crumb {
  * ```
  * `[chat]` adds the chat menu «…»; `[asideToggle]="true"` adds «Скрыть панель» / «Показать панель»
  * bound to `valeria.chat.aside.open`.
+ * With `[crumbs]` the title is the last breadcrumb (stock Big breadcrumbs) and `vHeaderLead` is not shown;
+ * without crumbs it is an `h1` with the lead before it.
  */
 @Component({
     selector: 'v-screen-header',
@@ -49,16 +51,12 @@ export interface Crumb {
             <div kbqTopBarContainer placement="start" class="v-screen-header__start">
                 <ng-content select="[vHeaderBack]" />
                 @if (crumbs().length) {
-                    <!-- Stock breadcrumbs; the last (current) item is the screen title with its lead. -->
-                    <nav kbq-breadcrumbs class="v-screen-header__crumbs">
+                    <!-- Stock Big breadcrumbs; the screen title is the last (current) item, in the stock style. -->
+                    <nav kbq-breadcrumbs size="big" class="v-screen-header__crumbs">
                         @for (crumb of crumbs(); track crumb.link) {
                             <kbq-breadcrumb-item [routerLink]="crumb.link" [text]="crumb.label" />
                         }
-                        <kbq-breadcrumb-item [text]="title()" current>
-                            <ng-template kbqBreadcrumbView>
-                                <ng-container *ngTemplateOutlet="heading" />
-                            </ng-template>
-                        </kbq-breadcrumb-item>
+                        <kbq-breadcrumb-item [text]="title()" current />
                     </nav>
                 } @else {
                     <ng-container *ngTemplateOutlet="heading" />
@@ -88,7 +86,8 @@ export interface Crumb {
                 }
             </div>
         </kbq-top-bar>
-        <kbq-divider />
+        <!-- No paddings: the stock divider adds 4px above and below, a strip between the bar and the content. -->
+        <kbq-divider [paddings]="false" />
 
         <ng-template #heading>
             <span class="v-screen-header__heading">

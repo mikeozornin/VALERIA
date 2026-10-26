@@ -46,7 +46,7 @@ export class UserMessageComponent {
 }
 
 /**
- * Valeria's message (prototype `.v-msg`): «Валерия» with the logo, projected content, then time and an optional
+ * Valeria's message (prototype `.v-msg`): «Valeria» with the logo, projected content, then time and an optional
  * «Копировать ответ» that copies `copyText`.
  */
 @Component({
@@ -54,7 +54,7 @@ export class UserMessageComponent {
     imports: [KbqButtonModule, KbqIconModule],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
-        <div class="v-msg__who"><span class="v-logo" aria-hidden="true"></span>Валерия</div>
+        <div class="v-msg__who"><span class="v-logo" aria-hidden="true"></span>Valeria</div>
         <ng-content />
         @if (time() || copyText()) {
             <div class="v-msg__actions">
@@ -114,7 +114,7 @@ export class BotMessageComponent {
     }
 }
 
-/** Progress line with a spinner (prototype `.v-status`): «Валерия готовит ответ / Обычно 1–3 минуты.». */
+/** Progress line with a spinner (prototype `.v-status`): «Valeria готовит ответ / Обычно 1–3 минуты.». */
 @Component({
     selector: 'v-status-line',
     imports: [KbqProgressSpinnerModule],

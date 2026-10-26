@@ -89,20 +89,27 @@ interface TypeOption {
                 </div>
 
                 <section class="v-chart">
-                    <h2 class="v-chart__title">Сколько длится каждый запуск</h2>
-                    <p class="v-chart__sub">
-                        Метка — один запуск: по горизонтали время, когда он встал в очередь, по вертикали сколько работал агент. Черта над
-                        меткой — ожидание в очереди. Цвет — итог: <svg vShape="circle" st="done"></svg> успешно,
-                        <svg vShape="circle" st="failed"></svg> с ошибкой, <svg vShape="circle" st="cancelled"></svg> отменён,
-                        <svg vShape="circle" st="running"></svg> ещё идёт.
-                    </p>
-                    <div class="v-keys">
-                        @for (key of keys(); track key.shapeKey) {
-                            <span class="v-key"><svg [vShape]="key.shape" st="key"></svg>{{ key.label }}</span>
-                        }
-                    </div>
                     @if (runs().length) {
                         <v-control-chart [runs]="runs()" [from]="range().from" [to]="range().to" [now]="now()" [shapes]="shapes()" />
+                        <dl class="v-legend" aria-label="Легенда">
+                            <dt>Метка</dt>
+                            <dd>один запуск: по горизонтали — когда встал в очередь, по вертикали — сколько работал агент</dd>
+                            <dt>Форма</dt>
+                            <dd>
+                                @for (key of keys(); track key.shapeKey) {
+                                    <span class="v-key"><svg [vShape]="key.shape" st="key"></svg>{{ key.label }}</span>
+                                }
+                            </dd>
+                            <dt>Цвет</dt>
+                            <dd>
+                                <span class="v-key"><svg vShape="circle" st="done"></svg>успешно</span>
+                                <span class="v-key"><svg vShape="circle" st="failed"></svg>с ошибкой</span>
+                                <span class="v-key"><svg vShape="circle" st="cancelled"></svg>отменён</span>
+                                <span class="v-key"><svg vShape="circle" st="running"></svg>ещё идёт</span>
+                            </dd>
+                            <dt>Черта над меткой</dt>
+                            <dd><span class="v-key"><i class="v-key__stem"></i>ожидание в очереди</span></dd>
+                        </dl>
                     } @else if (data()) {
                         <kbq-empty-state class="v-chart__empty">
                             <div kbq-empty-state-title>За этот период запусков нет</div>
@@ -143,23 +150,20 @@ interface TypeOption {
         }
         .v-kpi__t { color: var(--kbq-foreground-contrast-secondary); }
         .v-chart { margin-top: var(--kbq-size-3xl); }
-        .v-chart__title {
-            margin: 0;
-            font-size: var(--kbq-typography-subheading-font-size);
-            line-height: var(--kbq-typography-subheading-line-height);
-            font-weight: var(--kbq-typography-subheading-font-weight);
-        }
-        .v-chart__sub { margin: var(--kbq-size-xxs) 0 0; max-width: 880px; color: var(--kbq-foreground-contrast-secondary); }
-        .v-keys {
-            display: flex;
-            flex-wrap: wrap;
-            gap: var(--kbq-size-xxs) 20px;
-            margin: var(--kbq-size-s) 0 20px;
+        .v-legend {
+            display: grid;
+            grid-template-columns: max-content minmax(0, 1fr);
+            gap: var(--kbq-size-xs) var(--kbq-size-l);
+            margin: var(--kbq-size-l) 0 0;
             font-size: var(--kbq-typography-text-compact-font-size);
             line-height: var(--kbq-typography-text-compact-line-height);
             color: var(--kbq-foreground-contrast-secondary);
         }
+        .v-legend dt { color: var(--kbq-foreground-contrast); }
+        .v-legend dd { display: flex; flex-wrap: wrap; gap: var(--kbq-size-xxs) 20px; margin: 0; }
         .v-key { display: inline-flex; align-items: center; gap: 6px; }
+        /* The stem above a mark on the chart, in the neutral key colour. */
+        .v-key__stem { width: 2px; height: 14px; border-radius: 1px; background: currentColor; }
         /* Block-level flex: an inline-flex box sits on the text baseline and makes the option taller. */
         .v-type-opt { display: flex; align-items: center; gap: var(--kbq-size-s); min-width: 0; }
         .v-type-opt__gap { width: 12px; flex: none; }

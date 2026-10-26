@@ -45,14 +45,14 @@
                 </kbq-form-field>
                 <v-send-button
                     label="Запустить"
+                    icon="kbq-play_16"
                     [disabled]="!!launchReason()"
                     [reason]="launchReason()"
                     [sending]="launching()"
                     (pressed)="launch()"
-                    ><i kbq-icon="kbq-play_16"></i>Запустить</v-send-button
+                    >Запустить</v-send-button
                 >
             </v-composer-box>
-            <div class="kbq-text-compact v-home__hint">Текст добавится в конец инструкции задачи.</div>
             @if (duplicate()) {
                 <kbq-alert class="v-home__duplicate" alertColor="warning" alertStyle="colored" [compact]="true">
                     <i kbq-icon="kbq-triangle-exclamation_16"></i>

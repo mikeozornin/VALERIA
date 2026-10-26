@@ -4,8 +4,9 @@ import { UI_KEYS, UiStateService } from '../state/ui-state.service';
 
 export type ThemeMode = 'system' | 'light' | 'dark';
 
-export const THEME_OPTIONS: readonly { id: ThemeMode; label: string; hint?: string }[] = [
-    { id: 'system', label: 'Системная', hint: 'как в ОС' },
+/** Single-line options of the theme menu. */
+export const THEME_OPTIONS: readonly { id: ThemeMode; label: string }[] = [
+    { id: 'system', label: 'Системная' },
     { id: 'light', label: 'Светлая' },
     { id: 'dark', label: 'Тёмная' },
 ];

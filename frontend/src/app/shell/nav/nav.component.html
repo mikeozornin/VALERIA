@@ -5,18 +5,30 @@
             <kbq-navbar-title>VALERIA</kbq-navbar-title>
         </kbq-navbar-brand>
 
-        <a
-            kbq-navbar-item
-            class="v-nav__search"
-            routerLink="/search"
-            routerLinkActive="kbq-active"
-            #searchLink="routerLinkActive"
-        >
-            <i kbq-icon="kbq-magnifying-glass_16" [color]="searchLink.isActive ? colors.Contrast : colors.ContrastFade"></i>
-            <kbq-navbar-title>Поиск и команды</kbq-navbar-title>
-        </a>
+        <!-- Same 32px button in the same item wrapper as «Новый запрос», so both rows share height and width -->
+        <div kbq-navbar-item class="v-nav__button-item">
+            <a
+                kbq-button
+                kbqStyle="outline"
+                [color]="colors.ContrastFade"
+                class="v-nav__search"
+                routerLink="/search"
+                [attr.aria-keyshortcuts]="searchShortcutAria"
+            >
+                <i kbq-icon="kbq-magnifying-glass_16" [color]="colors.ContrastFade"></i>
+                Поиск и команды
+                <kbq-badge
+                    kbqButtonSuffix
+                    class="v-nav__shortcut"
+                    [compact]="true"
+                    [badgeColor]="badgeColors.FadeContrast"
+                    aria-hidden="true"
+                    >{{ searchShortcutHint }}</kbq-badge
+                >
+            </a>
+        </div>
 
-        <div kbq-navbar-item class="v-nav__newreq-item">
+        <div kbq-navbar-item class="v-nav__button-item">
             <a
                 kbq-button
                 kbqStyle="filled"
@@ -31,7 +43,7 @@
         </div>
     </kbq-navbar-container>
 
-    <!-- The only scrolling part: the brand block above and «Система» / user below stay in place. -->
+    <!-- The chat list scrolls; the brand block above and the folds, «Система» and user below stay in place. -->
     <kbq-navbar-container #list class="v-nav__list">
         @if (groups().active.length) {
             <div class="v-nav__section kbq-caps-compact-strong">Активные</div>
@@ -46,57 +58,62 @@
                 <ng-container *ngTemplateOutlet="chatRow; context: { $implicit: item, trail: 'status' }" />
             }
         }
-
-        <!-- Keeps «Отложенные» / «Архив» at the bottom of the list while it is short (prototype spacer). -->
-        <div class="v-nav__spacer" aria-hidden="true"></div>
-
-        @if (groups().snoozed.length) {
-            <button
-                kbq-navbar-item
-                type="button"
-                class="v-nav__fold"
-                [attr.aria-expanded]="snoozedOpen()"
-                (click)="snoozedOpen.update(toggle)"
-            >
-                <i
-                    [kbq-icon]="snoozedOpen() ? 'kbq-chevron-down_16' : 'kbq-chevron-right_16'"
-                    [color]="colors.ContrastFade"
-                ></i>
-                <kbq-navbar-title>Отложенные</kbq-navbar-title>
-                <span class="v-nav__count">{{ groups().snoozed.length }}</span>
-            </button>
-            @if (snoozedOpen()) {
-                @for (item of groups().snoozed; track key(item)) {
-                    <ng-container *ngTemplateOutlet="chatRow; context: { $implicit: item, trail: 'when' }" />
-                }
-            }
-        }
-
-        @if (groups().archive.length) {
-            <button
-                kbq-navbar-item
-                type="button"
-                class="v-nav__fold"
-                [attr.aria-expanded]="archiveOpen()"
-                (click)="archiveOpen.update(toggle)"
-            >
-                <i
-                    [kbq-icon]="archiveOpen() ? 'kbq-chevron-down_16' : 'kbq-chevron-right_16'"
-                    [color]="colors.ContrastFade"
-                ></i>
-                <kbq-navbar-title>Архив</kbq-navbar-title>
-                <span class="v-nav__count">{{ groups().archive.length }}</span>
-            </button>
-            @if (archiveOpen()) {
-                @for (item of groups().archive; track key(item)) {
-                    <ng-container *ngTemplateOutlet="chatRow; context: { $implicit: item, trail: 'none' }" />
-                }
-            }
-        }
     </kbq-navbar-container>
 
+    <!-- Pinned to the bottom: «Отложенные» / «Архив» (their open lists scroll on their own when long), then «Система»
+         and the user. -->
     <kbq-navbar-container class="v-nav__bottom">
         @if (listOverflows()) {
+            <kbq-navbar-divider />
+        }
+        @if (groups().snoozed.length || groups().archive.length) {
+            <div class="v-nav__folds">
+                @if (groups().snoozed.length) {
+                    <button
+                        kbq-navbar-item
+                        type="button"
+                        class="v-nav__fold"
+                        [attr.aria-expanded]="snoozedOpen()"
+                        (click)="snoozedOpen.update(toggle)"
+                    >
+                        <i
+                            [kbq-icon]="snoozedOpen() ? 'kbq-chevron-down_16' : 'kbq-chevron-right_16'"
+                            [color]="colors.ContrastFade"
+                        ></i>
+                        <kbq-navbar-title>Отложенные</kbq-navbar-title>
+                        <span class="v-nav__count">{{ groups().snoozed.length }}</span>
+                    </button>
+                    @if (snoozedOpen()) {
+                        @for (item of groups().snoozed; track key(item)) {
+                            <ng-container *ngTemplateOutlet="chatRow; context: { $implicit: item, trail: 'when' }" />
+                        }
+                    }
+                }
+                @if (groups().snoozed.length && groups().archive.length) {
+                    <kbq-navbar-divider />
+                }
+                @if (groups().archive.length) {
+                    <button
+                        kbq-navbar-item
+                        type="button"
+                        class="v-nav__fold"
+                        [attr.aria-expanded]="archiveOpen()"
+                        (click)="archiveOpen.update(toggle)"
+                    >
+                        <i
+                            [kbq-icon]="archiveOpen() ? 'kbq-chevron-down_16' : 'kbq-chevron-right_16'"
+                            [color]="colors.ContrastFade"
+                        ></i>
+                        <kbq-navbar-title>Архив</kbq-navbar-title>
+                        <span class="v-nav__count">{{ groups().archive.length }}</span>
+                    </button>
+                    @if (archiveOpen()) {
+                        @for (item of groups().archive; track key(item)) {
+                            <ng-container *ngTemplateOutlet="chatRow; context: { $implicit: item, trail: 'none' }" />
+                        }
+                    }
+                }
+            </div>
             <kbq-navbar-divider />
         }
         @if (auth.isAdmin()) {
@@ -208,9 +225,6 @@
             (click)="theme.setMode(option.id)"
         >
             {{ option.label }}
-            @if (option.hint) {
-                <div class="kbq-dropdown-item__caption">{{ option.hint }}</div>
-            }
             @if (theme.mode() === option.id) {
                 <span kbqDropdownItemAction><i kbq-icon="kbq-check_16" [color]="colors.ContrastFade"></i></span>
             }

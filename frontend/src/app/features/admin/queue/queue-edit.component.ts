@@ -11,7 +11,6 @@ import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqInputModule } from '@koobiq/components/input';
 import { KbqLinkModule } from '@koobiq/components/link';
 import { KbqSelectModule } from '@koobiq/components/select';
-import { KbqTableModule } from '@koobiq/components/table';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
 import { DirtyAware, DirtyFormService } from '../../../core/guards/dirty.guard';
 import { NotifyService } from '../../../core/notify/notify.service';
@@ -20,7 +19,23 @@ import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-heade
 import { AdminConfigApi, AdminTask, QueueOverview } from '../config-shared/admin-config.api';
 import { FormAlertsComponent, FormPageComponent, FrowComponent, FsecComponent } from '../config-shared/form-layout';
 import { SyncSubmit } from '../config-shared/sync-submit';
+import { ADMIN_GRID } from '../shared/admin-grid';
 import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue, QueueRequest, usedBy, validateQueues, visibleRows } from './queue-form';
+
+interface QueueDraft {
+    name: string;
+    priority: number | null;
+    max_workers: number | null;
+}
+
+/** A row of the queues table: a queue, or the queue being added. */
+interface QueueGridRow {
+    key: string;
+    row: QueueFormRow | null;
+    draft: QueueDraft | null;
+}
+
+const DRAFT_ROW_KEY = 'draft';
 
 /** «Очереди и лимиты» edit form (prototype `queueEdit`): every change is applied together on «Сохранить». */
 @Component({
@@ -43,8 +58,8 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
         KbqInputModule,
         KbqLinkModule,
         KbqSelectModule,
-        KbqTableModule,
         KbqToolTipModule,
+        ADMIN_GRID,
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
@@ -94,139 +109,125 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
 
                     <fieldset vFsec="Очереди">
                         <kbq-hint class="v-qhint">
-                            Свободный слот получает очередь с наибольшим приоритетом. Лимит очереди не отменяет общий лимит и лимиты пользователей.
+                            Лимит очереди не отменяет общий лимит и лимиты пользователей.
                         </kbq-hint>
-                        <table kbq-table [border]="true" class="v-table">
-                            <thead>
-                                <tr>
-                                    <th>Название</th>
-                                    <th>Приоритет</th>
-                                    <th>Воркеров, не больше</th>
-                                    <th>Сейчас</th>
-                                    <th><span class="v-sr">Действия</span></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @for (r of rows(); track r.key) {
-                                    <tr>
-                                        <td>
-                                            @if (r.id) {
-                                                <span class="v-qname">
-                                                    {{ r.name }}
-                                                    @if (r.is_system) {
-                                                        <kbq-badge [compact]="true" [badgeColor]="badgeColors.FadeContrast">системная</kbq-badge>
-                                                    }
-                                                </span>
-                                            } @else {
-                                                <kbq-form-field>
-                                                    <input kbqInput aria-label="Название" [vFieldError]="shownErrors()[r.key + ':name']" [ngModel]="r.name" (ngModelChange)="patchRow(r.key, { name: $event })" />
-                                                    <kbq-error role="alert">{{ shownErrors()[r.key + ':name'] }}</kbq-error>
-                                                </kbq-form-field>
-                                            }
-                                        </td>
-                                        <td>
-                                            <kbq-form-field class="v-num">
-                                                <input
-                                                    kbqNumberInput
-                                                    [integer]="true"
-                                                    [withThousandSeparator]="false"
-                                                    [attr.aria-label]="'Приоритет: ' + r.name"
-                                                    [ngModel]="r.priority"
-                                                    (ngModelChange)="patchRow(r.key, { priority: num($event) })"
-                                                />
-                                            </kbq-form-field>
-                                            @if (shownErrors()[r.key + ':priority']; as e) {
-                                                <kbq-hint color="error">{{ e }}</kbq-hint>
-                                            }
-                                        </td>
-                                        <td>
-                                            <kbq-form-field class="v-num">
-                                                <input
-                                                    kbqNumberInput
-                                                    [integer]="true"
-                                                    [withThousandSeparator]="false"
-                                                    [min]="1"
-                                                    [max]="hardLimit()"
-                                                    [attr.aria-label]="'Воркеров, не больше: ' + r.name"
-                                                    [ngModel]="r.max_workers"
-                                                    (ngModelChange)="patchRow(r.key, { max_workers: num($event) })"
-                                                />
-                                            </kbq-form-field>
-                                            @if (shownErrors()[r.key + ':max_workers']; as e) {
-                                                <kbq-hint color="error">{{ e }}</kbq-hint>
-                                            }
-                                        </td>
-                                        <td class="v-secondary v-nowrap">
-                                            @if (r.id) {
-                                                {{ r.active }} в работе · {{ r.queued }} ждут
-                                            }
-                                        </td>
-                                        <td class="v-actions">
+                        <!-- One grid row per queue, plus the new queue's row («Добавить очередь») at the end. -->
+                        <v-admin-grid editable [rows]="gridRows()" [rowId]="gridRowId">
+                            <ng-template vCol="name" header="Название" kind="control" [flex]="1" [minWidth]="200" let-g>
+                                @if (g.row; as r) {
+                                    @if (r.id) {
+                                        <span class="v-qname">
+                                            {{ r.name }}
                                             @if (r.is_system) {
-                                                <span kbqTooltip="Основную очередь архивировать нельзя" kbqPlacement="left">
-                                                    <button type="button" kbq-button [color]="colors.ContrastFade" disabled>Архивировать</button>
-                                                </span>
-                                            } @else {
-                                                <button type="button" kbq-button [color]="colors.ContrastFade" (click)="archive(r)">Архивировать</button>
+                                                <kbq-badge [compact]="true" [badgeColor]="badgeColors.FadeContrast">системная</kbq-badge>
                                             }
-                                        </td>
-                                    </tr>
+                                        </span>
+                                    } @else {
+                                        <kbq-form-field>
+                                            <input kbqInput aria-label="Название" [vFieldError]="shownErrors()[r.key + ':name']" [ngModel]="r.name" (ngModelChange)="patchRow(r.key, { name: $event })" />
+                                            <kbq-error role="alert">{{ shownErrors()[r.key + ':name'] }}</kbq-error>
+                                        </kbq-form-field>
+                                    }
+                                } @else if (g.draft; as d) {
+                                    <kbq-form-field class="v-addrow">
+                                        <input
+                                            kbqInput
+                                            placeholder="Название"
+                                            aria-label="Название новой очереди"
+                                            [ngModel]="d.name"
+                                            (ngModelChange)="patchDraft({ name: $event })"
+                                            (keydown.enter)="addQueue()"
+                                        />
+                                    </kbq-form-field>
                                 }
-                                @if (draft(); as d) {
-                                    <tr class="v-addrow">
-                                        <td>
-                                            <kbq-form-field>
-                                                <input
-                                                    #addName
-                                                    kbqInput
-                                                    placeholder="Название"
-                                                    aria-label="Название новой очереди"
-                                                    [ngModel]="d.name"
-                                                    (ngModelChange)="patchDraft({ name: $event })"
-                                                    (keydown.enter)="addQueue()"
-                                                />
-                                            </kbq-form-field>
-                                        </td>
-                                        <td>
-                                            <kbq-form-field class="v-num">
-                                                <input
-                                                    kbqNumberInput
-                                                    [integer]="true"
-                                                    [withThousandSeparator]="false"
-                                                    placeholder="0"
-                                                    aria-label="Приоритет новой очереди"
-                                                    [ngModel]="d.priority"
-                                                    (ngModelChange)="patchDraft({ priority: num($event) })"
-                                                />
-                                            </kbq-form-field>
-                                        </td>
-                                        <td>
-                                            <kbq-form-field class="v-num">
-                                                <input
-                                                    kbqNumberInput
-                                                    [integer]="true"
-                                                    [withThousandSeparator]="false"
-                                                    [min]="1"
-                                                    [max]="hardLimit()"
-                                                    aria-label="Воркеров, не больше, у новой очереди"
-                                                    [ngModel]="d.max_workers"
-                                                    (ngModelChange)="patchDraft({ max_workers: num($event) })"
-                                                />
-                                            </kbq-form-field>
-                                        </td>
-                                        <td></td>
-                                        <td class="v-actions">
-                                            <span kbqTooltip="Укажите название" kbqPlacement="left" [kbqTooltipDisabled]="!!d.name.trim()">
-                                                <button type="button" kbq-button [color]="colors.Contrast" [disabled]="!d.name.trim()" (click)="addQueue()">
-                                                    Добавить
-                                                </button>
+                            </ng-template>
+                            <ng-template vCol="priority" header="Приоритет" kind="control" [width]="136" let-g>
+                                @if (g.row; as r) {
+                                    <kbq-form-field class="v-num">
+                                        <input
+                                            kbqNumberInput
+                                            [integer]="true"
+                                            [withThousandSeparator]="false"
+                                            [attr.aria-label]="'Приоритет: ' + r.name"
+                                            [ngModel]="r.priority"
+                                            (ngModelChange)="patchRow(r.key, { priority: num($event) })"
+                                        />
+                                    </kbq-form-field>
+                                    @if (shownErrors()[r.key + ':priority']; as e) {
+                                        <kbq-hint color="error">{{ e }}</kbq-hint>
+                                    }
+                                } @else if (g.draft; as d) {
+                                    <kbq-form-field class="v-num">
+                                        <input
+                                            kbqNumberInput
+                                            [integer]="true"
+                                            [withThousandSeparator]="false"
+                                            placeholder="0"
+                                            aria-label="Приоритет новой очереди"
+                                            [ngModel]="d.priority"
+                                            (ngModelChange)="patchDraft({ priority: num($event) })"
+                                        />
+                                    </kbq-form-field>
+                                }
+                            </ng-template>
+                            <ng-template vCol="max" header="Воркеров, не больше" kind="control" [width]="184" let-g>
+                                @if (g.row; as r) {
+                                    <kbq-form-field class="v-num">
+                                        <input
+                                            kbqNumberInput
+                                            [integer]="true"
+                                            [withThousandSeparator]="false"
+                                            [min]="1"
+                                            [max]="hardLimit()"
+                                            [attr.aria-label]="'Воркеров, не больше: ' + r.name"
+                                            [ngModel]="r.max_workers"
+                                            (ngModelChange)="patchRow(r.key, { max_workers: num($event) })"
+                                        />
+                                    </kbq-form-field>
+                                    @if (shownErrors()[r.key + ':max_workers']; as e) {
+                                        <kbq-hint color="error">{{ e }}</kbq-hint>
+                                    }
+                                } @else if (g.draft; as d) {
+                                    <kbq-form-field class="v-num">
+                                        <input
+                                            kbqNumberInput
+                                            [integer]="true"
+                                            [withThousandSeparator]="false"
+                                            [min]="1"
+                                            [max]="hardLimit()"
+                                            aria-label="Воркеров, не больше, у новой очереди"
+                                            [ngModel]="d.max_workers"
+                                            (ngModelChange)="patchDraft({ max_workers: num($event) })"
+                                        />
+                                    </kbq-form-field>
+                                }
+                            </ng-template>
+                            <ng-template vCol="now" header="Сейчас" kind="nowrap" let-g>
+                                @if (g.row?.id) {
+                                    <span class="v-secondary">{{ g.row.active }} в работе · {{ g.row.queued }} ждут</span>
+                                }
+                            </ng-template>
+                            <ng-template vCol="actions" header="Действия" kind="action" [width]="200" let-g>
+                                <span class="v-actions">
+                                    @if (g.row; as r) {
+                                        @if (r.is_system) {
+                                            <span kbqTooltip="Основную очередь архивировать нельзя" kbqPlacement="left">
+                                                <button type="button" kbq-button [color]="colors.ContrastFade" disabled>Архивировать</button>
                                             </span>
-                                            <button type="button" kbq-button [color]="colors.ContrastFade" (click)="draft.set(null)">Отмена</button>
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
+                                        } @else {
+                                            <button type="button" kbq-button [color]="colors.ContrastFade" (click)="archive(r)">Архивировать</button>
+                                        }
+                                    } @else if (g.draft; as d) {
+                                        <span kbqTooltip="Укажите название" kbqPlacement="left" [kbqTooltipDisabled]="!!d.name.trim()">
+                                            <button type="button" kbq-button [color]="colors.Contrast" [disabled]="!d.name.trim()" (click)="addQueue()">
+                                                Добавить
+                                            </button>
+                                        </span>
+                                        <button type="button" kbq-button [color]="colors.ContrastFade" (click)="draft.set(null)">Отмена</button>
+                                    }
+                                </span>
+                            </ng-template>
+                        </v-admin-grid>
                         @if (!draft()) {
                             <div class="v-addq">
                                 <button type="button" kbq-button [color]="colors.Contrast" kbqStyle="transparent" (click)="startAdd()">
@@ -289,20 +290,15 @@ import { archiveBlock, fromOverview, planRequests, QueueFormRow, QueueFormValue,
         .v-inline { display: flex; align-items: center; gap: var(--kbq-size-s); flex-wrap: wrap; }
         .v-num { width: 96px; }
         .v-select { width: 260px; }
-        .v-table { width: 100%; }
-        .v-table td { vertical-align: middle; }
-        .v-qname { display: inline-flex; align-items: center; gap: var(--kbq-size-xs); }
+        /* A saved queue's name sits on the line of the fields next to it. */
+        .v-qname { display: flex; align-items: center; gap: var(--kbq-size-xs); min-height: var(--kbq-form-field-size-height); }
         .v-qhint { margin-top: calc(-1 * var(--kbq-size-xxs)); }
         .v-secondary { color: var(--kbq-foreground-contrast-secondary); }
-        .v-nowrap { white-space: nowrap; }
-        .v-actions { text-align: right; white-space: nowrap; }
-        .v-actions > * + * { margin-left: var(--kbq-size-xs); }
+        .v-actions { display: flex; gap: var(--kbq-size-xs); white-space: nowrap; }
         .v-pt6 { padding-top: var(--kbq-size-xs); }
         /* Prototype: «Добавить очередь» spans the table width, label centred, 8px below the table. */
         .v-addq { margin-top: var(--kbq-size-s); }
-        .v-addq > .kbq-button { width: 100%; justify-content: center; }
-        .v-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-    `,
+        .v-addq > .kbq-button { width: 100%; justify-content: center; }    `,
     ],
 })
 export class QueueEditComponent implements DirtyAware {
@@ -324,7 +320,7 @@ export class QueueEditComponent implements DirtyAware {
     private readonly modelIds = signal<string[]>([]);
     private readonly initial = signal<QueueFormValue | null>(null);
     protected readonly form = signal<QueueFormValue | null>(null);
-    protected readonly draft = signal<{ name: string; priority: number | null; max_workers: number | null } | null>(null);
+    protected readonly draft = signal<QueueDraft | null>(null);
     protected readonly blocked = signal<{ title: string; text: string } | null>(null);
     private readonly submitted = signal(false);
     private newSeq = 0;
@@ -332,6 +328,14 @@ export class QueueEditComponent implements DirtyAware {
     protected readonly hardLimit = computed(() => this.overview()?.hard_limit ?? 1);
     protected readonly envLimit = computed(() => this.overview()?.env_limit ?? 1);
     protected readonly rows = computed(() => (this.form() ? visibleRows(this.form()!) : []));
+    /** The table: the queues, then the row of the queue being added. */
+    protected readonly gridRows = computed<QueueGridRow[]>(() => {
+        const list: QueueGridRow[] = this.rows().map((row) => ({ key: row.key, row, draft: null }));
+        const draft = this.draft();
+        if (draft) list.push({ key: DRAFT_ROW_KEY, row: null, draft });
+        return list;
+    });
+    protected readonly gridRowId = (g: QueueGridRow): string => g.key;
     /** Saved queues can take requests; a queue added here has to be saved first. */
     protected readonly routable = computed(() => this.rows().filter((r) => r.id) as (QueueFormRow & { id: string })[]);
     protected readonly models = computed(() => {
@@ -394,10 +398,19 @@ export class QueueEditComponent implements DirtyAware {
 
     protected startAdd(): void {
         this.draft.set({ name: '', priority: null, max_workers: 1 });
-        setTimeout(() => this.host.nativeElement.querySelector<HTMLInputElement>('.v-addrow input')?.focus());
+        this.focusAddRow();
     }
 
-    protected patchDraft(p: Partial<{ name: string; priority: number | null; max_workers: number | null }>): void {
+    /** The grid draws the new row a frame or two later: wait for its name field. */
+    private focusAddRow(frames = 10): void {
+        requestAnimationFrame(() => {
+            const input = this.host.nativeElement.querySelector<HTMLInputElement>('.v-addrow input');
+            if (input) input.focus();
+            else if (frames > 0) this.focusAddRow(frames - 1);
+        });
+    }
+
+    protected patchDraft(p: Partial<QueueDraft>): void {
         this.draft.update((d) => (d ? { ...d, ...p } : d));
     }
 

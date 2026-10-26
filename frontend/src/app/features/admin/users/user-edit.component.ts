@@ -85,9 +85,7 @@ interface FormSnapshot {
     ],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
-        <v-screen-header [title]="login()">
-            <span vHeaderAfterTitle class="v-secondary">Изменение</span>
-        </v-screen-header>
+        <v-screen-header [title]="'Изменение пользователя ' + login()" />
 
         <v-page-state
             class="v-page"
@@ -150,19 +148,22 @@ interface FormSnapshot {
                                 >
                                     @for (t of types; track t.id) {
                                         <kbq-radio-button [value]="t.id">
-                                            {{ t.label }}<kbq-hint>{{ t.hint }}</kbq-hint>
+                                            {{ t.label }}
+                                            @if (t.hint) {
+                                                <kbq-hint>{{ t.hint }}</kbq-hint>
+                                            }
                                         </kbq-radio-button>
                                     }
                                 </kbq-radio-group>
                             </v-frow>
                             <v-frow label="Блокировка">
-                                <kbq-toggle formControlName="blocked" aria-describedby="v-block-hint"
-                                    >Заблокирован</kbq-toggle
-                                >
-                                <kbq-hint id="v-block-hint">
-                                    Заблокированный пользователь не войдёт в VALERIA, его открытые сессии
-                                    завершатся. Чаты и запуски сохранятся.
-                                </kbq-hint>
+                                <kbq-toggle formControlName="blocked">
+                                    Заблокирован
+                                    <kbq-hint>
+                                        Заблокированный пользователь не войдёт в VALERIA, его открытые сессии
+                                        завершатся. Чаты и запуски сохранятся
+                                    </kbq-hint>
+                                </kbq-toggle>
                             </v-frow>
                         </fieldset>
 
@@ -178,14 +179,14 @@ interface FormSnapshot {
                                         aria-describedby="v-ws-hint"
                                     />
                                     <kbq-error role="alert">{{ fieldError('ws') }}</kbq-error>
+                                    <kbq-hint id="v-ws-hint">
+                                        Путь внутри каталога данных сервера. При смене папки чаты из старой уйдут в
+                                        архив пользователя
+                                    </kbq-hint>
                                 </kbq-form-field>
-                                <kbq-hint id="v-ws-hint">
-                                    Путь внутри каталога данных сервера. При смене папки чаты из старой уйдут в
-                                    архив пользователя.
-                                </kbq-hint>
                             </v-frow>
                             <v-frow label="Лимит задач" for="v-limit">
-                                <kbq-form-field class="v-w160">
+                                <kbq-form-field class="v-w320">
                                     <input
                                         kbqInput
                                         id="v-limit"
@@ -196,11 +197,11 @@ interface FormSnapshot {
                                         aria-describedby="v-limit-hint"
                                     />
                                     <kbq-error role="alert">{{ fieldError('limit') }}</kbq-error>
+                                    <kbq-hint id="v-limit-hint">
+                                        Сколько задач выполняется одновременно, от 1 до {{ hardLimit() }}. Пусто —
+                                        действует общий лимит
+                                    </kbq-hint>
                                 </kbq-form-field>
-                                <kbq-hint id="v-limit-hint">
-                                    Сколько задач выполняется одновременно, от 1 до {{ hardLimit() }}. Пусто —
-                                    действует общий лимит.
-                                </kbq-hint>
                             </v-frow>
                             <v-frow label="Mattermost" for="v-mm">
                                 <kbq-form-field class="v-w320">
@@ -213,39 +214,41 @@ interface FormSnapshot {
                                         aria-describedby="v-mm-hint"
                                     />
                                     <kbq-error role="alert">{{ fieldError('mm') }}</kbq-error>
+                                    <kbq-hint id="v-mm-hint">
+                                        @if (mmValue().trim()) {
+                                            Valeria пишет сюда о готовых ответах и задачах
+                                        } @else {
+                                            Не настроено: Valeria не сможет написать пользователю, когда ответ или
+                                            задача будут готовы.
+                                        }
+                                    </kbq-hint>
                                 </kbq-form-field>
-                                <kbq-hint id="v-mm-hint">
-                                    @if (mmValue().trim()) {
-                                        Валерия пишет сюда о готовых ответах и задачах.
-                                    } @else {
-                                        Не настроено: Валерия не сможет написать пользователю, когда ответ или
-                                        задача будут готовы.
-                                    }
-                                </kbq-hint>
                             </v-frow>
                         </fieldset>
 
                         <fieldset vFsec="Доступ к задачам">
                             <v-frow label="Задачи" labelId="v-tasks-label">
-                                <div class="v-check-group" role="group" aria-labelledby="v-tasks-label">
-                                    @for (t of tasks(); track t.id) {
-                                        <kbq-checkbox
-                                            [checked]="t.visibility === 'all' || access().has(t.id)"
-                                            [disabled]="t.visibility === 'all' || op.busy()"
-                                            (change)="toggleTask(t.id)"
-                                        >
-                                            {{ t.title }}
-                                            @if (t.visibility === 'all') {
-                                                <kbq-hint>Открыта всем</kbq-hint>
-                                            } @else if (!t.is_published) {
-                                                <kbq-hint>Черновик</kbq-hint>
-                                            }
-                                        </kbq-checkbox>
-                                    }
-                                </div>
-                                <kbq-hint>
-                                    То же самое для всех пользователей сразу — во вкладке «Доступ» настройки задач.
-                                </kbq-hint>
+                                <kbq-fieldset aria-labelledby="v-tasks-label">
+                                    <div class="v-check-group">
+                                        @for (t of tasks(); track t.id) {
+                                            <kbq-checkbox
+                                                [checked]="t.visibility === 'all' || access().has(t.id)"
+                                                [disabled]="t.visibility === 'all' || op.busy()"
+                                                (change)="toggleTask(t.id)"
+                                            >
+                                                {{ t.title }}
+                                                @if (t.visibility === 'all') {
+                                                    <kbq-hint>Открыта всем</kbq-hint>
+                                                } @else if (!t.is_published) {
+                                                    <kbq-hint>Черновик</kbq-hint>
+                                                }
+                                            </kbq-checkbox>
+                                        }
+                                    </div>
+                                    <kbq-hint>
+                                        То же самое для всех пользователей сразу — во вкладке «Доступ» настройки задач
+                                    </kbq-hint>
+                                </kbq-fieldset>
                             </v-frow>
                         </fieldset>
 
@@ -274,9 +277,6 @@ interface FormSnapshot {
                 flex-direction: column;
                 flex: 1 1 auto;
                 min-height: 0;
-            }
-            .v-secondary {
-                color: var(--kbq-foreground-contrast-secondary);
             }
         `,
     ],

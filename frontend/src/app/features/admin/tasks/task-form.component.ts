@@ -4,7 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { KbqBadgeColors, KbqBadgeModule } from '@koobiq/components/badge';
 import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqButtonToggleModule } from '@koobiq/components/button-toggle';
-import { KbqComponentColors } from '@koobiq/components/core';
+import { createSearchPredicate, KbqComponentColors } from '@koobiq/components/core';
 import { KbqFormFieldModule } from '@koobiq/components/form-field';
 import { FieldErrorDirective } from '../../../shared/field-error/field-error.directive';
 import { KbqIconModule } from '@koobiq/components/icon';
@@ -111,7 +111,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
 
                     <fieldset vFsec="Исполнение">
                         <v-frow label="Режим">
-                            <kbq-button-toggle-group aria-label="Режим" [ngModel]="v.agent" (ngModelChange)="patch({ agent: $event })">
+                            <kbq-button-toggle-group class="v-toggles" aria-label="Режим" [ngModel]="v.agent" (ngModelChange)="patch({ agent: $event })">
                                 @for (a of agents(); track a) {
                                     <kbq-button-toggle [value]="a">{{ agentLabel(a) }}</kbq-button-toggle>
                                 }
@@ -166,7 +166,19 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
                                         [value]="v.user_ids"
                                         (valueChange)="patch({ user_ids: $event })"
                                     >
-                                        @for (u of userList(); track u.id) {
+                                        <kbq-form-field noBorders kbqSelectSearch>
+                                            <i kbq-icon="kbq-magnifying-glass_16" kbqPrefix></i>
+                                            <input
+                                                kbqInput
+                                                type="text"
+                                                aria-label="Поиск пользователей"
+                                                [ngModel]="audienceQuery()"
+                                                (ngModelChange)="audienceQuery.set($event ?? '')"
+                                            />
+                                            <kbq-cleaner />
+                                        </kbq-form-field>
+                                        <div kbq-select-search-empty-result>Ничего не найдено</div>
+                                        @for (u of audienceOptions(); track u.id) {
                                             <kbq-option [value]="u.id">{{ u.login }}</kbq-option>
                                         }
                                     </kbq-select>
@@ -226,6 +238,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
         :host { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
         .v-w320 { width: 320px; }
         .v-tags { max-width: 560px; }
+        .v-toggles { align-self: flex-start; }
         .v-mono { font-family: var(--kbq-typography-mono-normal-font-family); }
     `,
 })
@@ -245,6 +258,12 @@ export class TaskFormComponent implements DirtyAware {
     private readonly task = signal<AdminTask | null>(null);
     private readonly allTasks = signal<AdminTask[]>([]);
     protected readonly userList = signal<AdminUser[]>([]);
+    /** Search query inside the «Кто видит» user select. */
+    protected readonly audienceQuery = signal('');
+    protected readonly audienceOptions = computed(() => {
+        const matches = createSearchPredicate(this.audienceQuery());
+        return this.userList().filter((u) => matches(u.login));
+    });
     private readonly options = signal<Options | null>(null);
     protected readonly queues = signal<QueueRow[]>([]);
     private readonly initial = signal<TaskFormValue | null>(null);

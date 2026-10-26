@@ -89,8 +89,8 @@ test.describe('admin «Пользователи» table (login, folder, Mattermo
             set: { workspace_path: '/home/valeria/workspaces/integrations/cafe' },
         });
         await page.reload();
-        const input = page.getByRole('searchbox', { name: 'Логин, папка или Mattermost' });
-        const logins = page.locator('table tbody tr td:nth-child(2) .v-mono');
+        const input = page.getByRole('textbox', { name: 'Логин, папка или Mattermost' });
+        const logins = page.locator('.ag-center-cols-container .ag-row [col-id="user"] .v-login');
         const nobody = page.getByText('Никого не нашли', { exact: true });
         await expect(logins).toHaveCount(7);
 
@@ -135,8 +135,8 @@ test.describe('admin «Запросы пользователей» list', () => 
         const RESUME = 'Какие задачи YouTrack вошли в версию 4.12 — résumé';
         await mock.patch({ collection: 'chats', id: 'q-belov-412', set: { title: RESUME } });
         await openAs(page, 'admin', '/admin/requests');
-        const input = page.getByRole('searchbox', { name: 'Текст запроса или логин' });
-        const titles = page.locator('table tbody tr .v-title');
+        const input = page.getByRole('textbox', { name: 'Текст запроса или логин' });
+        const titles = page.locator('.ag-center-cols-container .ag-row .v-title');
         const none = page.getByText('Запросов не нашли', { exact: true });
         await expect(titles.filter({ hasText: RESUME })).toHaveCount(1);
 

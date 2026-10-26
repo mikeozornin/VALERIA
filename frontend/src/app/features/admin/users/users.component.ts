@@ -18,18 +18,17 @@ import { KbqActionsPanel, KbqActionsPanelModule, KbqActionsPanelRef } from '@koo
 import { KbqAlertColors, KbqAlertModule } from '@koobiq/components/alert';
 import { KbqBadgeColors, KbqBadgeModule } from '@koobiq/components/badge';
 import { KbqButtonModule } from '@koobiq/components/button';
-import { KbqCheckboxModule } from '@koobiq/components/checkbox';
-import { KbqComponentColors, PopUpPlacements } from '@koobiq/components/core';
+import { KbqComponentColors, KbqHighlightModule, PopUpPlacements } from '@koobiq/components/core';
 import { KbqContentPanelModule } from '@koobiq/components/content-panel';
 import { KbqDividerModule } from '@koobiq/components/divider';
 import { KbqDlModule } from '@koobiq/components/dl';
 import { KbqEmptyStateModule } from '@koobiq/components/empty-state';
+import { KbqFilter, KbqFilterBarModule, KbqPipe } from '@koobiq/components/filter-bar';
 import { KbqFormFieldModule } from '@koobiq/components/form-field';
 import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqInputModule } from '@koobiq/components/input';
 import { KbqListModule } from '@koobiq/components/list';
 import { KbqModalRef, KbqModalService, ModalSize } from '@koobiq/components/modal';
-import { KbqTableModule } from '@koobiq/components/table';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
 import { isAccessChanged } from '../../../core/api/api-error';
 import { ApiService } from '../../../core/api/api.service';
@@ -51,11 +50,13 @@ import {
     hasTaskAccess,
     isBlocked,
 } from '../shared/admin.models';
-import { AdminSearchComponent } from '../shared/admin-search.component';
+import { ADMIN_GRID } from '../shared/admin-grid';
+import { ADMIN_SEARCH_PIPE_ID, adminSearchPipe, adminSearchQuery } from '../shared/admin-search';
 import { ADMIN_LIST_STYLES } from '../shared/admin-styles';
 import { BatchAction, batchToast, BatchResult } from '../shared/batch';
 import { DASH, formatWhen, plural } from '../shared/format';
 import { escapeHtml } from '../config-shared/format';
+import { pipeTrackKey } from '../shared/pipe-track';
 import { statusTextColor } from '../shared/requests.helpers';
 import { SyncOp, SyncSlowAlertComponent } from '../shared/sync-op';
 
@@ -77,10 +78,10 @@ export function resetPasswordTitle(login: string): string {
         RouterLink,
         ScreenHeaderComponent,
         PageStateComponent,
-        AdminSearchComponent,
+        ADMIN_GRID,
         SyncSlowAlertComponent,
-        KbqTableModule,
-        KbqCheckboxModule,
+        KbqFilterBarModule,
+        KbqHighlightModule,
         KbqBadgeModule,
         KbqButtonModule,
         KbqIconModule,
@@ -123,64 +124,40 @@ export function resetPasswordTitle(login: string): string {
             >
                 <div class="v-content" #content>
                     <div class="v-filters">
-                        <v-admin-search
-                            placeholder="Логин, папка или Mattermost"
-                            [value]="q()"
-                            (valueChange)="setQuery($event)"
-                        />
+                        <kbq-filter-bar [filter]="filter()" (onChangePipe)="onPipe($event)">
+                            @for (pipe of filter().pipes; track pipeKey(pipe)) {
+                                <ng-container *kbqPipe="pipe" />
+                            }
+                        </kbq-filter-bar>
                     </div>
                     @if (rows().length) {
-                        <table kbq-table class="v-table v-mt16">
-                            <thead>
-                                <tr>
-                                    <th class="v-check">
-                                        <kbq-checkbox
-                                            [checked]="allChecked()"
-                                            [indeterminate]="someChecked()"
-                                            aria-label="Отметить всех"
-                                            (change)="toggleAll()"
-                                        />
-                                    </th>
-                                    <th>Пользователь</th>
-                                    <th>Последний вход</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @for (u of rows(); track u.id) {
-                                    <tr
-                                        tabindex="0"
-                                        [class.v-selected]="u.login === focus()"
-                                        [attr.aria-selected]="u.login === focus()"
-                                        (click)="openCard(u.login)"
-                                        (keydown.enter)="openCard(u.login)"
+                        <v-admin-grid
+                            class="v-mt16"
+                            [rows]="rows()"
+                            [rowId]="rowId"
+                            [current]="focus()"
+                            openable
+                            selectable
+                            [selected]="checked()"
+                            (selectedChange)="checked.set($event)"
+                            (rowOpen)="openCard($event.login)"
+                        >
+                            <ng-template vCol="user" header="Пользователь" [flex]="1" [minWidth]="240" let-u>
+                                <span class="v-login" [innerHTML]="u.login | kbqHighlightBackground: tokens() : true"></span>
+                                @if (blocked(u)) {
+                                    <kbq-badge class="v-row-badge" [compact]="true" [badgeColor]="badgeColors.FadeError"
+                                        >Заблокирован</kbq-badge
                                     >
-                                        <td class="v-check" (click)="$event.stopPropagation()">
-                                            <kbq-checkbox
-                                                [checked]="checked().has(u.login)"
-                                                [attr.aria-label]="'Отметить ' + u.login"
-                                                (change)="toggle(u.login)"
-                                            />
-                                        </td>
-                                        <td class="v-nowrap">
-                                            <span class="v-mono">{{ u.login }}</span>
-                                            @if (blocked(u)) {
-                                                <kbq-badge
-                                                    class="v-row-badge"
-                                                    [compact]="true"
-                                                    [badgeColor]="badgeColors.FadeError"
-                                                    >Заблокирован</kbq-badge
-                                                >
-                                            }
-                                            @if (u.login === me()) {
-                                                <span class="v-tertiary"> · вы</span>
-                                            }
-                                            <span class="v-sub">{{ typeLabel(u) }}</span>
-                                        </td>
-                                        <td class="v-secondary v-nowrap">{{ when(u.last_login_at) }}</td>
-                                    </tr>
                                 }
-                            </tbody>
-                        </table>
+                                @if (u.login === me()) {
+                                    <span class="v-tertiary"> · вы</span>
+                                }
+                                <span class="v-sub" [innerHTML]="typeLabel(u) | kbqHighlightBackground: tokens() : true"></span>
+                            </ng-template>
+                            <ng-template vCol="last" header="Последний вход" kind="nowrap" let-u>
+                                <span class="v-secondary">{{ when(u.last_login_at) }}</span>
+                            </ng-template>
+                        </v-admin-grid>
                     } @else if (users().length) {
                         <kbq-empty-state class="v-empty">
                             <div kbq-empty-state-title>Никого не нашли</div>
@@ -192,7 +169,7 @@ export function resetPasswordTitle(login: string): string {
                 <kbq-content-panel>
                     @if (focused(); as u) {
                         <kbq-content-panel-header [vCpanelWidth]="panel">
-                            <div kbqContentPanelHeaderTitle class="v-panel-title v-mono">{{ u.login }}</div>
+                            <div kbqContentPanelHeaderTitle class="v-panel-title">{{ u.login }}</div>
                         </kbq-content-panel-header>
                     }
                     @if (focused(); as u) {
@@ -338,7 +315,7 @@ export function resetPasswordTitle(login: string): string {
 
         <ng-template #blockTpl>
             <p class="v-modal-p">
-                <span class="v-mono">{{ blockLogins().join(', ') }}</span>
+                <span>{{ blockLogins().join(', ') }}</span>
                 не смогут войти в VALERIA, их открытые сессии завершатся. Чаты и запуски сохранятся, разблокировать
                 можно в любой момент.
             </p>
@@ -381,7 +358,6 @@ export function resetPasswordTitle(login: string): string {
                         [formControl]="resetPassword"
                         placeholder="Не менее 12 символов"
                         autocomplete="new-password"
-                        cdkFocusInitial
                     />
                     <kbq-hint>VALERIA его никуда не отправляет, передайте пароль пользователю сами.</kbq-hint>
                 </kbq-form-field>
@@ -495,8 +471,21 @@ export class UsersComponent {
     protected readonly batchBusy = signal(false);
 
     protected readonly me = computed(() => this.auth.user()?.login ?? '');
+    /** Search tokens: filter the rows and are highlighted in the cells. */
+    protected readonly tokens = computed(() => tokenize(this.q() ?? ''));
+    protected readonly rowId = (u: AdminUser): string => u.login;
+    protected readonly pipeKey = pipeTrackKey;
+    /** Only the search pipe; it reads the query once, when it is created, so typing does not rebuild it. */
+    protected readonly filter = computed<KbqFilter>(() => ({
+        name: '',
+        pipes: [adminSearchPipe('Логин, папка или Mattermost', untracked(() => this.q()))],
+        readonly: false,
+        disabled: false,
+        changed: false,
+        saved: false,
+    }));
     protected readonly rows = computed(() => {
-        const tokens = tokenize(this.q() ?? '');
+        const tokens = this.tokens();
         return this.users()
             .filter((u) =>
                 matches([u.login, accountTypeLabel(accountType(u)), u.workspace_path, u.mattermost_username], tokens),
@@ -505,10 +494,6 @@ export class UsersComponent {
     });
     protected readonly focused = computed(() => this.users().find((u) => u.login === this.focus()) ?? null);
     protected readonly checkedRows = computed(() => this.rows().filter((u) => this.checked().has(u.login)));
-    protected readonly allChecked = computed(
-        () => !!this.rows().length && this.checkedRows().length === this.rows().length,
-    );
-    protected readonly someChecked = computed(() => !!this.checkedRows().length && !this.allChecked());
     /** Checked, active, not me: who «Заблокировать» affects. */
     protected readonly blockTargets = computed(() =>
         this.checkedRows().filter((u) => !isBlocked(u) && u.login !== this.me()),
@@ -606,6 +591,10 @@ export class UsersComponent {
         }
     }
 
+    protected onPipe(pipe: KbqPipe): void {
+        if (pipe.id === ADMIN_SEARCH_PIPE_ID) this.setQuery(adminSearchQuery(pipe.value));
+    }
+
     protected setQuery(q: string): void {
         void this.router.navigate([], {
             queryParams: { q: q || null },
@@ -622,21 +611,6 @@ export class UsersComponent {
         if (!opened && this.focus()) {
             void this.router.navigate([], { queryParams: { focus: null }, queryParamsHandling: 'merge' });
         }
-    }
-
-    protected toggle(login: string): void {
-        const next = new Set(this.checked());
-        if (next.has(login)) next.delete(login);
-        else next.add(login);
-        this.checked.set(next);
-    }
-
-    protected toggleAll(): void {
-        const rows = this.rows().map((u) => u.login);
-        const next = new Set(this.checked());
-        if (this.allChecked()) rows.forEach((l) => next.delete(l));
-        else rows.forEach((l) => next.add(l));
-        this.checked.set(next);
     }
 
     private syncActionsPanel(count: number): void {
@@ -719,6 +693,8 @@ export class UsersComponent {
             kbqCloseByESC: true,
         });
         const ref = this.modalRef;
+        // The modal focuses its first button itself (cdkFocusInitial is not honoured): put the caret in the field.
+        ref.afterOpen.subscribe(() => ref.getElement()?.querySelector<HTMLInputElement>('#v-reset-form input')?.focus());
         ref.afterClose.subscribe(() => {
             if (this.modalRef === ref) this.modalRef = null;
             if (this.resetOp.busy()) this.resetOp.cancel();

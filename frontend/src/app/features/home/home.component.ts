@@ -48,7 +48,7 @@ interface ChatOptions {
 }
 
 export const NO_FOLDER_TEXT = 'Администратор ещё не назначил вам рабочую папку';
-export const NOTIFY_TEXT = 'Когда задача завершится, Валерия напишет вам в Mattermost';
+export const NOTIFY_TEXT = 'Когда задача завершится, Valeria напишет вам в Mattermost';
 const AGENT_LABELS: Record<string, string> = { plan: 'Plan', build: 'Build' };
 
 /**

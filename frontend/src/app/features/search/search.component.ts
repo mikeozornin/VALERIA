@@ -229,7 +229,7 @@ export class SearchComponent {
         }
     }
 
-    /** «Спросить» and «спросить об этом Валерию»: home in question mode with the query in the field. */
+    /** «Спросить» and «спросить об этом Valeria»: home in question mode with the query in the field. */
     protected askValeria(): void {
         const text = this.query().trim();
         this.drafts.setMode('ask');

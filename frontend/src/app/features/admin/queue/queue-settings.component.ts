@@ -6,18 +6,18 @@ import { KbqComponentColors } from '@koobiq/components/core';
 import { KbqDlModule } from '@koobiq/components/dl';
 import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqLinkModule } from '@koobiq/components/link';
-import { KbqTableModule } from '@koobiq/components/table';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { AdminConfigApi, AdminTask, ConsultationSettings, isOn, QueueOverview } from '../config-shared/admin-config.api';
 import { EMPTY } from '../config-shared/format';
+import { ADMIN_GRID } from '../shared/admin-grid';
 import { isOverridden, sessions, usedBy } from './queue-form';
 import { QueueTabsComponent } from './queue-tabs.component';
 
 /** «Очередь» → «Очереди и лимиты», read-only (SPEC §10.3): changes happen on a separate form page via «Изменить». */
 @Component({
     selector: 'v-queue-settings',
-    imports: [ScreenHeaderComponent, PageStateComponent, QueueTabsComponent, KbqTableModule, KbqBadgeModule, KbqButtonModule, KbqDlModule, KbqIconModule, KbqLinkModule, RouterLink],
+    imports: [ScreenHeaderComponent, PageStateComponent, QueueTabsComponent, ADMIN_GRID, KbqBadgeModule, KbqButtonModule, KbqDlModule, KbqIconModule, KbqLinkModule, RouterLink],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <v-screen-header title="Очередь">
@@ -39,45 +39,28 @@ import { QueueTabsComponent } from './queue-tabs.component';
                                 <b>{{ d.ov.limit }} {{ sessionsWord(d.ov.limit) }}</b>
                                 работают одновременно
                             </div>
-                            <div class="v-hint">
-                                @if (overridden()) {
-                                    Задано здесь. В конфигурации сервера {{ d.ov.env_limit }}, максимум {{ d.ov.hard_limit }}.
-                                } @else {
-                                    Берётся из конфигурации сервера. Максимум {{ d.ov.hard_limit }}.
-                                }
-                                Сессии, которые ждут ответа пользователя, слот не занимают.
-                            </div>
+                            @if (!overridden()) {
+                                <div class="v-hint">Берётся из конфигурации сервера. Максимум {{ d.ov.hard_limit }}.</div>
+                            }
                         </section>
                         <section class="v-rosec" aria-labelledby="q-queues">
                             <h2 class="v-rosec__title" id="q-queues">Очереди</h2>
-                            <div class="v-hint">Свободный слот получает очередь с наибольшим приоритетом.</div>
-                            <table kbq-table [border]="true" class="v-table">
-                                <thead>
-                                    <tr>
-                                        <th>Название</th>
-                                        <th class="v-num">Приоритет</th>
-                                        <th class="v-num">Воркеров, не больше</th>
-                                        <th>Сейчас</th>
-                                        <th>Используется</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @for (q of queues(); track q.id) {
-                                        <tr>
-                                            <td>
-                                                {{ q.name }}
-                                                @if (q.system) {
-                                                    <kbq-badge [compact]="true" [badgeColor]="badgeColors.FadeContrast">системная</kbq-badge>
-                                                }
-                                            </td>
-                                            <td class="v-num">{{ q.priority }}</td>
-                                            <td class="v-num">{{ q.max }}</td>
-                                            <td class="v-secondary v-nowrap">{{ q.active }} в работе · {{ q.queued }} ждут</td>
-                                            <td class="v-secondary">{{ q.used }}</td>
-                                        </tr>
+                            <v-admin-grid [rows]="queues()" [rowId]="rowId">
+                                <ng-template vCol="name" header="Название" [flex]="1" [minWidth]="200" let-q>
+                                    {{ q.name }}
+                                    @if (q.system) {
+                                        <kbq-badge [compact]="true" [badgeColor]="badgeColors.FadeContrast">системная</kbq-badge>
                                     }
-                                </tbody>
-                            </table>
+                                </ng-template>
+                                <ng-template vCol="priority" header="Приоритет" kind="num" let-q>{{ q.priority }}</ng-template>
+                                <ng-template vCol="max" header="Воркеров, не больше" kind="num" let-q>{{ q.max }}</ng-template>
+                                <ng-template vCol="now" header="Сейчас" kind="nowrap" let-q>
+                                    <span class="v-secondary">{{ q.active }} в работе · {{ q.queued }} ждут</span>
+                                </ng-template>
+                                <ng-template vCol="used" header="Используется" [flex]="1" [minWidth]="160" let-q>
+                                    <span class="v-secondary">{{ q.used }}</span>
+                                </ng-template>
+                            </v-admin-grid>
                         </section>
                         <section class="v-rosec" aria-labelledby="q-route">
                             <h2 class="v-rosec__title" id="q-route">Куда попадают запросы</h2>
@@ -116,11 +99,6 @@ import { QueueTabsComponent } from './queue-tabs.component';
             font-size: var(--kbq-typography-text-compact-font-size);
             line-height: var(--kbq-typography-text-compact-line-height);
         }
-        .v-table { width: 100%; }
-        .v-table td { vertical-align: middle; }
-        .v-num { text-align: right; }
-        .v-secondary { color: var(--kbq-foreground-contrast-secondary); }
-        .v-nowrap { white-space: nowrap; }
         .v-mono { font-family: var(--kbq-typography-mono-normal-font-family); }
     `,
 })
@@ -134,6 +112,7 @@ export class QueueSettingsComponent {
     protected readonly error = signal<unknown>(null);
     protected readonly data = signal<{ ov: QueueOverview; consult: ConsultationSettings; tasks: AdminTask[] } | null>(null);
 
+    protected readonly rowId = (q: { id: string }): string => q.id;
     protected readonly overridden = computed(() => (this.data() ? isOverridden(this.data()!.ov) : false));
     protected readonly queues = computed(() => {
         const d = this.data();

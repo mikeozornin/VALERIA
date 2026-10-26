@@ -14,7 +14,7 @@ export function isSendShortcut(event: KeyboardEvent): boolean {
 export interface ComposerInput {
     /** The chat is busy (agent works, question queued…): writing is not possible now. */
     busy: boolean;
-    /** Text for the disabled button while busy: «Можно будет написать, когда Валерия ответит». */
+    /** Text for the disabled button while busy: «Можно будет написать, когда Valeria ответит». */
     busyReason: string;
     /** Text for the disabled button while the draft is empty: «Напишите вопрос». */
     emptyReason: string;

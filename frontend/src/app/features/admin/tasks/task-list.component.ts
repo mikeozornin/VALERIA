@@ -5,10 +5,10 @@ import { KbqButtonModule } from '@koobiq/components/button';
 import { KbqComponentColors } from '@koobiq/components/core';
 import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqLinkModule } from '@koobiq/components/link';
-import { KbqTableModule } from '@koobiq/components/table';
 import { PageStateComponent } from '../../../shared/page-state/page-state.component';
 import { ScreenHeaderComponent } from '../../../shell/screen-header/screen-header.component';
 import { AdminConfigApi, AdminTask, isOn } from '../config-shared/admin-config.api';
+import { ADMIN_GRID } from '../shared/admin-grid';
 import { changedLabel, EMPTY, plural } from '../config-shared/format';
 import { sortByName } from '../config-shared/names';
 import { audienceLabel } from './task-form';
@@ -18,7 +18,7 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
 /** «Настройка задач» list (prototype `ataskView` list): a row opens the full-page form. */
 @Component({
     selector: 'v-task-list',
-    imports: [ScreenHeaderComponent, PageStateComponent, KbqTableModule, KbqBadgeModule, KbqButtonModule, KbqIconModule, KbqLinkModule, RouterLink],
+    imports: [ScreenHeaderComponent, PageStateComponent, ADMIN_GRID, KbqBadgeModule, KbqButtonModule, KbqIconModule, KbqLinkModule, RouterLink],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <v-screen-header title="Настройка задач">
@@ -36,52 +36,32 @@ const users = (n: number) => plural(n, 'пользователь', 'пользо
         </v-screen-header>
         <v-page-state [loading]="loading()" [error]="error()" (retry)="load()">
             <div class="v-content">
-                <table kbq-table [border]="true" class="v-table">
-                    <thead>
-                        <tr>
-                            <th>Название</th>
-                            <th>Статус</th>
-                            <th>Кто видит</th>
-                            <th>Модель</th>
-                            <th>Затем запускается</th>
-                            <th>Изменена</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (r of rows(); track r.id) {
-                            <tr class="v-row" (click)="open(r.id, $event)">
-                                <td><a kbq-link class="v-title" [routerLink]="['/admin/tasks', r.id]">{{ r.title }}</a></td>
-                                <td>
-                                    <kbq-badge [badgeColor]="r.published ? badgeColors.FadeSuccess : badgeColors.FadeContrast">
-                                        {{ r.published ? 'Опубликована' : 'Черновик' }}
-                                    </kbq-badge>
-                                </td>
-                                <td class="v-nowrap">{{ r.audience }}</td>
-                                <td class="v-mono v-nowrap">{{ r.model }}</td>
-                                <td>{{ r.next }}</td>
-                                <td class="v-secondary v-nowrap">{{ r.changed }}</td>
-                            </tr>
-                        } @empty {
-                            <tr>
-                                <td colspan="6" class="v-secondary v-empty">Задач пока нет</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+                <v-admin-grid [rows]="rows() ?? []" [rowId]="rowId" openable noRowsText="Задач пока нет" (rowOpen)="open($event.id)">
+                    <ng-template vCol="title" header="Название" [flex]="1" [minWidth]="200" let-r>
+                        <a kbq-link class="v-title" [routerLink]="['/admin/tasks', r.id]">{{ r.title }}</a>
+                    </ng-template>
+                    <ng-template vCol="status" header="Статус" kind="line" let-r>
+                        <kbq-badge [badgeColor]="r.published ? badgeColors.FadeSuccess : badgeColors.FadeContrast">
+                            {{ r.published ? 'Опубликована' : 'Черновик' }}
+                        </kbq-badge>
+                    </ng-template>
+                    <ng-template vCol="audience" header="Кто видит" kind="nowrap" let-r>{{ r.audience }}</ng-template>
+                    <ng-template vCol="model" header="Модель" kind="nowrap" let-r>
+                        <span class="v-mono">{{ r.model }}</span>
+                    </ng-template>
+                    <ng-template vCol="next" header="Затем запускается" [flex]="1" [minWidth]="160" let-r>{{ r.next }}</ng-template>
+                    <ng-template vCol="changed" header="Изменена" kind="nowrap" let-r>
+                        <span class="v-secondary">{{ r.changed }}</span>
+                    </ng-template>
+                </v-admin-grid>
             </div>
         </v-page-state>
     `,
     styles: `
         :host { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
         .v-content { flex: 1 1 auto; min-height: 0; overflow: auto; padding: var(--kbq-size-l) var(--kbq-size-xxl) var(--kbq-size-xxl); }
-        .v-table { width: 100%; }
-        .v-table td { vertical-align: middle; }
-        .v-table th { white-space: nowrap; }
-        .v-row { cursor: pointer; }
         .v-mono { font-family: var(--kbq-typography-mono-normal-font-family); }
-        .v-nowrap { white-space: nowrap; }
         .v-secondary { color: var(--kbq-foreground-contrast-secondary); }
-        .v-empty { text-align: center; padding: var(--kbq-size-xxl) 0; }
     `,
 })
 export class TaskListComponent {
@@ -125,9 +105,10 @@ export class TaskListComponent {
         }
     }
 
-    /** The whole row is clickable; the title link stays the keyboard and middle-click target. */
-    protected open(id: string, event: MouseEvent): void {
-        if ((event.target as HTMLElement).closest('a')) return;
+    protected readonly rowId = (r: { id: string }): string => r.id;
+
+    /** The whole row opens by click and Enter; the title link stays the middle-click target. */
+    protected open(id: string): void {
         void this.router.navigate(['/admin/tasks', id]);
     }
 }

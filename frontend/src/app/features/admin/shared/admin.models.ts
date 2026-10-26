@@ -64,10 +64,11 @@ export function accountType(user: Pick<AdminUser, 'role' | 'tasks_only'>): Accou
     return user.tasks_only ? 'tasks' : 'user';
 }
 
-export const ACCOUNT_TYPES: readonly { id: AccountType; label: string; hint: string }[] = [
-    { id: 'user', label: 'Пользователь', hint: 'Вопросы, задачи и работа в своей папке' },
+/** «Тип учётки» options in form order; the admin option has no caption. */
+export const ACCOUNT_TYPES: readonly { id: AccountType; label: string; hint?: string }[] = [
     { id: 'tasks', label: 'Задачи и вопросы', hint: 'Без работы в папке' },
-    { id: 'admin', label: 'Администратор', hint: 'Всё, что у пользователя, и администрирование' },
+    { id: 'user', label: 'Пользователь', hint: 'Вопросы, задачи и работа в своей папке' },
+    { id: 'admin', label: 'Администратор' },
 ];
 
 export function accountTypeLabel(type: AccountType): string {

@@ -6,7 +6,7 @@ import type { Page } from '@playwright/test';
 
 const LIVE = { timeout: 30_000 };
 const MR_URL = 'https://gitlab.example.com/fw/firmware-sdk/-/merge_requests/1932';
-const MATTERMOST = 'Когда задача завершится, Валерия напишет вам в Mattermost @i.sokolova';
+const MATTERMOST = 'Когда задача завершится, Valeria напишет вам в Mattermost @i.sokolova';
 
 const header = (page: Page) => page.locator('v-screen-header');
 const aside = (page: Page) => page.locator('v-chat-aside');
@@ -16,7 +16,7 @@ async function taskRunIds(mock: { state(): Promise<any> }): Promise<string[]> {
     return (state.items as { kind: string; id: string }[]).filter((i) => i.kind === 'task').map((i) => String(i.id));
 }
 
-test('run a task from home: hint, Mattermost line, addition on the run screen, the report', async ({ page, mock }) => {
+test('run a task from home: no note, Mattermost line, addition on the run screen, the report', async ({ page, mock }) => {
     const pipeline = 'https://gitlab.example.com/fw/firmware-sdk/-/pipelines/48300';
     await openAs(page, 'user', '/');
 
@@ -25,7 +25,8 @@ test('run a task from home: hint, Mattermost line, addition on the run screen, t
 
     const addition = page.getByRole('textbox', { name: 'Дополнение к задаче' });
     await expect(addition).toHaveAttribute('placeholder', 'Ссылка на пайплайн или job GitLab');
-    await expect(page.getByText('Текст добавится в конец инструкции задачи.')).toBeVisible();
+    // No note under the field: the addition is described by its placeholder only.
+    await expect(page.getByText('Текст добавится в конец инструкции задачи.')).toHaveCount(0);
     await expect(page.locator('.v-home__notify')).toHaveText(MATTERMOST);
 
     await addition.fill(pipeline);
@@ -59,7 +60,7 @@ test('cancel asks for confirmation; «Запустить ещё раз» starts 
     const dialog = page.locator('.kbq-modal-container');
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText('Отменить запуск?')).toBeVisible();
-    await expect(dialog.getByText('Валерия прервёт задачу «Ревью merge request». Итога не будет, запуск останется в списке со статусом «Отменена».')).toBeVisible();
+    await expect(dialog.getByText('Valeria прервёт задачу «Ревью merge request». Итога не будет, запуск останется в списке со статусом «Отменена».')).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Не отменять' })).toBeFocused();
     await dialog.getByRole('button', { name: 'Не отменять' }).click();
     await expect(dialog).toBeHidden();

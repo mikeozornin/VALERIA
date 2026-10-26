@@ -84,7 +84,7 @@ test.describe('field errors under the field', () => {
         await fillNumber(page, workers, '');
         await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
         // Number inputs are not form-field controls: the error is a kbq-hint color="error" in the same cell.
-        const cell = workers.locator('xpath=ancestor::td[1]');
+        const cell = workers.locator('xpath=ancestor::div[contains(concat(" ", @class, " "), " ag-cell ")][1]');
         await expect(cell.locator('kbq-hint[color="error"]')).toHaveText('От 1 до 10');
         await expect(page).toHaveURL(/\/admin\/queue\/settings\/edit$/);
     });
@@ -254,5 +254,52 @@ test.describe('two admins: conflict and deletion', () => {
         await expectAboveForm(page, alert);
         await alert.getByRole('button', { name: 'Перезаписать' }).click();
         await expect(page).toHaveURL(/\/admin\/queue\/settings$/);
+    });
+});
+
+test.describe('first field is focused on open', () => {
+    for (const [path, first] of [
+        ['/admin/users/new', '#v-login'],
+        ['/admin/users/i.sokolova/edit', 'kbq-radio-group input[type="radio"]:checked'],
+        ['/admin/tasks/new', '#t-title'],
+        ['/admin/tasks/t-ci', '#t-title'],
+        ['/admin/queue/settings/edit', '#q-limit'],
+    ] as const) {
+        test(path, async ({ page, mock }) => {
+            await mock.reset('admin');
+            await openAs(page, 'admin', path);
+            await expect(page.locator(first)).toBeFocused();
+        });
+    }
+});
+
+test.describe('task form: «Кто видит» user search', () => {
+    test('filters as you type: any case, accents, several words; keeps the picked users', async ({ page, mock }) => {
+        await mock.reset('admin');
+        await openAs(page, 'admin', '/admin/tasks/new');
+        await page.locator('kbq-radio-button').filter({ hasText: 'Выбранные' }).click();
+        const select = page.locator('kbq-select[aria-label="Пользователи"]');
+        await select.click();
+        const search = page.getByRole('textbox', { name: 'Поиск пользователей' });
+        await expect(search).toBeFocused();
+        const options = page.locator('kbq-option');
+
+        await search.fill('S');
+        await expect(options).toHaveText(['i.sokolova', 's.egorova']);
+        await search.fill('  SÓKOL ');
+        await expect(options).toHaveText(['i.sokolova']);
+        await options.first().click();
+        await search.fill('v ova');
+        await expect(options).toHaveText(['i.sokolova', 's.egorova']);
+        await search.fill('bel');
+        await expect(options).toHaveText(['m.belov']);
+        await options.first().click();
+        await search.fill('zzz');
+        await expect(options).toHaveCount(0);
+        await expect(page.locator('[kbq-select-search-empty-result]')).toHaveText('Ничего не найдено');
+
+        await page.keyboard.press('Escape');
+        await page.keyboard.press('Escape');
+        await expect(select.locator('kbq-tag')).toHaveText(['i.sokolova', 'm.belov']);
     });
 });

@@ -13,18 +13,18 @@ import { allowsCustom, buildReplyPayload, emptySelection, QuestionRequest, Quest
 const CUSTOM = '\u0000custom';
 
 /**
- * «Валерия уточняет» card (prototype `.v-qcard`): radios for single choice, checkboxes for multiple, «Свой ответ» with
+ * «Valeria уточняет» card (prototype `.v-qcard`): radios for single choice, checkboxes for multiple, «Свой ответ» with
  * a textarea. `submit` sends `answers: string[][]` and resolves `true` on success.
  */
 @Component({
     selector: 'v-clarify-card',
     imports: [FormsModule, KbqRadioModule, KbqCheckboxModule, KbqFormFieldModule, KbqTextareaModule, KbqIconModule, SendButtonComponent],
     changeDetection: ChangeDetectionStrategy.OnPush,
-    host: { role: 'group', 'aria-label': 'Валерия уточняет', '(keydown)': 'onKeydown($event)' },
+    host: { role: 'group', 'aria-label': 'Valeria уточняет', '(keydown)': 'onKeydown($event)' },
     template: `
         <div class="v-qcard__head">
             <i kbq-icon="kbq-circle-question_16" [color]="colors.Theme"></i>
-            Валерия уточняет
+            Valeria уточняет
         </div>
         @for (q of request().questions; track $index; let i = $index) {
             <p class="v-qcard__question">{{ q.question }}</p>

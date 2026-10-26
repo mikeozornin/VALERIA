@@ -145,8 +145,8 @@ export class TaskRunComponent {
     protected readonly workingText = computed(() => {
         const run = this.run();
         const started = run?.started_at ? Date.parse(run.started_at) : NaN;
-        if (Number.isNaN(started)) return 'Валерия работает';
-        return `Валерия работает ${minutesText(this.now() - started)}`;
+        if (Number.isNaN(started)) return 'Valeria работает';
+        return `Valeria работает ${minutesText(this.now() - started)}`;
     });
     protected readonly errorText = computed(() => errorCodeText(this.run()?.error_code));
     protected readonly finishedAt = computed(() => clockTime(this.run()?.finished_at));
@@ -234,7 +234,7 @@ export class TaskRunComponent {
         if (!run || this.stopping()) return;
         this.cancelRef = this.modal.create({
             kbqTitle: 'Отменить запуск?',
-            kbqContent: `Валерия прервёт задачу «${escapeHtml(this.taskTitle())}». Итога не будет, запуск останется в списке со статусом «Отменена».`,
+            kbqContent: `Valeria прервёт задачу «${escapeHtml(this.taskTitle())}». Итога не будет, запуск останется в списке со статусом «Отменена».`,
             kbqSize: ModalSize.Small,
             kbqClosable: true,
             // A template (not button options) so the filled error button gets this component's styles.

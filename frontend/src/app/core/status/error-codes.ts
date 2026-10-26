@@ -10,7 +10,7 @@ const TEXTS: Record<string, string> = {
     opencode_unavailable: 'OpenCode сейчас недоступен. Попробуйте позже.',
     interrupted_by_restart: 'Работу прервал перезапуск сервера.',
     recovery_unavailable: 'После перезапуска сервера работу не удалось восстановить.',
-    assistant_error: 'Валерия завершила работу с ошибкой.',
+    assistant_error: 'Valeria завершила работу с ошибкой.',
     incomplete_response: 'Ответ пришёл не полностью.',
     build_submission_uncertain: 'Не удалось подтвердить, что задача принята в работу.',
     internal_error: 'Внутренняя ошибка',

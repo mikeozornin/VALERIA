@@ -53,7 +53,7 @@ interface Clarified {
 }
 const clarifiedByChat = new Map<string, Clarified[]>();
 
-const BUSY_REASON = 'Можно будет написать, когда Валерия ответит';
+const BUSY_REASON = 'Можно будет написать, когда Valeria ответит';
 
 /** Question screen (SPEC §8.2): one consultation with Valeria. */
 @Component({
@@ -82,10 +82,10 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
                 <kbq-tag
                     vHeaderAfterTitle
                     [color]="colors.ContrastFade"
-                    [kbqTooltip]="'Валерия читает код, GitLab и YouTrack. Файлы не меняет.'"
+                    [kbqTooltip]="'Valeria читает код, GitLab и YouTrack. Файлы не меняет.'"
                     [kbqPlacement]="placements.Bottom"
                     tabindex="0"
-                    aria-label="Только чтение. Валерия читает код, GitLab и YouTrack. Файлы не меняет."
+                    aria-label="Только чтение. Valeria читает код, GitLab и YouTrack. Файлы не меняет."
                 >
                     <i kbq-icon="kbq-eye_16"></i>
                     Только чтение
@@ -123,7 +123,7 @@ const BUSY_REASON = 'Можно будет написать, когда Вале
                                     <v-status-line [text]="queueText()" [sub]="hasAnswer() ? '' : queuedSub" />
                                 }
                                 @case ('running') {
-                                    <v-status-line text="Валерия готовит ответ" sub="Обычно 1–3 минуты." />
+                                    <v-status-line text="Valeria готовит ответ" sub="Обычно 1–3 минуты." />
                                 }
                                 @case ('other') {
                                     <div class="v-secondary v-plain-status">{{ statusText() }}</div>
@@ -211,7 +211,7 @@ export class QuestionComponent {
     protected readonly colors = KbqComponentColors;
     protected readonly placements = PopUpPlacements;
     protected readonly busyReason = BUSY_REASON;
-    protected readonly queuedSub = 'Ответ появится здесь. Валерия напишет вам в Mattermost, когда ответ будет готов.';
+    protected readonly queuedSub = 'Ответ появится здесь. Valeria напишет вам в Mattermost, когда ответ будет готов.';
 
     protected readonly detail = signal<ConsultationDetail | null>(null);
     protected readonly loading = signal(true);
@@ -390,7 +390,7 @@ export class QuestionComponent {
         }
     }
 
-    /** Answer to «Валерия уточняет». */
+    /** Answer to «Valeria уточняет». */
     protected readonly reply = async (payload: { answers: string[][] }): Promise<boolean> => {
         const request = this.pendingQuestion();
         if (!request) return false;

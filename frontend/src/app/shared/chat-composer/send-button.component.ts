@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { KbqButtonModule, KbqButtonStyles } from '@koobiq/components/button';
 import { KbqComponentColors, PopUpPlacements } from '@koobiq/components/core';
+import { KbqIconModule } from '@koobiq/components/icon';
 import { KbqToolTipModule } from '@koobiq/components/tooltip';
 import { sendShortcutHint } from './send-action';
 
@@ -11,7 +12,7 @@ import { sendShortcutHint } from './send-action';
  */
 @Component({
     selector: 'v-send-button',
-    imports: [KbqButtonModule, KbqToolTipModule],
+    imports: [KbqButtonModule, KbqIconModule, KbqToolTipModule],
     changeDetection: ChangeDetectionStrategy.OnPush,
     template: `
         <span
@@ -32,7 +33,11 @@ import { sendShortcutHint } from './send-action';
                 [attr.aria-busy]="sending()"
                 (click)="pressed.emit()"
             >
-                <ng-content select="[kbq-icon]" />
+                <!-- The icon is declared here, not projected: Koobiq finds button icons with a content query, which
+                     only sees this template, and then sets the stock icon/text gap classes. -->
+                @if (icon(); as name) {
+                    <i [kbq-icon]="name"></i>
+                }
                 <ng-content />
             </button>
         </span>
@@ -56,6 +61,8 @@ import { sendShortcutHint } from './send-action';
 })
 export class SendButtonComponent {
     readonly label = input.required<string>();
+    /** Koobiq icon name shown before the text (e.g. `kbq-play_16`). */
+    readonly icon = input('');
     readonly disabled = input(false);
     readonly sending = input(false);
     /** Why the button is disabled; shown as the tooltip. */
